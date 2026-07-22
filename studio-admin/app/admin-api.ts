@@ -16,6 +16,7 @@ let cachedApp: {
     cloudPath: string;
     filePath: File;
   }): Promise<{ fileID: string }>;
+  getTempFileURL(config: { fileList: string[] }): Promise<{ fileList: Array<{ fileID: string; tempFileURL: string; status?: number }> }>;
 } | null = null;
 
 async function sha256(value: string) {
@@ -132,7 +133,8 @@ export const adminApi = {
       cloudPath: `${folder}/${Date.now()}-${safeName}`,
       filePath: file,
     });
-    return result.fileID;
+    const preview = await app.getTempFileURL({ fileList: [result.fileID] });
+    return preview.fileList?.[0]?.tempFileURL || result.fileID;
   },
 
   updateLeadStatus(token: string, id: string, status: string) {
