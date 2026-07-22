@@ -506,11 +506,14 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   const [baths, setBaths] = useState("2");
   const [style, setStyle] = useState(item?.style || "现代简约");
   const [status, setStatus] = useState<CaseRecord["status"]>(item?.status || "草稿");
-  const [cover, setCover] = useState(item?.coverFileID || item?.cover || "");
-  const [images, setImages] = useState(item?.imageFileIDs || item?.images || []);
+  const [cover, setCover] = useState(item?.cover || "");
+  const [coverFileID, setCoverFileID] = useState(item?.coverFileID || item?.cover || "");
+  const [images, setImages] = useState(item?.images || []);
+  const [imageFileIDs, setImageFileIDs] = useState(item?.imageFileIDs || item?.images || []);
   const [imageNames, setImageNames] = useState<string[]>(() => (item?.imageNames || []).slice(0, item?.images.length || 0));
   const [galleryDragging, setGalleryDragging] = useState(false);
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+  const draggedImageIndexRef = useRef<number | null>(null);
   const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>(() => {
     const previews: Record<string, string> = {};
     if (item?.coverFileID && item.cover) previews[item.coverFileID] = item.cover;
@@ -550,8 +553,10 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
 
   async function applyCoverCrop(file: File) {
     const fileID = await uploadAsset(file);
-    setAssetPreviews((current) => ({ ...current, [fileID]: URL.createObjectURL(file) }));
-    setCover(fileID);
+    const localUrl = URL.createObjectURL(file);
+    setAssetPreviews((current) => ({ ...current, [fileID]: localUrl }));
+    setCover(localUrl);
+    setCoverFileID(fileID);
     setCropFile(null);
     notify("封面图已更新");
   }
@@ -561,6 +566,7 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     if (!files.length) return;
     const pending = files.map((file) => ({ file, localUrl: URL.createObjectURL(file) }));
     setImages((current) => [...current, ...pending.map((item) => item.localUrl)].slice(0, 30));
+    setImageFileIDs((current) => [...current, ...pending.map((item) => item.localUrl)].slice(0, 30));
     setImageNames((current) => [...current, ...pending.map(() => "")].slice(0, 30));
     setUploadingImages((current) => [...current, ...pending.map((item) => item.localUrl)]);
     notify(`正在上传 ${pending.length} 张案例图片`);
@@ -569,11 +575,12 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
       try {
         const remoteUrl = await uploadAsset(file);
         setAssetPreviews((current) => ({ ...current, [remoteUrl]: localUrl }));
-        setImages((current) => current.map((url) => url === localUrl ? remoteUrl : url));
+        setImageFileIDs((current) => current.map((url) => url === localUrl ? remoteUrl : url));
         succeeded += 1;
       } catch (error) {
         console.error("gallery upload failed", error);
         setImages((current) => current.filter((url) => url !== localUrl));
+        setImageFileIDs((current) => current.filter((url) => url !== localUrl));
       } finally {
         setUploadingImages((current) => current.filter((url) => url !== localUrl));
       }
@@ -589,11 +596,61 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   function moveImage(from: number, to: number) {
     if (from === to) return;
     setImages((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
+    setImageFileIDs((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
     setImageNames((current) => { const next = Array.from({ length: images.length }, (_, index) => current[index] || ""); const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
   }
 
+  function finishImageSort() {
+    draggedImageIndexRef.current = null;
+    setDraggedImageIndex(null);
+  }
+
+  useEffect(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".image-management .gallery-image-card"));
+    const cleanups = cards.map((card, index) => {
+      const start = (event: DragEvent) => {
+        if ((event.target as HTMLElement)?.closest("input, button.remove-image")) {
+          event.preventDefault();
+          return;
+        }
+        draggedImageIndexRef.current = index;
+        setDraggedImageIndex(index);
+        card.classList.add("is-sorting");
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+      };
+      const over = (event: DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        cards.forEach((item) => item.classList.remove("is-drop-target"));
+        card.classList.add("is-drop-target");
+        const from = draggedImageIndexRef.current;
+        if (from === null || from === index) return;
+        const rect = card.getBoundingClientRect();
+        const crossed = from < index ? event.clientX > rect.left + rect.width * .38 : event.clientX < rect.right - rect.width * .38;
+        if (!crossed) return;
+        moveImage(from, index);
+        draggedImageIndexRef.current = index;
+        setDraggedImageIndex(index);
+      };
+      const end = () => {
+        cards.forEach((item) => item.classList.remove("is-sorting", "is-drop-target"));
+        finishImageSort();
+      };
+      card.addEventListener("dragstart", start, true);
+      card.addEventListener("dragover", over, true);
+      card.addEventListener("drop", end, true);
+      card.addEventListener("dragend", end, true);
+      return () => {
+        card.removeEventListener("dragstart", start, true);
+        card.removeEventListener("dragover", over, true);
+        card.removeEventListener("drop", end, true);
+        card.removeEventListener("dragend", end, true);
+      };
+    });
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [images]);
+
   const previewUrl = (fileID: string) => assetPreviews[fileID] || fileID;
-  const previewImages = images.map(previewUrl);
 
   async function submit(nextStatus: CaseRecord["status"]) {
     if (savingRef.current) {
@@ -616,7 +673,7 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     addStyle(style);
     savingRef.current = true;
     try {
-      await save({ _id: item?._id, id: item?.id || `A${Date.now()}`, name, community, area: Number(area), layout: `${rooms}室${halls}厅`, style, status: nextStatus, views: item?.views || 0, favorites: item?.favorites || 0, shares: item?.shares || 0, cover: previewUrl(cover), coverFileID: cover, featured: item?.featured || false, recommended: item?.recommended || false, homeHero: item?.homeHero || false, images: previewImages, imageFileIDs: images, imageNames: images.map((_, index) => (imageNames[index] || "").trim()), description, layoutInfo, highlights, tags: selectedTags, uploader: item?.uploader || currentUsername, updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16) });
+      await save({ _id: item?._id, id: item?.id || `A${Date.now()}`, name, community, area: Number(area), layout: `${rooms}室${halls}厅`, style, status: nextStatus, views: item?.views || 0, favorites: item?.favorites || 0, shares: item?.shares || 0, cover, coverFileID, featured: item?.featured || false, recommended: item?.recommended || false, homeHero: item?.homeHero || false, images, imageFileIDs, imageNames: images.map((_, index) => (imageNames[index] || "").trim()), description, layoutInfo, highlights, tags: selectedTags, uploader: item?.uploader || currentUsername, updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16) });
     } finally {
       savingRef.current = false;
     }
