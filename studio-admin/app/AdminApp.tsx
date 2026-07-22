@@ -51,6 +51,8 @@ type AdminSession = {
   admin: { username: string; displayName: string; role: string; mustChangePassword?: boolean };
 };
 
+const ADMIN_SESSION_KEY = "pnzj-studio-admin-session";
+
 type View = "cases" | "case-preview" | "case-edit" | "customers" | "analytics" | "notifications" | "tags" | "admins" | "settings";
 type CaseScope = "全部案例" | "精选案例" | "推荐案例" | "首页大图";
 type SettingsTab = "水印设置" | "品牌资料" | "基础设置";
@@ -73,6 +75,8 @@ type CaseRecord = {
   homeHero: boolean;
   images: string[];
   imageNames?: string[];
+  coverFileID?: string;
+  imageFileIDs?: string[];
   description: string;
   layoutInfo: string;
   highlights: string;
@@ -190,6 +194,8 @@ function Login({ onLogin }: { onLogin: (session: AdminSession) => void }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => { void adminApi.warmup(); }, []);
   useEnterToNext();
 
   async function submit(event: FormEvent) {
@@ -490,7 +496,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (value: stri
   return <div className="rich-editor"><div className="editor-toolbar"><button type="button" title="撤销" onClick={() => command("undo")}><Undo2 size={15} /></button><button type="button" title="重做" onClick={() => command("redo")}><Redo2 size={15} /></button><i /><button type="button" title="加粗" onClick={() => command("bold")}><Bold size={15} /></button><button type="button" title="斜体" onClick={() => command("italic")}><Italic size={15} /></button><button type="button" title="下划线" onClick={() => command("underline")}><Underline size={15} /></button><button type="button" title="左对齐" onClick={() => command("justifyLeft")}><AlignLeft size={15} /></button><button type="button" title="列表" onClick={() => command("insertUnorderedList")}><List size={15} /></button><button type="button" title="清除格式" onClick={() => command("removeFormat")}><RemoveFormatting size={15} /></button><div className="editor-select"><SmartSelect value={fontSize} options={["12px", "14px", "16px", "18px", "20px", "24px"]} onChange={setFontSize} /></div><div className="editor-select"><SmartSelect value={`字距 ${letterSpacing}`} options={["字距 0px", "字距 1px", "字距 2px", "字距 3px", "字距 4px"]} onChange={(next) => setLetterSpacing(next.replace("字距 ", ""))} /></div><div className="editor-select"><SmartSelect value={`行高 ${lineHeight}`} options={["行高 1.5", "行高 1.8", "行高 2", "行高 2.4"]} onChange={(next) => setLineHeight(next.replace("行高 ", ""))} /></div></div><div ref={editorRef} className="editor-content" contentEditable suppressContentEditableWarning style={{ fontSize, letterSpacing, lineHeight }} onInput={(event) => onChange(event.currentTarget.innerHTML)} /><div className="editor-foot"><span>支持基础文字排版与换行</span><span>{value.replace(/<[^>]+>/g, "").length} / 2000</span></div></div>;
 }
 
-function CaseEdit({ item, back, save, notify, communities, styles, currentUsername, addCommunity, addStyle, uploadAsset }: { item?: CaseRecord; back: () => void; save: (item: CaseRecord) => void; notify: (message: string) => void; communities: string[]; styles: string[]; currentUsername: string; addCommunity: (value: string) => void; addStyle: (value: string) => void; uploadAsset: (file: File) => Promise<string> }) {
+function CaseEdit({ item, back, save, notify, communities, styles, currentUsername, addCommunity, addStyle, uploadAsset }: { item?: CaseRecord; back: () => void; save: (item: CaseRecord) => Promise<void>; notify: (message: string) => void; communities: string[]; styles: string[]; currentUsername: string; addCommunity: (value: string) => void; addStyle: (value: string) => void; uploadAsset: (file: File) => Promise<string> }) {
   const [name, setName] = useState(item?.name || "");
   const [community, setCommunity] = useState(item?.community || "");
   const [area, setArea] = useState(String(item?.area || ""));
@@ -500,12 +506,17 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   const [baths, setBaths] = useState("2");
   const [style, setStyle] = useState(item?.style || "现代简约");
   const [status, setStatus] = useState<CaseRecord["status"]>(item?.status || "草稿");
-  const [cover, setCover] = useState(item?.cover || "");
-  const [images, setImages] = useState(item?.images || []);
+  const [cover, setCover] = useState(item?.coverFileID || item?.cover || "");
+  const [images, setImages] = useState(item?.imageFileIDs || item?.images || []);
   const [imageNames, setImageNames] = useState<string[]>(() => (item?.imageNames || []).slice(0, item?.images.length || 0));
   const [galleryDragging, setGalleryDragging] = useState(false);
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
-  const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>({});
+  const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>(() => {
+    const previews: Record<string, string> = {};
+    if (item?.coverFileID && item.cover) previews[item.coverFileID] = item.cover;
+    (item?.imageFileIDs || []).forEach((fileID, index) => { if (item.images[index]) previews[fileID] = item.images[index]; });
+    return previews;
+  });
   const [uploadingImages, setUploadingImages] = useState<string[]>([]);
   const [coverDragging, setCoverDragging] = useState(false);
   const [description, setDescription] = useState(item?.description || "");
@@ -521,6 +532,7 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   const [cropFile, setCropFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
 
   function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -556,6 +568,7 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     await Promise.all(pending.map(async ({ file, localUrl }) => {
       try {
         const remoteUrl = await uploadAsset(file);
+        setAssetPreviews((current) => ({ ...current, [remoteUrl]: localUrl }));
         setImages((current) => current.map((url) => url === localUrl ? remoteUrl : url));
         succeeded += 1;
       } catch (error) {
@@ -563,7 +576,6 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
         setImages((current) => current.filter((url) => url !== localUrl));
       } finally {
         setUploadingImages((current) => current.filter((url) => url !== localUrl));
-        URL.revokeObjectURL(localUrl);
       }
     }));
     notify(succeeded === pending.length ? `已上传 ${succeeded} 张案例图片` : `${succeeded} 张上传成功，${pending.length - succeeded} 张失败`);
@@ -583,7 +595,11 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   const previewUrl = (fileID: string) => assetPreviews[fileID] || fileID;
   const previewImages = images.map(previewUrl);
 
-  function submit(nextStatus: CaseRecord["status"]) {
+  async function submit(nextStatus: CaseRecord["status"]) {
+    if (savingRef.current) {
+      notify("案例正在保存，请勿重复点击");
+      return;
+    }
     if (uploadingImages.length) {
       notify(`还有 ${uploadingImages.length} 张图片正在上传，请稍候`);
       return;
@@ -598,7 +614,12 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     }
     addCommunity(community);
     addStyle(style);
-    save({ _id: item?._id, id: item?.id || `A${Date.now()}`, name, community, area: Number(area), layout: `${rooms}室${halls}厅`, style, status: nextStatus, views: item?.views || 0, favorites: item?.favorites || 0, shares: item?.shares || 0, cover, featured: item?.featured || false, recommended: item?.recommended || false, homeHero: item?.homeHero || false, images, imageNames: images.map((_, index) => (imageNames[index] || "").trim()), description, layoutInfo, highlights, tags: selectedTags, uploader: item?.uploader || currentUsername, updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16) });
+    savingRef.current = true;
+    try {
+      await save({ _id: item?._id, id: item?.id || `A${Date.now()}`, name, community, area: Number(area), layout: `${rooms}室${halls}厅`, style, status: nextStatus, views: item?.views || 0, favorites: item?.favorites || 0, shares: item?.shares || 0, cover: previewUrl(cover), coverFileID: cover, featured: item?.featured || false, recommended: item?.recommended || false, homeHero: item?.homeHero || false, images: previewImages, imageFileIDs: images, imageNames: images.map((_, index) => (imageNames[index] || "").trim()), description, layoutInfo, highlights, tags: selectedTags, uploader: item?.uploader || currentUsername, updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16) });
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   const editorValue = contentTab === "案例说明" ? description : contentTab === "户型信息" ? layoutInfo : highlights;
@@ -915,13 +936,14 @@ function Toast({ children }: { children: ReactNode }) {
 
 export function AdminApp() {
   const [session, setSession] = useState<AdminSession | null>(null);
+  const [restoringSession, setRestoringSession] = useState(true);
   const [view, setView] = useState<View>("cases");
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
   const [caseReturnView, setCaseReturnView] = useState<View>("cases");
-  const [cases, setCases] = useState(initialCases);
-  const [communities, setCommunities] = useState(Array.from(new Set(initialCases.map((item) => item.community))));
-  const [styles, setStyles] = useState(Array.from(new Set([...DEFAULT_STYLES, ...initialCases.map((item) => item.style).filter(Boolean)])));
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [communities, setCommunities] = useState<string[]>([]);
+  const [styles, setStyles] = useState<string[]>(DEFAULT_STYLES);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
@@ -942,6 +964,39 @@ export function AdminApp() {
     settings: "系统设置",
   };
   useEnterToNext();
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!raw) {
+      setRestoringSession(false);
+      return;
+    }
+    try {
+      const stored = JSON.parse(raw) as AdminSession;
+      if (!stored.token || stored.mode !== "cloud") throw new Error("INVALID_STORED_SESSION");
+      adminApi.restoreSession(stored.token)
+        .then((restored) => setSession(restored))
+        .catch(() => window.localStorage.removeItem(ADMIN_SESSION_KEY))
+        .finally(() => setRestoringSession(false));
+    } catch {
+      window.localStorage.removeItem(ADMIN_SESSION_KEY);
+      setRestoringSession(false);
+    }
+  }, []);
+
+  function acceptSession(next: AdminSession) {
+    setSession(next);
+    if (next.mode === "cloud") window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(next));
+  }
+
+  function clearSession() {
+    window.localStorage.removeItem(ADMIN_SESSION_KEY);
+    setSession(null);
+  }
+
+  useEffect(() => {
+    if (!restoringSession && !session) window.localStorage.removeItem(ADMIN_SESSION_KEY);
+  }, [session, restoringSession]);
 
   function notify(message: string) {
     setToast(message);
@@ -967,7 +1022,7 @@ export function AdminApp() {
     let saved = record;
     if (session?.mode === "cloud") {
       const { _id, ...data } = record;
-      const result = await adminApi.saveCase(session.token, { ...data, caseNo: record.id }, _id);
+      const result = await adminApi.saveCase(session.token, { ...data, cover: record.coverFileID || record.cover, images: record.imageFileIDs || record.images, coverFileID: undefined, imageFileIDs: undefined, caseNo: record.id }, _id);
       saved = { ...record, _id: result.id };
     }
     setCases((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
@@ -1017,10 +1072,13 @@ export function AdminApp() {
         favorites: Number(record.favorites) || 0,
         shares: Number(record.shares) || 0,
         cover: record.cover || record.coverUrl || photos[0],
+        coverFileID: record.coverFileID || record.cover || record.coverUrl || "",
         featured: Boolean(record.featured),
         recommended: Boolean(record.recommended),
         homeHero: Boolean(record.homeHero),
         images: Array.isArray(record.images) && record.images.length ? record.images : [record.cover || record.coverUrl || photos[0]],
+        imageFileIDs: Array.isArray(record.imageFileIDs) && record.imageFileIDs.length ? record.imageFileIDs : (Array.isArray(record.images) ? record.images : []),
+        imageNames: Array.isArray(record.imageNames) ? record.imageNames : [],
         description: record.description || "",
         layoutInfo: record.layoutInfo || "",
         highlights: record.highlights || "",
@@ -1058,7 +1116,8 @@ export function AdminApp() {
     return () => window.clearInterval(timer);
   }, [session]);
 
-  if (!session) return <Login onLogin={setSession} />;
+  if (restoringSession) return <div className="login-page"><div className="login-card"><div className="login-brand"><img src={logoFull.src} alt="品诺筑家整装" /></div><p className="login-restoring">正在恢复登录状态…</p></div></div>;
+  if (!session) return <Login onLogin={acceptSession} />;
 
   const visibleNavItems = navItems.filter((item) => session.admin.role === "超级管理员" || !["admins", "settings"].includes(item.key));
   const activeCase = selectedCase || cases[0];

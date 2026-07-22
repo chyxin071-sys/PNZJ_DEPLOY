@@ -74,6 +74,15 @@ async function callCloud<T>(
 export const adminApi = {
   envId: ENV_ID,
 
+  warmup() {
+    return getCloudApp().then(() => undefined);
+  },
+
+  async restoreSession(token: string) {
+    const admin = await callCloud<{ username: string; displayName: string; role: string; mustChangePassword?: boolean }>("getSession", {}, token);
+    return { token, admin, mode: "cloud" as const };
+  },
+
   async login(username: string, password: string) {
     const isLocalPreview =
       typeof window !== "undefined" &&
@@ -133,8 +142,7 @@ export const adminApi = {
       cloudPath: `${folder}/${Date.now()}-${safeName}`,
       filePath: file,
     });
-    const preview = await app.getTempFileURL({ fileList: [result.fileID] });
-    return preview.fileList?.[0]?.tempFileURL || result.fileID;
+    return result.fileID;
   },
 
   updateLeadStatus(token: string, id: string, status: string) {
