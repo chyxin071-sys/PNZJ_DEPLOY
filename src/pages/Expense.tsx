@@ -1,0 +1,551 @@
+import { useState, useMemo, useEffect } from 'react';
+import { TrendingDown, DollarSign, FileText, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X } from 'lucide-react';
+import DataTable from '@/components/DataTable';
+import Modal from '@/components/Modal';
+import StatCard from '@/components/StatCard';
+import DatePicker from '@/components/DatePicker';
+import Select from '@/components/Select';
+import { useFinanceStore } from '@/store/financeStore';
+import { useBizStore } from '@/store/bizStore';
+import { useAuthStore } from '@/store/authStore';
+import FormAttachmentList from '@/components/FormAttachmentList';
+import { formatMoney, formatDate, generateId } from '@/utils/format';
+import type { AttachmentValue } from '@/types';
+import { getAttachmentSummary, mergeAttachments, normalizeAttachments, openAttachment, uploadFinanceAttachments } from '@/utils/financeAttachments';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import dayjs from 'dayjs';
+
+const CATEGORIES = ['全部', '材料费', '人工费', '外包费', '管理费', '其他'] as const;
+const CATEGORY_OPTIONS = ['材料费', '人工费', '外包费', '管理费', '其他'] as const;
+
+const CATEGORY_BADGE: Record<string, string> = {
+  '材料费': 'bg-blue-50 text-blue-600',
+  '人工费': 'bg-purple-50 text-purple-600',
+  '外包费': 'bg-amber-50 text-amber-600',
+  '管理费': 'bg-gray-100 text-gray-600',
+  '其他': 'bg-slate-100 text-slate-600',
+};
+
+export default function Expense() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { expenses, contracts, addExpense, updateExpense, deleteExpense } = useFinanceStore();
+  const { currentBizType } = useBizStore();
+  const { user } = useAuthStore();
+  const myName = user?.name || '';
+  const isAdmin = user?.role === 'admin';
+  const canSeeAllFinancial = isAdmin || user?.role === 'finance';
+
+  const filteredContracts = useMemo(() => contracts.filter(c => c.bizType === currentBizType), [contracts, currentBizType]);
+
+  const [activeTab, setActiveTab] = useState<string>('全部');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonthFrom, setFilterMonthFrom] = useState('1');
+  const [filterMonthTo, setFilterMonthTo] = useState('12');
+  const [search, setSearch] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    contractId: '',
+    category: '材料费',
+    amount: '',
+    supplier: '',
+    expenseDate: new Date().toISOString().slice(0, 10),
+    status: '已付' as '已付' | '未付',
+    remark: '',
+    attachments: [] as string[],
+  });
+  const [sortField, setSortField] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'create') {
+      const contractId = searchParams.get('contractId');
+      if (contractId) {
+        setForm(f => ({ ...f, contractId }));
+      }
+      setShowModal(true);
+      // clear search params so it doesn't reopen on refresh
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const filtered = useMemo(() => {
+    let list = [...expenses.filter(e => e.bizType === currentBizType)];
+    if (dateFrom) list = list.filter((e) => e.expenseDate >= dateFrom);
+    if (dateTo) list = list.filter((e) => e.expenseDate <= dateTo);
+    if (filterYear) {
+      const minM = (filterMonthFrom || '1').padStart(2, '0');
+      const maxM = (filterMonthTo || '12').padStart(2, '0');
+      const minDate = `${filterYear}-${minM}-01`;
+      const maxDate = dayjs(`${filterYear}-${maxM}-01`).endOf('month').format('YYYY-MM-DD');
+      list = list.filter((e) => e.expenseDate >= minDate && e.expenseDate <= maxDate);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      const matchedContractIds = new Set(
+        contracts.filter(c => 
+          c.houseAddress.toLowerCase().includes(q) || 
+          c.customerName.toLowerCase().includes(q) ||
+          c.contractNo.toLowerCase().includes(q)
+        ).map(c => c.id)
+      );
+      list = list.filter(e => matchedContractIds.has(e.contractId));
+    }
+    if (activeTab !== '全部') list = list.filter((e) => e.category === activeTab);
+    // 非管理员只看自己创建的
+    if (!canSeeAllFinancial) list = list.filter(e => e.createdBy === myName);
+    if (sortField) {
+      list.sort((a, b) => {
+        const va = String(a[sortField as keyof typeof a] ?? '');
+        const vb = String(b[sortField as keyof typeof b] ?? '');
+        const cmp = va.localeCompare(vb, 'zh-CN');
+        return sortOrder === 'asc' ? cmp : -cmp;
+      });
+    } else {
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return list;
+  }, [expenses, currentBizType, dateFrom, dateTo, filterYear, filterMonthFrom, filterMonthTo, search, contracts, activeTab, sortField, sortOrder, canSeeAllFinancial, myName]);
+
+  const totalExpense = useMemo(() => filtered.reduce((s, e) => s + e.amount, 0), [filtered]);
+
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const monthExpense = useMemo(
+    () => filtered.filter((e) => e.expenseDate >= monthStart).reduce((s, e) => s + e.amount, 0),
+    [filtered, monthStart],
+  );
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('确定删除这条支出记录吗？')) return;
+    try {
+      await deleteExpense(id);
+    } catch (e: any) { alert('删除失败：' + (e?.message || '未知错误')); }
+  };
+
+  const openEditExpense = (row: Record<string, unknown>) => {
+    setEditingId(row.id as string);
+    setForm({
+      contractId: (row.contractId as string) || '',
+      category: (row.category as string) || '材料费',
+      amount: String(row.amount || ''),
+      supplier: (row.supplier as string) || '',
+      expenseDate: (row.expenseDate as string)?.slice(0, 10) || '',
+      status: (row.status as '已付' | '未付') || '已付',
+      remark: (row.remark as string) || '',
+      attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    });
+    setAttachmentFiles([]);
+    setShowModal(true);
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setFilterYear('');
+    setFilterMonthFrom('1');
+    setFilterMonthTo('12');
+    setSearch('');
+  };
+
+  const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
+
+  // 年份选项
+  const yearOptions = useMemo(() => {
+    const years = new Set<string>();
+    expenses.forEach(e => { if (e.expenseDate) years.add(String(dayjs(e.expenseDate).year())); });
+    return [{ value: '', label: '全部年份' }, ...Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)).map(y => ({ value: y, label: y }))];
+  }, [expenses]);
+
+  const selectedContract = useMemo(
+    () => filteredContracts.find((c) => c.id === form.contractId),
+    [filteredContracts, form.contractId],
+  );
+
+  const handleSubmit = async () => {
+    if (!form.amount || !form.supplier || submitting) return;
+    setSubmitting(true);
+    try {
+      let uploadedAttachments: AttachmentValue[] = [];
+      if (attachmentFiles.length > 0) {
+        try {
+          uploadedAttachments = await uploadFinanceAttachments(
+            attachmentFiles,
+            `finance/expenses/${selectedContract?.id || 'general'}`,
+            'ERP'
+          );
+        } catch (uploadError: any) {
+          const shouldContinue = window.confirm(
+            `${uploadError?.message || '附件上传失败'}\n\n是否先不带附件保存这条支出？后续可再编辑补传。`
+          );
+          if (!shouldContinue) {
+            throw uploadError;
+          }
+        }
+      }
+      const existingExpense = editingId ? expenses.find((item) => item.id === editingId) : undefined;
+      const payload: any = {
+        id: editingId || generateId(),
+        contractId: form.contractId,
+        contractNo: selectedContract?.contractNo ?? '',
+        bizType: currentBizType,
+        category: form.category as '材料费' | '人工费' | '外包费' | '管理费' | '其他',
+        amount: Number(form.amount),
+        supplier: form.supplier,
+        payMethod: '银行转账',
+        expenseDate: form.expenseDate,
+        status: form.status,
+        remark: form.remark,
+        createdAt: existingExpense?.createdAt || new Date().toISOString(),
+        attachments: mergeAttachments(form.attachments, uploadedAttachments),
+      };
+      if (!editingId) payload.createdBy = myName;
+      await (editingId ? updateExpense : addExpense)(payload);
+      setShowModal(false);
+      setEditingId(null);
+      setAttachmentFiles([]);
+      setForm({
+        contractId: '',
+        category: '材料费',
+        amount: '',
+        supplier: '',
+        expenseDate: new Date().toISOString().slice(0, 10),
+        status: '已付',
+        remark: '',
+        attachments: [],
+      });
+    } catch (error: any) {
+      console.error('支出保存失败', error);
+      alert(error?.message || '支出保存失败，请重试');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const columns = [
+    { key: 'contractId', title: '项目地址', render: (row: Record<string, unknown>) => {
+      const ct = filteredContracts.find((c) => c.id === row.contractId as string);
+      return <div className="max-w-[160px] md:max-w-[200px] truncate" title={ct?.houseAddress}>{ct?.houseAddress || '-'}</div>;
+    }},
+    {
+      key: 'category', title: '类别',
+      render: (row: Record<string, unknown>) => {
+        const cat = row.category as string;
+        return (
+          <span className={`text-xs px-2 py-0.5 rounded font-medium ${CATEGORY_BADGE[cat] || 'bg-gray-100 text-gray-600'}`}>
+            {cat}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'amount', title: '金额', sortable: true, align: 'right' as const,
+      render: (row: Record<string, unknown>) => (
+        <span className="text-red-500 font-medium">{formatMoney(row.amount as number)}</span>
+      ),
+    },
+    { key: 'supplier', title: '收款方', sortable: true, render: (row: Record<string, unknown>) => <div className="max-w-[120px] truncate" title={row.supplier as string}>{row.supplier as string}</div> },
+    {
+      key: 'expenseDate', title: '日期', sortable: true,
+      render: (row: Record<string, unknown>) => formatDate(row.expenseDate as string),
+    },
+    {
+      key: 'status', title: '状态', sortable: true,
+      render: (row: Record<string, unknown>) => {
+        const s = row.status as string;
+        return (
+          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+            s === '已付'
+              ? 'bg-emerald-50 text-emerald-600'
+              : 'bg-amber-50 text-amber-600'
+          }`}>
+            {s}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'attachments',
+      title: '凭证',
+      render: (row: Record<string, unknown>) => (
+        <AttachmentCell 
+          attachments={row.attachments as AttachmentValue[] | undefined} 
+          onUploadClick={() => openEditExpense(row)} 
+          onDelete={async (idx) => {
+            try {
+              const r = row as any;
+              const newAttachments = [...(r.attachments || [])];
+              newAttachments.splice(idx, 1);
+              await useFinanceStore.getState().updateExpense({ ...r, attachments: newAttachments });
+            } catch (e: any) {
+              alert('删除附件失败: ' + (e?.message || '未知错误'));
+            }
+          }}
+        />
+      ),
+    },
+    {
+      key: 'actions',
+      title: '操作',
+      width: '70px',
+      render: (row: Record<string, unknown>) => (
+        <div className="flex items-center gap-1">
+          <button onClick={() => openEditExpense(row)} className="p-1 text-gray-400 hover:text-gold-500 rounded" title="编辑">
+            <Edit3 size={12} />
+          </button>
+          <button onClick={() => handleDelete(row.id as string)} className="p-1 text-gray-400 hover:text-red-500 rounded" title="删除">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="erp-page-spaced">
+      {/* 页头 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-base md:text-lg font-bold text-gray-900">支出管理</h1>
+          <p className="text-gold-500 text-xs md:text-sm">管理所有支出记录</p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="erp-btn-primary"
+        >
+          <Plus size={16} /> 新增支出
+        </button>
+      </div>
+
+      {/* 汇总卡片 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard title="支出总额" value={formatMoney(totalExpense)} icon={TrendingDown} accent="red" />
+        <StatCard title="本月支出" value={formatMoney(monthExpense)} icon={DollarSign} accent="red" />
+        <StatCard title="支出笔数" value={`${filtered.length} 笔`} icon={FileText} accent="red" />
+      </div>
+
+      {/* 分类Tab */}
+      <div>
+        <div className="flex flex-wrap items-center gap-0 border-b border-gray-200">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveTab(cat)}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === cat
+                  ? 'text-gold-500'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {cat}
+              {activeTab === cat && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold-400 rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 日期筛选 + 搜索 */}
+      <div className="erp-surface overflow-visible">
+        <div className="erp-search-row flex-wrap md:flex-nowrap">
+          <Select value={filterYear} onChange={setFilterYear} options={yearOptions} className="w-full md:w-28 shrink-0" />
+          <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-[calc(50%-18px)] md:w-24 shrink-0" />
+          <span className="shrink-0 text-xs text-gray-400">至</span>
+          <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-[calc(50%-18px)] md:w-24 shrink-0" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索地址/客户/合同号"
+            className="erp-search-input min-w-[220px] flex-1"
+          />
+          {(filterYear) && (
+            <button onClick={() => { setFilterYear(''); setFilterMonthFrom('1'); setFilterMonthTo('12'); setDateFrom(''); setDateTo(''); }}
+              className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
+          )}
+          {search && (
+            <button onClick={clearFilters}
+              className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
+          )}
+        </div>
+        <DataTable
+            columns={columns}
+            data={filtered as unknown as Record<string, unknown>[]}
+            sortField={sortField}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            rowKey={(row) => row.id as string}
+            onRowClick={(row) => {
+              if (row.contractId) {
+                navigate(`/projects/${row.contractId}`);
+              }
+            }}
+        />
+      </div>
+
+      {/* 新增Modal */}
+      <Modal open={showModal} onClose={() => { setShowModal(false); setEditingId(null); setAttachmentFiles([]); }} title={editingId ? '编辑支出' : '新增支出'}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">选择合同</label>
+            <Select
+              value={form.contractId}
+              onChange={(v) => setForm({ ...form, contractId: v })}
+              options={[
+                { value: '', label: '请选择合同（可选）' },
+                ...filteredContracts.map((c) => ({ value: c.id, label: `${c.contractNo} - ${c.customerName}` })),
+              ]}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">支出类别</label>
+            <Select
+              value={form.category}
+              onChange={(v) => setForm({ ...form, category: v })}
+              options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">金额</label>
+            <input
+              type="number"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              placeholder="请输入支出金额"
+              className="erp-input"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方</label>
+            <input
+              type="text"
+              value={form.supplier}
+              onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+              placeholder="请输入收款方名称"
+              className="erp-input"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">日期</label>
+            <DatePicker
+              mode="single"
+              value={form.expenseDate}
+              onChange={(v) => setForm({ ...form, expenseDate: v })}
+              placeholder="选择日期"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">状态</label>
+            <Select
+              value={form.status}
+              onChange={(v) => setForm({ ...form, status: v as '已付' | '未付' })}
+              options={[
+                { value: '已付', label: '已付' },
+                { value: '未付', label: '未付' },
+              ]}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">备注</label>
+            <textarea
+              value={form.remark}
+              onChange={(e) => setForm({ ...form, remark: e.target.value })}
+              rows={2}
+              placeholder="备注信息（选填）"
+              className="erp-input resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">追加凭证附件</label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                setAttachmentFiles(Array.from(e.target.files || []));
+              }}
+              className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200"
+            />
+            <p className="text-xs text-amber-600 mt-1">附件非必填，可先登记支出，后续再补上传票据或收据。</p>
+            {attachmentFiles.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1">{attachmentFiles.length} 个新文件待上传</p>
+            )}
+            <FormAttachmentList 
+              attachments={form.attachments as any[]} 
+              onRemove={(idx) => {
+                const newAtt = (form.attachments as any[]).filter((_, i) => i !== idx);
+                setForm(prev => ({ ...prev, attachments: newAtt }));
+              }} 
+            />
+          </div>
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={handleSubmit}
+              disabled={!form.amount || !form.supplier || submitting}
+              className="erp-btn-primary min-w-[220px] justify-center disabled:opacity-40"
+            >
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+              {submitting ? '提交中...' : editingId ? '确认修改' : '确认新增'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+import AttachmentViewerModal from '@/components/AttachmentViewerModal';
+
+function AttachmentCell({ attachments, onUploadClick, onDelete }: { attachments?: AttachmentValue[]; onUploadClick?: () => void; onDelete?: (idx: number) => void }) {
+  const [showModal, setShowModal] = useState(false);
+  const files = normalizeAttachments(attachments);
+  if (files.length === 0) {
+    return (
+      <button 
+        type="button" 
+        onClick={(e) => { e.stopPropagation(); onUploadClick?.(); }}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 bg-gray-50 px-2 py-1 text-[11px] text-gray-500 hover:text-gold-600 hover:border-gold-300 transition-colors"
+      >
+        <Plus size={10} /> 上传
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowModal(true);
+        }}
+        className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100"
+        title={files.map((file) => file.name).join('、')}
+      >
+        <Download size={12} />
+        {getAttachmentSummary(files)}
+      </button>
+      <AttachmentViewerModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        attachments={files} 
+        title="凭证附件"
+        onDelete={onDelete}
+      />
+    </>
+  );
+}

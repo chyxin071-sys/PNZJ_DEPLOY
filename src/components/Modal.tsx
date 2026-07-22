@@ -1,0 +1,38 @@
+import { X } from 'lucide-react';
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  if (!open) return null;
+
+  const w = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' }[size];
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative bg-white rounded-xl shadow-2xl w-full ${w} mx-4 max-h-[85vh] flex flex-col border border-gray-100 md:rounded-xl max-sm:max-w-full max-sm:h-full max-sm:max-h-full max-sm:m-0 max-sm:rounded-none`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="px-6 py-5 overflow-auto">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}

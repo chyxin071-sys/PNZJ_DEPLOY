@@ -1,0 +1,17 @@
+node_modules
+dist
+**/node_modules
+**/dist
+**/.next
+**/.openai
+**/.wrangler
+**/build
+.git
+.vscode
+.trae
+.env
+.env.*
+*.log
+**/*.log
+**/*.tsbuildinfo
+.DS_Store
