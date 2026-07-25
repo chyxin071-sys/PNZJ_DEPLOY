@@ -302,6 +302,7 @@ export interface Notification {
   relatedTo?: { type: string; id: string; name: string };
   isRead: boolean;
   targetUserId: string;
+  recipientUserIds?: string[];
   createdAt: string;
 }
 

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { leadsAPI, usersAPI, followUpsAPI, projectsAPI, quotesAPI, contractsAPI, receiptsAPI, expensesAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { canViewFinancialData, hasRole, getHighestRole } from '@/store/authStore';
 import { formatDate, formatDateTime, formatMoney, generateId } from '@/utils/format';
 import dayjs from 'dayjs';
@@ -409,6 +410,20 @@ export default function Leads() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
+  const notifications = useNotificationStore((state) => state.notifications);
+  const leadUnreadCountById = useMemo(() => {
+    const counts: Record<string, number> = {};
+    notifications.forEach((notification) => {
+      if (notification.isRead) return;
+      const linkedLeadId = notification.relatedTo?.type === 'lead'
+        ? notification.relatedTo.id
+        : String((notification as any).link || '').match(/^\/(?:erp\/)?leads\/([^/?#]+)/)?.[1];
+      if (linkedLeadId) {
+        counts[linkedLeadId] = (counts[linkedLeadId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [notifications]);
   const myId = user?.id || '';
   const { showConfirm } = useDialogStore();
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
@@ -932,7 +947,7 @@ export default function Leads() {
       };
       await leadsAPI.add(newLead);
 
-      void createNotificationEventSafely({
+      await createNotificationEventSafely({
         operationId: stableOperationId('lead-created', newLead._id),
         eventType: 'LEAD_CREATED',
         actorUserId: myId,
@@ -947,7 +962,7 @@ export default function Leads() {
 
       const assignedUserIds = await resolveUserIdsByNames(newLead.sales, newLead.designer, newLead.manager);
       if (assignedUserIds.length > 0) {
-        void createNotificationEventSafely({
+        await createNotificationEventSafely({
           operationId: stableOperationId('lead-assigned', newLead._id, nowIso),
           eventType: 'LEAD_ASSIGNED',
           actorUserId: myId,
@@ -1451,6 +1466,11 @@ export default function Leads() {
                 return (
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-sm font-medium text-gray-900 truncate" title={displayName}>{displayName}</span>
+                  {leadUnreadCountById[row._id] > 0 && (
+                    <span className="inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">
+                      {leadUnreadCountById[row._id] > 99 ? '99+' : leadUnreadCountById[row._id]}
+                    </span>
+                  )}
                   {displayAddress && <span className="hidden md:inline text-xs text-gray-400 shrink-0">-</span>}
                   {displayAddress && <span className="hidden md:inline text-xs text-gray-600 truncate" title={displayAddress}>{displayAddress}</span>}
                   {displayAddress && <span className="md:hidden text-sm font-medium text-gray-900 truncate" title={displayAddress}>- {displayAddress}</span>}
@@ -1605,7 +1625,14 @@ export default function Leads() {
                 const displayAddress = showFull ? (row.address || '无地址') : (row.address ? '***' : '无地址');
                 return (
                   <div className="min-w-0 pr-1">
-                    <div className="text-sm font-medium text-gray-900 truncate" title={displayName}>{displayName}</div>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <div className="min-w-0 truncate text-sm font-medium text-gray-900" title={displayName}>{displayName}</div>
+                      {leadUnreadCountById[row._id] > 0 && (
+                        <span className="inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">
+                          {leadUnreadCountById[row._id] > 99 ? '99+' : leadUnreadCountById[row._id]}
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-0.5 text-xs text-gray-500 truncate" title={displayAddress}>{displayAddress}</div>
                   </div>
                 );

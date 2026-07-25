@@ -30,6 +30,11 @@ function notificationLink(item: {
   relatedTo?: { type?: string; id?: string };
 }) {
   const id = item.relatedTo?.id;
+  const rawLink = item.link || '';
+  if (rawLink.startsWith('/erp/')) return rawLink.slice(4) || '/';
+  if (rawLink.startsWith('/pages/leadDetail/index') && id) return `/leads/${id}`;
+  if (rawLink.startsWith('/pages/projectDetail/index') && id) return `/projects-biz/${id}`;
+  if (rawLink.startsWith('/pages/todoDetail/index') && id) return `/todos?todoId=${encodeURIComponent(id)}`;
   if (item.link === '/todos' && item.relatedTo?.type === 'todo' && id) {
     return `/todos?todoId=${encodeURIComponent(id)}`;
   }

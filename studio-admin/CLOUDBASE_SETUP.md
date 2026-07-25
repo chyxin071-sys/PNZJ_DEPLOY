@@ -80,14 +80,6 @@ ERP 现有集合继续保留当前权限规则；新增接口只通过云函数�
 2. 云开发环境 `cloud1-8grodf5s3006f004` 已共享给当前小程序。
 3. 云托管服务环境变量中的 `WECHAT_APPID`、`WECHAT_APPSECRET` 使用当前小程序对应的值。
 
-共享云环境下，`pnzjAdminApi` 云函数也必须配置以下环境变量（不要写入源码）：
-
-- `WECHAT_APPID=wxa11022a25d98180a`
-- `WECHAT_APPSECRET=案例库小程序对应的 AppSecret`
-
-手机号授权 code 由案例库小程序生成，云函数会使用这组凭证调用微信
-`getuserphonenumber` 接口；不能使用共享云环境所属小程序的 AppID/Secret 兑换。
-
 否则咨询表单点击“一键获取手机号”后，云函数会在
 `openapi.phonenumber.getPhoneNumber` 处返回 `invalid appid`。代码已经支持
 手动手机号兜底，但要使用微信手机号快捷授权，上面三项必须一致。

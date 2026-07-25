@@ -9,6 +9,7 @@ import {
 import { projectsAPI, usersAPI, leadsAPI, systemConfigsAPI } from '@/db/api';
 import { cloudDB } from '@/db/cloudbase';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { hasRole } from '@/store/authStore';
 import { formatDate } from '@/utils/format';
 import {
@@ -345,6 +346,20 @@ export default function ProjectsBiz() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
+  const notifications = useNotificationStore((state) => state.notifications);
+  const projectUnreadCountById = useMemo(() => {
+    const counts: Record<string, number> = {};
+    notifications.forEach((notification) => {
+      if (notification.isRead) return;
+      const linkedProjectId = notification.relatedTo?.type === 'project'
+        ? notification.relatedTo.id
+        : String((notification as any).link || '').match(/^\/(?:erp\/)?projects-biz\/([^/?#]+)/)?.[1];
+      if (linkedProjectId) {
+        counts[linkedProjectId] = (counts[linkedProjectId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [notifications]);
   const myName = user?.name || '';
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
 
@@ -1088,6 +1103,7 @@ export default function ProjectsBiz() {
               const projectId = p._id;
               const roleBadges = getProjectRoleBadges(p);
               const pendingAccess = pendingAccessByProject[projectId] || 0;
+              const unreadUpdates = projectUnreadCountById[projectId] || 0;
 
               return (
               <div key={projectId} className="border-b border-gray-50 last:border-b-0 md:overflow-visible">
@@ -1106,7 +1122,12 @@ export default function ProjectsBiz() {
                         <h3 className="text-sm font-medium text-gray-900 truncate leading-snug">
                           <span className="relative inline-flex items-center">
                             <span>{p.address || '无地址'}</span>
-                            {pendingAccess > 0 && <span className="ml-1.5 h-2 w-2 rounded-full bg-red-500" />}
+                            {unreadUpdates > 0 && (
+                              <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">
+                                {unreadUpdates > 99 ? '99+' : unreadUpdates}
+                              </span>
+                            )}
+                            {pendingAccess > 0 && <span className="ml-1 h-2 w-2 rounded-full bg-amber-500" />}
                           </span>
                         </h3>
                         <div className="mt-0.5 truncate text-[11px] text-gray-500">{p.customer || '未命名'}</div>
@@ -1162,8 +1183,13 @@ export default function ProjectsBiz() {
                       <div className="mb-1 flex min-w-0 items-center gap-2">
                         <span className="relative inline-flex min-w-0 items-center text-sm font-semibold text-gray-900">
                           <span className="truncate" title={p.address || '无地址'}>{p.address || '无地址'}</span>
+                          {unreadUpdates > 0 && (
+                            <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">
+                              {unreadUpdates > 99 ? '99+' : unreadUpdates}
+                            </span>
+                          )}
                           {pendingAccess > 0 && (
-                            <span className="ml-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-4 text-white">
+                            <span className="ml-1 inline-flex min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold leading-4 text-white">
                               {pendingAccess > 9 ? '9+' : pendingAccess}
                             </span>
                           )}

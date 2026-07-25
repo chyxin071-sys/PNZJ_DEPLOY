@@ -4,7 +4,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/erp/',
+  base: process.env.ERP_ASSET_BASE || '/erp/',
   build: {
     sourcemap: false,
     rollupOptions: {

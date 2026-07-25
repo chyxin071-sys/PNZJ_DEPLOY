@@ -27,6 +27,7 @@ interface NotificationState {
   addNotification: (n: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  markRelatedAsRead: (type: string, id: string) => Promise<void>;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -96,6 +97,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markAllAsRead: async () => {
     const unread = get().notifications.filter((n) => !n.isRead);
+    await Promise.all(unread.map((n: any) => (
+      n._notificationSource === 'unified' || String(n.id).startsWith('ndl_')
+        ? cloudDB.collection('notifications').doc(n.id).update({ isRead: true, readAt: new Date() } as any)
+        : notificationsAPI.update(n.id, { isRead: true })
+    )));
+    await get().loadNotifications(get().currentUserId);
+  },
+
+  markRelatedAsRead: async (type, id) => {
+    const unread = get().notifications.filter((n) => !n.isRead && n.relatedTo?.type === type && n.relatedTo.id === id);
+    if (!unread.length) return;
     await Promise.all(unread.map((n: any) => (
       n._notificationSource === 'unified' || String(n.id).startsWith('ndl_')
         ? cloudDB.collection('notifications').doc(n.id).update({ isRead: true, readAt: new Date() } as any)

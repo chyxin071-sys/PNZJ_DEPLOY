@@ -560,6 +560,9 @@ export const projectLogsAPI = {
   add: async (log: any): Promise<void> => {
     await cloudDB.collection(COLLECTIONS.projectLogs).add({ _id: log.id || log._id, ...sanitize(log) } as any);
   },
+  update: async (id: string, data: any): Promise<void> => {
+    await cloudDB.collection(COLLECTIONS.projectLogs).doc(id).update(sanitize(data));
+  },
   delete: async (id: string): Promise<void> => {
     await cloudDB.collection(COLLECTIONS.projectLogs).doc(id).remove();
   },

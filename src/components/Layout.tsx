@@ -170,9 +170,19 @@ export default function Layout() {
     markAllAsRead();
   };
 
-  const handleNotifClick = (id: string) => {
-    markAsRead(id);
+  const handleNotifClick = (notification: any) => {
+    markAsRead(notification.id);
     setNotifOpen(false);
+    const relatedId = notification.relatedTo?.id;
+    let target = notification.link || '';
+    if (target.startsWith('/erp/')) target = target.slice(4);
+    if (!target && relatedId) {
+      if (notification.relatedTo?.type === 'lead' || notification.relatedTo?.type === 'customer') target = `/leads/${relatedId}`;
+      if (notification.relatedTo?.type === 'project') target = `/projects-biz/${relatedId}`;
+      if (notification.relatedTo?.type === 'contract') target = `/contracts/${relatedId}`;
+      if (notification.relatedTo?.type === 'todo') target = `/todos?todoId=${encodeURIComponent(relatedId)}`;
+    }
+    if (target && target !== '/notifications') navigate(target);
   };
 
   const handleBizTypeSwitch = (nextBizType: BizType) => {
@@ -288,7 +298,7 @@ export default function Layout() {
                       notifications.map((n) => (
                         <button
                           key={n.id}
-                          onClick={() => handleNotifClick(n.id)}
+                          onClick={() => handleNotifClick(n)}
                           className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
                             !n.isRead ? 'bg-amber-50' : ''
                           }`}
