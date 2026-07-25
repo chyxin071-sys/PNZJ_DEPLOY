@@ -414,8 +414,12 @@ export default function Leads() {
   const leadUnreadCountById = useMemo(() => {
     const counts: Record<string, number> = {};
     notifications.forEach((notification) => {
-      if (!notification.isRead && notification.relatedTo?.type === 'lead') {
-        counts[notification.relatedTo.id] = (counts[notification.relatedTo.id] || 0) + 1;
+      if (notification.isRead) return;
+      const linkedLeadId = notification.relatedTo?.type === 'lead'
+        ? notification.relatedTo.id
+        : String((notification as any).link || '').match(/^\/(?:erp\/)?leads\/([^/?#]+)/)?.[1];
+      if (linkedLeadId) {
+        counts[linkedLeadId] = (counts[linkedLeadId] || 0) + 1;
       }
     });
     return counts;

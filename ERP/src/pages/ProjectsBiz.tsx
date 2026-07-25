@@ -350,8 +350,12 @@ export default function ProjectsBiz() {
   const projectUnreadCountById = useMemo(() => {
     const counts: Record<string, number> = {};
     notifications.forEach((notification) => {
-      if (!notification.isRead && notification.relatedTo?.type === 'project') {
-        counts[notification.relatedTo.id] = (counts[notification.relatedTo.id] || 0) + 1;
+      if (notification.isRead) return;
+      const linkedProjectId = notification.relatedTo?.type === 'project'
+        ? notification.relatedTo.id
+        : String((notification as any).link || '').match(/^\/(?:erp\/)?projects-biz\/([^/?#]+)/)?.[1];
+      if (linkedProjectId) {
+        counts[linkedProjectId] = (counts[linkedProjectId] || 0) + 1;
       }
     });
     return counts;

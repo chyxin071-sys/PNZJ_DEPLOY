@@ -356,7 +356,11 @@ export default function ProjectBizDetail() {
   
   const [showLogModal, setShowLogModal] = useState(false);
   const [newLogForm, setNewLogForm] = useState({ stage: '', content: '', photos: [] as string[], visibleToCustomer: true });
+  const [editingLog, setEditingLog] = useState<ProjectLog | null>(null);
+  const [swipedLogId, setSwipedLogId] = useState<string | null>(null);
   const logFileInputRef = useRef<HTMLInputElement>(null);
+  const logSwipeStartX = useRef<number | null>(null);
+  const previewSwipeStartX = useRef<number | null>(null);
   
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [newInspectionForm, setNewInspectionForm] = useState({ title: '', status: '合格', description: '', photos: [] as string[] });
@@ -1577,31 +1581,40 @@ export default function ProjectBizDetail() {
     }
     setIsSubmittingLog(true);
     try {
-      const logId = makeId();
-      await projectLogsAPI.add({
-        id: logId,
-        projectId: id,
+      const logId = editingLog?.id || makeId();
+      const logPayload = {
         stage: newLogForm.stage,
         content: newLogForm.content,
         photos: newLogForm.photos,
         visibleToCustomer: newLogForm.visibleToCustomer,
-        creatorName: myName,
-        createdAt: new Date().toISOString(),
-      });
+        updatedAt: new Date().toISOString(),
+      };
+      if (editingLog) {
+        await projectLogsAPI.update(logId, logPayload);
+      } else {
+        await projectLogsAPI.add({
+          id: logId,
+          projectId: id,
+          ...logPayload,
+          creatorName: myName,
+          createdAt: new Date().toISOString(),
+        });
+      }
       void createNotificationEventSafely({
-        operationId: stableOperationId('project-log-created', id, logId),
-        eventType: 'PROJECT_LOG_CREATED',
+        operationId: stableOperationId(editingLog ? 'project-log-updated' : 'project-log-created', id, logId),
+        eventType: editingLog ? 'PROJECT_LOG_UPDATED' : 'PROJECT_LOG_CREATED',
         actorUserId: user?.id || '',
         recipientUserIds: await resolveProjectParticipantUserIds(project, lead),
         recipientRoles: ['admin'],
         category: 'project',
-        title: '新增施工日志',
-        content: `${myName}为“${project.customer || project.address || '工地'}”新增了施工日志`,
+        title: editingLog ? '施工日志已更新' : '新增施工日志',
+        content: `${myName}为“${project.customer || project.address || '工地'}”${editingLog ? '更新了' : '新增了'}施工日志`,
         link: `/projects-biz/${id}`,
         relatedTo: { type: 'project', id: id || '', name: project.customer || project.address || '工地' },
         channels: ['station', 'wechat'],
       });
       setShowLogModal(false);
+      setEditingLog(null);
       setNewLogForm({ stage: '', content: '', photos: [], visibleToCustomer: true });
       loadLogsAndInspections();
     } catch (e) {
@@ -1609,6 +1622,49 @@ export default function ProjectBizDetail() {
       console.error(e);
     } finally {
       setIsSubmittingLog(false);
+    }
+  };
+
+  const openNewLogModal = () => {
+    setEditingLog(null);
+    setNewLogForm({ stage: '', content: '', photos: [], visibleToCustomer: true });
+    setShowLogModal(true);
+  };
+
+  const openEditLogModal = (log: ProjectLog) => {
+    setEditingLog(log);
+    setNewLogForm({
+      stage: log.stage || '',
+      content: log.content || '',
+      photos: (log.photos || []) as string[],
+      visibleToCustomer: log.visibleToCustomer !== false,
+    });
+    setSwipedLogId(null);
+    setShowLogModal(true);
+  };
+
+  const handleDeleteLog = async (log: ProjectLog) => {
+    if (!window.confirm('确认删除这条施工日志吗？删除后无法恢复。')) return;
+    try {
+      await projectLogsAPI.delete(log.id);
+      void createNotificationEventSafely({
+        operationId: stableOperationId('project-log-deleted', id, log.id),
+        eventType: 'PROJECT_LOG_DELETED',
+        actorUserId: user?.id || '',
+        recipientUserIds: await resolveProjectParticipantUserIds(project, lead),
+        recipientRoles: ['admin'],
+        category: 'project',
+        title: '施工日志已删除',
+        content: `${myName}为“${project.customer || project.address || '工地'}”删除了一条施工日志`,
+        link: `/projects-biz/${id}`,
+        relatedTo: { type: 'project', id: id || '', name: project.customer || project.address || '工地' },
+        channels: ['station', 'wechat'],
+      });
+      setSwipedLogId(null);
+      await loadLogsAndInspections();
+    } catch (error) {
+      console.error('delete project log failed', error);
+      alert('删除施工日志失败，请稍后重试。');
     }
   };
 
@@ -2481,13 +2537,18 @@ export default function ProjectBizDetail() {
             >
               <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
             </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold text-gray-900">
-                {standaloneSection === 'logs' ? '施工日志' : '工地巡检'}
-              </h1>
-              <div className="mt-1 text-sm text-gray-500 truncate">{project.address || '未命名工地'}</div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-semibold text-gray-900">
+                  {standaloneSection === 'logs' ? '施工日志' : '工地巡检'}
+                </h1>
+                <div className="mt-1 text-sm text-gray-500 truncate">{project.address || '未命名工地'}</div>
+              </div>
+              {standaloneSection === 'logs' && canEditSite && (
+                <button onClick={openNewLogModal} className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800">
+                  <Plus size={16} /> 日志
+                </button>
+              )}
             </div>
-          </div>
         </div>
       )}
 
@@ -3719,14 +3780,13 @@ export default function ProjectBizDetail() {
         {/* ========== Tab: 施工日志 ========== */}
         {activeTab === 'logs' && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-800">施工日志</h3>
-                  {canEditSite && (
-                <button onClick={() => setShowLogModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">
+            {!standaloneSection && canEditSite && (
+              <div className="flex justify-end">
+                <button onClick={openNewLogModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">
                   <Plus size={14} /> 新增日志
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             
             <div className="space-y-3">
               {logs.length === 0 ? (
@@ -3736,7 +3796,25 @@ export default function ProjectBizDetail() {
                 </div>
               ) : (
                 logs.map(log => (
-                  <div key={log.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm relative overflow-hidden">
+                  <div key={log.id} className="relative overflow-hidden rounded-xl">
+                    {canEditSite && (
+                      <div className="absolute inset-y-0 right-0 flex md:hidden">
+                        <button onClick={() => openEditLogModal(log)} className="w-16 bg-amber-500 text-xs font-semibold text-white">编辑</button>
+                        <button onClick={() => void handleDeleteLog(log)} className="w-16 bg-red-500 text-xs font-semibold text-white">删除</button>
+                      </div>
+                    )}
+                  <div
+                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === log.id ? '-translate-x-32' : 'translate-x-0'} md:!translate-x-0`}
+                    onTouchStart={(event) => { logSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
+                    onTouchEnd={(event) => {
+                      const startX = logSwipeStartX.current;
+                      logSwipeStartX.current = null;
+                      if (startX === null || !canEditSite) return;
+                      const delta = (event.changedTouches[0]?.clientX ?? startX) - startX;
+                      if (delta < -44) setSwipedLogId(log.id);
+                      if (delta > 24) setSwipedLogId(null);
+                    }}
+                  >
                     {!log.visibleToCustomer && (
                       <div className="absolute top-0 right-0 bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded-bl-lg flex items-center gap-1">
                         <EyeOff size={10} /> 内部可见
@@ -3749,6 +3827,12 @@ export default function ProjectBizDetail() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">{log.creatorName}</span>
+                        {canEditSite && (
+                          <div className="hidden items-center gap-1 md:flex">
+                            <button type="button" onClick={() => openEditLogModal(log)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="编辑日志"><Edit3 size={14} /></button>
+                            <button type="button" onClick={() => void handleDeleteLog(log)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="删除日志"><Trash2 size={14} /></button>
+                          </div>
+                        )}
                         {log.visibleToCustomer !== false && (
                           <button
                             onClick={() => openCustomerShare({
@@ -3786,6 +3870,7 @@ export default function ProjectBizDetail() {
                             })}
                           </div>
                         )}
+                  </div>
                   </div>
                 ))
               )}
@@ -3876,7 +3961,7 @@ export default function ProjectBizDetail() {
                         </button>
                       )}
                     </div>
-                  </div>
+                    </div>
                 ))
               )}
             </div>
@@ -4351,7 +4436,19 @@ export default function ProjectBizDetail() {
             </button>
           )}
 
-          <div className="w-full max-w-4xl max-h-[85vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="w-full max-w-4xl max-h-[85vh] flex items-center justify-center touch-pan-y"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(event) => { previewSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
+            onTouchEnd={(event) => {
+              const startX = previewSwipeStartX.current;
+              previewSwipeStartX.current = null;
+              if (startX === null || previewImages.length < 2) return;
+              const delta = (event.changedTouches[0]?.clientX ?? startX) - startX;
+              if (delta < -44) setPreviewIndex(prev => prev < previewImages.length - 1 ? prev + 1 : 0);
+              if (delta > 44) setPreviewIndex(prev => prev > 0 ? prev - 1 : previewImages.length - 1);
+            }}
+          >
             {previewError ? (
               <div className="flex flex-col items-center justify-center gap-3 text-white/70">
                 <AlertTriangle className="h-10 w-10" />
@@ -4422,7 +4519,7 @@ export default function ProjectBizDetail() {
       {showLogModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">新增施工日志</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">{editingLog ? '编辑施工日志' : '新增施工日志'}</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">施工阶段</label>
@@ -4527,8 +4624,8 @@ export default function ProjectBizDetail() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowLogModal(false)} disabled={isSubmittingLog} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg disabled:opacity-50">取消</button>
-              <button onClick={handleSaveLog} disabled={isSubmittingLog} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded-lg hover:bg-gold-500 disabled:opacity-50">{isSubmittingLog ? '发布中...' : '发布'}</button>
+              <button onClick={() => { setShowLogModal(false); setEditingLog(null); }} disabled={isSubmittingLog} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg disabled:opacity-50">取消</button>
+              <button onClick={handleSaveLog} disabled={isSubmittingLog} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded-lg hover:bg-gold-500 disabled:opacity-50">{isSubmittingLog ? '保存中...' : editingLog ? '保存修改' : '发布'}</button>
             </div>
           </div>
         </div>,
