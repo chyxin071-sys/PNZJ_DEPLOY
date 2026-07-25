@@ -77,9 +77,12 @@ async function hydrateCaseAssetUrls(records: unknown[]) {
     const url = String(value || "");
     try {
       const parsed = new URL(url);
-      const match = parsed.hostname.match(/^(.+)\.tcb\.qcloud\.la$/i);
-      if (match) parsed.hostname = `${match[1]}.cos.ap-shanghai.myqcloud.com`;
-      return parsed.toString();
+      const isCloudStorage =
+        /^(.+)\.tcb\.qcloud\.la$/i.test(parsed.hostname) ||
+        /^(.+)\.cos\.ap-shanghai\.myqcloud\.com$/i.test(parsed.hostname);
+      return isCloudStorage
+        ? `/api/case-image?url=${encodeURIComponent(parsed.toString())}`
+        : parsed.toString();
     } catch {
       return url;
     }
