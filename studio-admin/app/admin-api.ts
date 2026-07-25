@@ -73,6 +73,17 @@ async function callCloud<T>(
 
 async function hydrateCaseAssetUrls(records: unknown[]) {
   const cases = records as Array<Record<string, unknown>>;
+  const normalizeCloudAssetUrl = (value: unknown) => {
+    const url = String(value || "");
+    try {
+      const parsed = new URL(url);
+      const match = parsed.hostname.match(/^(.+)\.tcb\.qcloud\.la$/i);
+      if (match) parsed.hostname = `${match[1]}.cos.ap-shanghai.myqcloud.com`;
+      return parsed.toString();
+    } catch {
+      return url;
+    }
+  };
   const collectSectionFileIDs = (sections: unknown) => {
     if (!Array.isArray(sections)) return [];
     return sections.flatMap((section: any) => Array.isArray(section.imageFileIDs) ? section.imageFileIDs : Array.isArray(section.images) ? section.images : []);
@@ -90,13 +101,12 @@ async function hydrateCaseAssetUrls(records: unknown[]) {
     ];
   }).filter((value): value is string => typeof value === "string" && value.startsWith("cloud://"))));
 
-  if (!fileIDs.length) return cases;
   const app = await getCloudApp();
   const urlMap = new Map<string, string>();
   for (let index = 0; index < fileIDs.length; index += 50) {
     const response = await app.getTempFileURL({ fileList: fileIDs.slice(index, index + 50) });
     response.fileList.forEach((item) => {
-      if (item.tempFileURL) urlMap.set(item.fileID, item.tempFileURL);
+      if (item.tempFileURL) urlMap.set(item.fileID, normalizeCloudAssetUrl(item.tempFileURL));
     });
   }
 
@@ -113,16 +123,16 @@ async function hydrateCaseAssetUrls(records: unknown[]) {
         ...section,
         imageFileIDs: sectionImageFileIDs,
         images: sectionImageFileIDs.map((fileID: string, index: number) =>
-          urlMap.get(fileID) || (Array.isArray(section.images) ? section.images[index] : "") || fileID),
+          urlMap.get(fileID) || normalizeCloudAssetUrl(Array.isArray(section.images) ? section.images[index] : "") || fileID),
       };
     }) : [];
     return {
       ...record,
       coverFileID,
       imageFileIDs,
-      cover: urlMap.get(coverFileID) || record.cover || "",
+      cover: urlMap.get(coverFileID) || normalizeCloudAssetUrl(record.cover),
       images: imageFileIDs.map((fileID, index) =>
-        urlMap.get(fileID) || (Array.isArray(record.images) ? record.images[index] : "") || fileID),
+        urlMap.get(fileID) || normalizeCloudAssetUrl(Array.isArray(record.images) ? record.images[index] : "") || fileID),
       imageSections,
     };
   });
