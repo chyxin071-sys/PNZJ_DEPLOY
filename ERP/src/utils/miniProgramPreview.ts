@@ -146,8 +146,8 @@ export function openNativeSubscriptionSettings(currentUserId = '') {
   if (!bridge?.navigateTo) return false;
   window.sessionStorage.setItem(SUBSCRIPTION_OPENED_SESSION_KEY, '1');
   const route = currentUserId
-    ? `${SUBSCRIPTION_PAGE}?currentUserId=${encodeURIComponent(currentUserId)}`
-    : SUBSCRIPTION_PAGE;
+    ? `${SUBSCRIPTION_PAGE}?currentUserId=${encodeURIComponent(currentUserId)}&autoAuthorize=1`
+    : `${SUBSCRIPTION_PAGE}?autoAuthorize=1`;
   bridge.navigateTo({
     url: route,
     fail: (error) => {
