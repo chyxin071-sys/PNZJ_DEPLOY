@@ -7,6 +7,7 @@ export type PublicCase = {
   style: string;
   cover: string;
   images: string[];
+  imageSections?: { name: string; images: string[] }[];
   description: string;
   layoutInfo: string;
   highlights: string;

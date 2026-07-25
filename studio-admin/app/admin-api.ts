@@ -16,6 +16,7 @@ let cachedApp: {
     cloudPath: string;
     filePath: File;
   }): Promise<{ fileID: string }>;
+  getTempFileURL(config: { fileList: string[] }): Promise<{ fileList: Array<{ fileID: string; tempFileURL: string; status?: number }> }>;
 } | null = null;
 
 async function sha256(value: string) {
@@ -70,8 +71,74 @@ async function callCloud<T>(
   return result.data as T;
 }
 
+async function hydrateCaseAssetUrls(records: unknown[]) {
+  const cases = records as Array<Record<string, unknown>>;
+  const collectSectionFileIDs = (sections: unknown) => {
+    if (!Array.isArray(sections)) return [];
+    return sections.flatMap((section: any) => Array.isArray(section.imageFileIDs) ? section.imageFileIDs : Array.isArray(section.images) ? section.images : []);
+  };
+  const fileIDs = Array.from(new Set(cases.flatMap((record) => {
+    const images = Array.isArray(record.imageFileIDs)
+      ? record.imageFileIDs
+      : Array.isArray(record.images)
+        ? record.images
+        : [];
+    return [
+      record.coverFileID || record.cover,
+      ...images,
+      ...collectSectionFileIDs(record.imageSections)
+    ];
+  }).filter((value): value is string => typeof value === "string" && value.startsWith("cloud://"))));
+
+  if (!fileIDs.length) return cases;
+  const app = await getCloudApp();
+  const urlMap = new Map<string, string>();
+  for (let index = 0; index < fileIDs.length; index += 50) {
+    const response = await app.getTempFileURL({ fileList: fileIDs.slice(index, index + 50) });
+    response.fileList.forEach((item) => {
+      if (item.tempFileURL) urlMap.set(item.fileID, item.tempFileURL);
+    });
+  }
+
+  return cases.map((record) => {
+    const coverFileID = String(record.coverFileID || record.cover || "");
+    const imageFileIDs = (Array.isArray(record.imageFileIDs)
+      ? record.imageFileIDs
+      : Array.isArray(record.images)
+        ? record.images
+        : []).map(String);
+    const imageSections = Array.isArray(record.imageSections) ? (record.imageSections as any[]).map((section: any) => {
+      const sectionImageFileIDs = (Array.isArray(section.imageFileIDs) ? section.imageFileIDs : Array.isArray(section.images) ? section.images : []).map(String);
+      return {
+        ...section,
+        imageFileIDs: sectionImageFileIDs,
+        images: sectionImageFileIDs.map((fileID: string, index: number) =>
+          urlMap.get(fileID) || (Array.isArray(section.images) ? section.images[index] : "") || fileID),
+      };
+    }) : [];
+    return {
+      ...record,
+      coverFileID,
+      imageFileIDs,
+      cover: urlMap.get(coverFileID) || record.cover || "",
+      images: imageFileIDs.map((fileID, index) =>
+        urlMap.get(fileID) || (Array.isArray(record.images) ? record.images[index] : "") || fileID),
+      imageSections,
+    };
+  });
+}
+
 export const adminApi = {
   envId: ENV_ID,
+
+  warmup() {
+    return getCloudApp().then(() => undefined);
+  },
+
+  async restoreSession(token: string) {
+    const admin = await callCloud<{ username: string; displayName: string; role: string; mustChangePassword?: boolean }>("getSession", {}, token);
+    return { token, admin, mode: "cloud" as const };
+  },
 
   async login(username: string, password: string) {
     const isLocalPreview =
@@ -97,8 +164,9 @@ export const adminApi = {
     }
   },
 
-  listCases(token: string) {
-    return callCloud<unknown[]>("listCases", { page: 1, pageSize: 50 }, token);
+  async listCases(token: string) {
+    const records = await callCloud<unknown[]>("listCases", { page: 1, pageSize: 50 }, token);
+    return hydrateCaseAssetUrls(records);
   },
 
   listLeads(token: string) {
@@ -184,7 +252,8 @@ export type PublicContentPayload = {
 };
 
 export const publicApi = {
-  getPublicContent() {
-    return callCloud<PublicContentPayload>("getPublicContent");
+  async getPublicContent() {
+    const content = await callCloud<PublicContentPayload>("getPublicContent");
+    return { ...content, cases: await hydrateCaseAssetUrls(content.cases) };
   },
 };

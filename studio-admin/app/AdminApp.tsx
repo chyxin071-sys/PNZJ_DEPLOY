@@ -51,6 +51,8 @@ type AdminSession = {
   admin: { username: string; displayName: string; role: string; mustChangePassword?: boolean };
 };
 
+const ADMIN_SESSION_KEY = "pnzj-studio-admin-session";
+
 type View = "cases" | "case-preview" | "case-edit" | "customers" | "analytics" | "notifications" | "tags" | "admins" | "settings";
 type CaseScope = "全部案例" | "精选案例" | "推荐案例" | "首页大图";
 type SettingsTab = "水印设置" | "品牌资料" | "基础设置";
@@ -72,6 +74,10 @@ type CaseRecord = {
   recommended: boolean;
   homeHero: boolean;
   images: string[];
+  imageNames?: string[];
+  imageSections?: { name: string; images: string[]; imageFileIDs?: string[] }[];
+  coverFileID?: string;
+  imageFileIDs?: string[];
   description: string;
   layoutInfo: string;
   highlights: string;
@@ -79,6 +85,8 @@ type CaseRecord = {
   uploader: string;
   updatedAt?: string;
 };
+
+type ImageSection = { name: string; images: string[]; imageFileIDs: string[] };
 
 type Customer = {
   id: string;
@@ -189,6 +197,8 @@ function Login({ onLogin }: { onLogin: (session: AdminSession) => void }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => { void adminApi.warmup(); }, []);
   useEnterToNext();
 
   async function submit(event: FormEvent) {
@@ -489,7 +499,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (value: stri
   return <div className="rich-editor"><div className="editor-toolbar"><button type="button" title="撤销" onClick={() => command("undo")}><Undo2 size={15} /></button><button type="button" title="重做" onClick={() => command("redo")}><Redo2 size={15} /></button><i /><button type="button" title="加粗" onClick={() => command("bold")}><Bold size={15} /></button><button type="button" title="斜体" onClick={() => command("italic")}><Italic size={15} /></button><button type="button" title="下划线" onClick={() => command("underline")}><Underline size={15} /></button><button type="button" title="左对齐" onClick={() => command("justifyLeft")}><AlignLeft size={15} /></button><button type="button" title="列表" onClick={() => command("insertUnorderedList")}><List size={15} /></button><button type="button" title="清除格式" onClick={() => command("removeFormat")}><RemoveFormatting size={15} /></button><div className="editor-select"><SmartSelect value={fontSize} options={["12px", "14px", "16px", "18px", "20px", "24px"]} onChange={setFontSize} /></div><div className="editor-select"><SmartSelect value={`字距 ${letterSpacing}`} options={["字距 0px", "字距 1px", "字距 2px", "字距 3px", "字距 4px"]} onChange={(next) => setLetterSpacing(next.replace("字距 ", ""))} /></div><div className="editor-select"><SmartSelect value={`行高 ${lineHeight}`} options={["行高 1.5", "行高 1.8", "行高 2", "行高 2.4"]} onChange={(next) => setLineHeight(next.replace("行高 ", ""))} /></div></div><div ref={editorRef} className="editor-content" contentEditable suppressContentEditableWarning style={{ fontSize, letterSpacing, lineHeight }} onInput={(event) => onChange(event.currentTarget.innerHTML)} /><div className="editor-foot"><span>支持基础文字排版与换行</span><span>{value.replace(/<[^>]+>/g, "").length} / 2000</span></div></div>;
 }
 
-function CaseEdit({ item, back, save, notify, communities, styles, currentUsername, addCommunity, addStyle, uploadAsset }: { item?: CaseRecord; back: () => void; save: (item: CaseRecord) => void; notify: (message: string) => void; communities: string[]; styles: string[]; currentUsername: string; addCommunity: (value: string) => void; addStyle: (value: string) => void; uploadAsset: (file: File) => Promise<string> }) {
+function CaseEdit({ item, back, save, notify, communities, styles, currentUsername, addCommunity, addStyle, uploadAsset }: { item?: CaseRecord; back: () => void; save: (item: CaseRecord) => Promise<void>; notify: (message: string) => void; communities: string[]; styles: string[]; currentUsername: string; addCommunity: (value: string) => void; addStyle: (value: string) => void; uploadAsset: (file: File) => Promise<string> }) {
   const [name, setName] = useState(item?.name || "");
   const [community, setCommunity] = useState(item?.community || "");
   const [area, setArea] = useState(String(item?.area || ""));
@@ -500,7 +510,43 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   const [style, setStyle] = useState(item?.style || "现代简约");
   const [status, setStatus] = useState<CaseRecord["status"]>(item?.status || "草稿");
   const [cover, setCover] = useState(item?.cover || "");
+  const [coverFileID, setCoverFileID] = useState(item?.coverFileID || item?.cover || "");
   const [images, setImages] = useState(item?.images || []);
+  const [imageFileIDs, setImageFileIDs] = useState(item?.imageFileIDs || item?.images || []);
+  const [imageNames, setImageNames] = useState<string[]>(() => (item?.imageNames || []).slice(0, item?.images.length || 0));
+  const [imageSections, setImageSections] = useState<ImageSection[]>(() => {
+    if (item?.imageSections?.length) {
+      return item.imageSections.map((section) => ({
+        name: section.name || "",
+        images: section.images || [],
+        imageFileIDs: section.imageFileIDs || section.images || []
+      }));
+    }
+    if (item?.images?.length) {
+      return [{
+        name: "",
+        images: item.images,
+        imageFileIDs: item.imageFileIDs || item.images
+      }];
+    }
+    return [];
+  });
+  const [sectionDragging, setSectionDragging] = useState(false);
+  const [sectionDragIndex, setSectionDragIndex] = useState<number | null>(null);
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
+  const [sectionUploading, setSectionUploading] = useState<Record<number, string[]>>({});
+  const [sectionDeleteIndex, setSectionDeleteIndex] = useState<{ section: number; image: number } | null>(null);
+  const [galleryDragging, setGalleryDragging] = useState(false);
+  const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+  const draggedImageIndexRef = useRef<number | null>(null);
+  const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>(() => {
+    const previews: Record<string, string> = {};
+    if (item?.coverFileID && item.cover) previews[item.coverFileID] = item.cover;
+    (item?.imageFileIDs || []).forEach((fileID, index) => { if (item.images[index]) previews[fileID] = item.images[index]; });
+    return previews;
+  });
+  const [uploadingImages, setUploadingImages] = useState<string[]>([]);
+  const [coverDragging, setCoverDragging] = useState(false);
   const [description, setDescription] = useState(item?.description || "");
   const [layoutInfo, setLayoutInfo] = useState(item?.layoutInfo || "");
   const [highlights, setHighlights] = useState(item?.highlights || "");
@@ -514,6 +560,7 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   const [cropFile, setCropFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
 
   function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -522,22 +569,242 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     event.target.value = "";
   }
 
+  function handleCoverDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setCoverDragging(false);
+    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith("image/"));
+    if (file) setCropFile(file);
+  }
+
   async function applyCoverCrop(file: File) {
-    setCover(await uploadAsset(file));
+    const fileID = await uploadAsset(file);
+    const localUrl = URL.createObjectURL(file);
+    setAssetPreviews((current) => ({ ...current, [fileID]: localUrl }));
+    setCover(localUrl);
+    setCoverFileID(fileID);
     setCropFile(null);
     notify("封面图已更新");
   }
 
-  async function handleGalleryFiles(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files || []).slice(0, Math.max(0, 20 - images.length));
+  async function uploadGalleryFiles(selectedFiles: File[]) {
+    const files = selectedFiles.filter((file) => file.type.startsWith("image/")).slice(0, Math.max(0, 30 - images.length));
     if (!files.length) return;
-    const uploaded = await Promise.all(files.map(uploadAsset));
-    setImages((current) => [...current, ...uploaded].slice(0, 20));
-    event.target.value = "";
-    notify(`已上传 ${uploaded.length} 张案例图片`);
+    const pending = files.map((file) => ({ file, localUrl: URL.createObjectURL(file) }));
+    setImages((current) => [...current, ...pending.map((item) => item.localUrl)].slice(0, 30));
+    setImageFileIDs((current) => [...current, ...pending.map((item) => item.localUrl)].slice(0, 30));
+    setImageNames((current) => [...current, ...pending.map(() => "")].slice(0, 30));
+    setUploadingImages((current) => [...current, ...pending.map((item) => item.localUrl)]);
+    notify(`正在上传 ${pending.length} 张案例图片`);
+    let succeeded = 0;
+    await Promise.all(pending.map(async ({ file, localUrl }) => {
+      try {
+        const remoteUrl = await uploadAsset(file);
+        setAssetPreviews((current) => ({ ...current, [remoteUrl]: localUrl }));
+        setImageFileIDs((current) => current.map((url) => url === localUrl ? remoteUrl : url));
+        succeeded += 1;
+      } catch (error) {
+        console.error("gallery upload failed", error);
+        setImages((current) => current.filter((url) => url !== localUrl));
+        setImageFileIDs((current) => current.filter((url) => url !== localUrl));
+      } finally {
+        setUploadingImages((current) => current.filter((url) => url !== localUrl));
+      }
+    }));
+    notify(succeeded === pending.length ? `已上传 ${succeeded} 张案例图片` : `${succeeded} 张上传成功，${pending.length - succeeded} 张失败`);
   }
 
-  function submit(nextStatus: CaseRecord["status"]) {
+  async function handleGalleryFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    await uploadGalleryFiles(Array.from(event.target.files || []));
+    event.target.value = "";
+  }
+
+  function moveImage(from: number, to: number) {
+    if (from === to) return;
+    setImages((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
+    setImageFileIDs((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
+    setImageNames((current) => { const next = Array.from({ length: images.length }, (_, index) => current[index] || ""); const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
+  }
+
+  function finishImageSort() {
+    draggedImageIndexRef.current = null;
+    setDraggedImageIndex(null);
+  }
+
+  useEffect(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".image-management .gallery-image-card"));
+    const cleanups = cards.map((card, index) => {
+      const start = (event: DragEvent) => {
+        if ((event.target as HTMLElement)?.closest("input, button.remove-image")) {
+          event.preventDefault();
+          return;
+        }
+        draggedImageIndexRef.current = index;
+        setDraggedImageIndex(index);
+        card.classList.add("is-sorting");
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+      };
+      const over = (event: DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        cards.forEach((item) => item.classList.remove("is-drop-target"));
+        card.classList.add("is-drop-target");
+        const from = draggedImageIndexRef.current;
+        if (from === null || from === index) return;
+        const rect = card.getBoundingClientRect();
+        const crossed = from < index ? event.clientX > rect.left + rect.width * .38 : event.clientX < rect.right - rect.width * .38;
+        if (!crossed) return;
+        moveImage(from, index);
+        draggedImageIndexRef.current = index;
+        setDraggedImageIndex(index);
+      };
+      const end = () => {
+        cards.forEach((item) => item.classList.remove("is-sorting", "is-drop-target"));
+        finishImageSort();
+      };
+      card.addEventListener("dragstart", start, true);
+      card.addEventListener("dragover", over, true);
+      card.addEventListener("drop", end, true);
+      card.addEventListener("dragend", end, true);
+      return () => {
+        card.removeEventListener("dragstart", start, true);
+        card.removeEventListener("dragover", over, true);
+        card.removeEventListener("drop", end, true);
+        card.removeEventListener("dragend", end, true);
+      };
+    });
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [images]);
+
+  // --- Image Section Operations ---
+
+  function addSection() {
+    setImageSections((current) => [...current, { name: "", images: [], imageFileIDs: [] }]);
+  }
+
+  function removeSection(index: number) {
+    setImageSections((current) => current.filter((_, i) => i !== index));
+  }
+
+  function moveSection(from: number, to: number) {
+    if (from === to || to < 0 || to >= imageSections.length) return;
+    setImageSections((current) => {
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  function updateSectionName(index: number, name: string) {
+    setImageSections((current) => current.map((section, i) => i === index ? { ...section, name } : section));
+  }
+
+  function addSectionFileInput() {
+    const sectionIndex = activeSectionIndex;
+    if (sectionIndex === null) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.multiple = true;
+    input.onchange = (event) => {
+      const files = Array.from((event.target as HTMLInputElement).files || []);
+      if (files.length) void uploadToSection(sectionIndex, files);
+    };
+    input.click();
+  }
+
+  async function uploadToSection(sectionIndex: number, files: File[]) {
+    const currentTotal = imageSections.reduce((sum, section) => sum + section.images.length, 0);
+    const available = Math.max(0, 30 - currentTotal);
+    const imageFiles = files.filter((file) => file.type.startsWith("image/")).slice(0, available);
+    if (!available) {
+      notify("每个案例最多上传30张图片");
+      return;
+    }
+    if (!imageFiles.length) return;
+    const pending = imageFiles.map((file) => ({ file, localUrl: URL.createObjectURL(file) }));
+    setImageSections((current) => current.map((section, i) => {
+      if (i !== sectionIndex) return section;
+      return {
+        ...section,
+        images: [...section.images, ...pending.map((p) => p.localUrl)],
+        imageFileIDs: [...section.imageFileIDs, ...pending.map((p) => p.localUrl)]
+      };
+    }));
+    setSectionUploading((current) => ({ ...current, [sectionIndex]: pending.map((p) => p.localUrl) }));
+    notify(`正在上传 ${pending.length} 张图片`);
+    let succeeded = 0;
+    await Promise.all(pending.map(async ({ file, localUrl }) => {
+      try {
+        const remoteUrl = await uploadAsset(file);
+        setAssetPreviews((current) => ({ ...current, [remoteUrl]: localUrl }));
+        setImageSections((current) => current.map((section, i) => {
+          if (i !== sectionIndex) return section;
+          return {
+            ...section,
+            imageFileIDs: section.imageFileIDs.map((url) => url === localUrl ? remoteUrl : url)
+          };
+        }));
+        succeeded++;
+      } catch (error) {
+        console.error("section upload failed", error);
+        setImageSections((current) => current.map((section, i) => {
+          if (i !== sectionIndex) return section;
+          return {
+            ...section,
+            images: section.images.filter((url) => url !== localUrl),
+            imageFileIDs: section.imageFileIDs.filter((url) => url !== localUrl)
+          };
+        }));
+      } finally {
+        setSectionUploading((current) => {
+          const next = { ...current };
+          next[sectionIndex] = (next[sectionIndex] || []).filter((url) => url !== localUrl);
+          if (!next[sectionIndex].length) delete next[sectionIndex];
+          return next;
+        });
+      }
+    }));
+    notify(succeeded === pending.length ? `已上传 ${succeeded} 张图片` : `${succeeded} 张上传成功`);
+  }
+
+  function removeSectionImage(sectionIndex: number, imageIndex: number) {
+    setImageSections((current) => current.map((section, i) => {
+      if (i !== sectionIndex) return section;
+      return {
+        ...section,
+        images: section.images.filter((_, j) => j !== imageIndex),
+        imageFileIDs: section.imageFileIDs.filter((_, j) => j !== imageIndex)
+      };
+    }));
+  }
+
+  function moveSectionImage(sectionIndex: number, from: number, to: number) {
+    if (from === to) return;
+    setImageSections((current) => current.map((section, i) => {
+      if (i !== sectionIndex) return section;
+      const nextImages = [...section.images];
+      const [movedImg] = nextImages.splice(from, 1);
+      nextImages.splice(to, 0, movedImg);
+      const nextFileIDs = [...section.imageFileIDs];
+      const [movedID] = nextFileIDs.splice(from, 1);
+      nextFileIDs.splice(to, 0, movedID);
+      return { ...section, images: nextImages, imageFileIDs: nextFileIDs };
+    }));
+  }
+
+  const isUploadingAny = Object.values(sectionUploading).some((arr) => arr.length > 0);
+  const totalSectionImages = imageSections.reduce((sum, section) => sum + section.images.length, 0);
+
+  async function submit(nextStatus: CaseRecord["status"]) {
+    if (savingRef.current) {
+      notify("案例正在保存，请勿重复点击");
+      return;
+    }
+    if (uploadingImages.length || isUploadingAny) {
+      notify("还有图片正在上传，请稍候");
+      return;
+    }
     if (!name.trim() || !community.trim() || !area) {
       notify("请先填写案例名称、小区和面积");
       return;
@@ -548,7 +815,39 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     }
     addCommunity(community);
     addStyle(style);
-    save({ _id: item?._id, id: item?.id || `A${Date.now()}`, name, community, area: Number(area), layout: `${rooms}室${halls}厅`, style, status: nextStatus, views: item?.views || 0, favorites: item?.favorites || 0, shares: item?.shares || 0, cover, featured: item?.featured || false, recommended: item?.recommended || false, homeHero: item?.homeHero || false, images, description, layoutInfo, highlights, tags: selectedTags, uploader: item?.uploader || currentUsername, updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16) });
+    savingRef.current = true;
+    try {
+      const cleanSections = imageSections
+        .map((section) => ({
+          name: section.name.trim(),
+          images: section.imageFileIDs.filter(Boolean)
+        }))
+        .filter((section) => section.name && section.images.length);
+      const unnamedWithImages = imageSections.some((section) => !section.name.trim() && section.images.length);
+      if (unnamedWithImages) {
+        notify("请填写所有图片分区的名称");
+        return;
+      }
+      const allSectionImages = imageSections.flatMap((section) => section.images);
+      const allSectionFileIDs = imageSections.flatMap((section) => section.imageFileIDs);
+      await save({
+        _id: item?._id, id: item?.id || `A${Date.now()}`, name, community, area: Number(area),
+        layout: `${rooms}室${halls}厅`, style, status: nextStatus,
+        views: item?.views || 0, favorites: item?.favorites || 0, shares: item?.shares || 0,
+        cover, coverFileID,
+        featured: item?.featured || false, recommended: item?.recommended || false, homeHero: item?.homeHero || false,
+        images: allSectionImages,
+        imageFileIDs: allSectionFileIDs,
+        imageNames: allSectionImages.map(() => ""),
+        imageSections: cleanSections,
+        description, layoutInfo, highlights,
+        tags: selectedTags,
+        uploader: item?.uploader || currentUsername,
+        updatedAt: new Date().toISOString().replace("T", " ").slice(0, 16)
+      });
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   const editorValue = contentTab === "案例说明" ? description : contentTab === "户型信息" ? layoutInfo : highlights;
@@ -556,8 +855,8 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
   return <section className="page-section case-edit-page edit-form"><div className="edit-page-head"><button className="back-button" onClick={back}><ChevronLeft size={17} />{item ? "返回案例详情" : "返回案例列表"}</button></div><div className="case-edit-stack">
     <section className="edit-surface"><header><h3>基础资料</h3><p>用于案例列表、筛选和详情页展示</p></header><div className="case-basic-grid"><label className="required"><span>案例名称</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="请输入案例名称" /></label><label className="required"><span>所属小区</span><button type="button" className="community-trigger" onClick={() => setCommunityOpen(true)}><span className={community ? "" : "placeholder"}>{community || "请选择小区"}</span><ChevronDown size={16} /></button></label><label className="required"><span>设计风格</span><button type="button" className="community-trigger" onClick={() => setStyleOpen(true)}><span className={style ? "" : "placeholder"}>{style || "请选择设计风格"}</span><ChevronDown size={16} /></button></label><label className="wide-field required"><span>户型 / 面积</span><div className="layout-inputs"><div><input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} /><i>㎡</i></div><div><input value={rooms} inputMode="numeric" onChange={(event) => setRooms(event.target.value)} /><i>室</i></div><div><input value={halls} inputMode="numeric" onChange={(event) => setHalls(event.target.value)} /><i>厅</i></div><div><input value={baths} inputMode="numeric" onChange={(event) => setBaths(event.target.value)} /><i>卫</i></div></div></label><label className="wide-field"><span>案例状态</span><div className="status-segment">{(["已上架", "草稿", "已下架"] as const).map((value) => <button type="button" className={status === value ? "active" : ""} onClick={() => setStatus(value)} key={value}>{value}</button>)}</div></label></div></section>
     <section className="edit-surface"><header><h3>案例内容</h3><p>分别编辑详情页的三个内容模块</p></header><div className="content-edit-tabs">{["案例说明", "户型信息", "设计亮点"].map((sectionName) => <button type="button" className={contentTab === sectionName ? "active" : ""} onClick={() => setContentTab(sectionName)} key={sectionName}>{sectionName}</button>)}</div><RichEditor value={editorValue} onChange={setEditorValue} /><div className="case-keyword-editor"><div><strong>案例关键词</strong><span>自己输入，回车后自动生成标签</span></div><KeywordInput value={selectedTags} onChange={setSelectedTags} /></div></section>
-    <section className="edit-surface image-management"><header><h3>图片管理</h3></header><div className="image-management-grid"><div><h4>案例封面 <small>16:9，建议 1600×900px</small></h4><div className={`cover-upload${cover ? "" : " empty"}`}>{cover ? <><button className="cover-preview-button" onClick={() => setCoverPreviewOpen(true)}><img src={cover} alt="" /></button><button onClick={() => fileRef.current?.click()}><Upload size={15} />重新上传</button></> : <button className="cover-empty" onClick={() => fileRef.current?.click()}><Plus size={22} />上传封面</button>}<input ref={fileRef} hidden type="file" accept="image/*" onChange={handleFile} /></div></div><div><h4>案例图片 <small>最多20张，建议横屏</small></h4><div className="upload-grid">{images.map((photo, index) => <div key={`${photo}-${index}`}><button className="thumbnail-preview" onClick={() => setLightboxIndex(index)}><img src={photo} alt="" /></button><button className="remove-image" onClick={() => setDeleteIndex(index)}><X size={14} /></button></div>)}<button className="add-image" onClick={() => galleryFileRef.current?.click()}><Plus size={22} />上传图片</button><input ref={galleryFileRef} hidden type="file" accept="image/*" multiple onChange={handleGalleryFiles} /></div></div></div></section>
-  </div><div className="sticky-actions"><button className="line-button" onClick={back}>取消</button><button className="line-button" onClick={() => submit("草稿")}><Save size={15} />保存草稿</button><button data-enter-submit className="gold-button" onClick={() => submit("已上架")}>保存并上架</button></div>{communityOpen && <CommunityPicker value={community} options={communities} close={() => setCommunityOpen(false)} select={(value) => { setCommunity(value); addCommunity(value); setCommunityOpen(false); }} />}{styleOpen && <CommunityPicker value={style} options={styles} title="选择设计风格" description="选择已有风格，或添加一个新的设计风格" searchPlaceholder="搜索设计风格" customPlaceholder="输入自定义风格" close={() => setStyleOpen(false)} select={(value) => { setStyle(value); addStyle(value); setStyleOpen(false); }} />}{cropFile && <CoverCropper file={cropFile} close={() => setCropFile(null)} confirm={(file) => void applyCoverCrop(file)} />}{coverPreviewOpen && cover && <ImageLightbox images={[cover]} index={0} setIndex={() => undefined} close={() => setCoverPreviewOpen(false)} />}{lightboxIndex !== null && images.length > 0 && <ImageLightbox images={images} index={Math.min(lightboxIndex, images.length - 1)} setIndex={setLightboxIndex} close={() => setLightboxIndex(null)} />}{deleteIndex !== null && <ConfirmAction title="删除这张案例图片？" text="删除后需要重新上传才能恢复。" cancel={() => setDeleteIndex(null)} confirm={() => { setImages((current) => current.filter((_, index) => index !== deleteIndex)); setDeleteIndex(null); notify("案例图片已删除"); }} />}</section>;
+    <section className="edit-surface image-management"><header><h3>图片管理</h3></header><div className="image-management-grid"><div><h4>案例封面 <small>16:9，建议 1600×900px；支持拖入</small></h4><div className={`cover-upload${cover ? "" : " empty"}${coverDragging ? " is-dragging" : ""}`} onDragEnter={(event) => { event.preventDefault(); setCoverDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setCoverDragging(false); }} onDrop={handleCoverDrop}>{cover ? <><button className="cover-preview-button" onClick={() => setCoverPreviewOpen(true)}><img src={previewUrl(cover)} alt="" /></button><button onClick={() => fileRef.current?.click()}><Upload size={15} />重新上传</button></> : <button className="cover-empty" onClick={() => fileRef.current?.click()}><Plus size={22} />点击或拖入封面</button>}<input ref={fileRef} hidden type="file" accept="image/*" onChange={handleFile} /></div></div><div><h4>图片分区 <small>按空间分组，共 {totalSectionImages}/30 张，可调整区域和图片顺序</small></h4><div className="section-list">{imageSections.map((section, si) => <div className="image-section-card" key={si}><div className="section-header"><input className="section-name-input" value={section.name} maxLength={20} onChange={(event) => updateSectionName(si, event.target.value)} placeholder="分区名称（如：客厅）" /><div className="section-order-actions"><button disabled={si === 0} onClick={() => moveSection(si, si - 1)} title="上移区域">↑</button><button disabled={si === imageSections.length - 1} onClick={() => moveSection(si, si + 1)} title="下移区域">↓</button></div><button className="remove-section-btn" onClick={() => removeSection(si)} title="删除分区"><X size={14} /></button></div><div className={`section-drop-zone${sectionDragging && activeSectionIndex === si ? " is-dragging" : ""}`} onDragEnter={(event) => { event.preventDefault(); setSectionDragging(true); setActiveSectionIndex(si); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) { setSectionDragging(false); setActiveSectionIndex(null); } }} onDrop={(event) => { event.preventDefault(); setSectionDragging(false); setActiveSectionIndex(null); if (event.dataTransfer.files.length) void uploadToSection(si, Array.from(event.dataTransfer.files)); }}><div className="section-image-grid">{section.images.map((img, ii) => { const flatIndex = imageSections.slice(0, si).reduce((sum, s) => sum + s.images.length, 0) + ii; return <div className={`section-image-card${(sectionUploading[si] || []).includes(img) ? " is-uploading" : ""}`} draggable={!(sectionUploading[si] || []).includes(img)} key={`${img}-${ii}`} onDragStart={() => setSectionDragIndex(ii)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (sectionDragIndex !== null) moveSectionImage(si, sectionDragIndex, ii); setSectionDragIndex(null); }}><div className="section-image-frame"><button className="thumbnail-preview" onClick={() => setLightboxIndex(flatIndex)}><img src={previewUrl(img)} alt={section.name} /></button>{(sectionUploading[si] || []).includes(img) && <span className="image-uploading">上传中…</span>}<button className="remove-image" onClick={() => setSectionDeleteIndex({ section: si, image: ii })}><X size={14} /></button></div></div>; })}{totalSectionImages < 30 && <button className="add-image" onClick={() => { setActiveSectionIndex(si); addSectionFileInput(); }}><Plus size={22} />上传图片</button>}</div></div></div>)}<button className="add-section-btn" onClick={addSection}><Plus size={18} />添加分区</button></div></div></div></section>
+  </div><div className="sticky-actions"><button className="line-button" onClick={back}>取消</button><button className="line-button" onClick={() => submit("草稿")}><Save size={15} />保存草稿</button><button data-enter-submit className="gold-button" onClick={() => submit("已上架")}>保存并上架</button></div>{communityOpen && <CommunityPicker value={community} options={communities} close={() => setCommunityOpen(false)} select={(value) => { setCommunity(value); addCommunity(value); setCommunityOpen(false); }} />}{styleOpen && <CommunityPicker value={style} options={styles} title="选择设计风格" description="选择已有风格，或添加一个新的设计风格" searchPlaceholder="搜索设计风格" customPlaceholder="输入自定义风格" close={() => setStyleOpen(false)} select={(value) => { setStyle(value); addStyle(value); setStyleOpen(false); }} />}{cropFile && <CoverCropper file={cropFile} close={() => setCropFile(null)} confirm={(file) => void applyCoverCrop(file)} />}{coverPreviewOpen && cover && <ImageLightbox images={[cover]} index={0} setIndex={() => undefined} close={() => setCoverPreviewOpen(false)} />}{lightboxIndex !== null && imageSections.flatMap((s) => s.images).length > 0 && <ImageLightbox images={imageSections.flatMap((s) => s.images)} index={Math.min(lightboxIndex, imageSections.flatMap((s) => s.images).length - 1)} setIndex={setLightboxIndex} close={() => setLightboxIndex(null)} />}{sectionDeleteIndex !== null && <ConfirmAction title="删除这张案例图片？" text="删除后需要重新上传才能恢复。" cancel={() => setSectionDeleteIndex(null)} confirm={() => { removeSectionImage(sectionDeleteIndex.section, sectionDeleteIndex.image); setSectionDeleteIndex(null); notify("案例图片已删除"); }} />}</section>;
 }
 
 function Customers({ customers, notify }: { customers: Customer[]; notify: (message: string) => void }) {
@@ -865,13 +1164,14 @@ function Toast({ children }: { children: ReactNode }) {
 
 export function AdminApp() {
   const [session, setSession] = useState<AdminSession | null>(null);
+  const [restoringSession, setRestoringSession] = useState(true);
   const [view, setView] = useState<View>("cases");
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
   const [caseReturnView, setCaseReturnView] = useState<View>("cases");
-  const [cases, setCases] = useState(initialCases);
-  const [communities, setCommunities] = useState(Array.from(new Set(initialCases.map((item) => item.community))));
-  const [styles, setStyles] = useState(Array.from(new Set([...DEFAULT_STYLES, ...initialCases.map((item) => item.style).filter(Boolean)])));
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [communities, setCommunities] = useState<string[]>([]);
+  const [styles, setStyles] = useState<string[]>(DEFAULT_STYLES);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
@@ -892,6 +1192,39 @@ export function AdminApp() {
     settings: "系统设置",
   };
   useEnterToNext();
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!raw) {
+      setRestoringSession(false);
+      return;
+    }
+    try {
+      const stored = JSON.parse(raw) as AdminSession;
+      if (!stored.token || stored.mode !== "cloud") throw new Error("INVALID_STORED_SESSION");
+      adminApi.restoreSession(stored.token)
+        .then((restored) => setSession(restored))
+        .catch(() => window.localStorage.removeItem(ADMIN_SESSION_KEY))
+        .finally(() => setRestoringSession(false));
+    } catch {
+      window.localStorage.removeItem(ADMIN_SESSION_KEY);
+      setRestoringSession(false);
+    }
+  }, []);
+
+  function acceptSession(next: AdminSession) {
+    setSession(next);
+    if (next.mode === "cloud") window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(next));
+  }
+
+  function clearSession() {
+    window.localStorage.removeItem(ADMIN_SESSION_KEY);
+    setSession(null);
+  }
+
+  useEffect(() => {
+    if (!restoringSession && !session) window.localStorage.removeItem(ADMIN_SESSION_KEY);
+  }, [session, restoringSession]);
 
   function notify(message: string) {
     setToast(message);
@@ -917,7 +1250,7 @@ export function AdminApp() {
     let saved = record;
     if (session?.mode === "cloud") {
       const { _id, ...data } = record;
-      const result = await adminApi.saveCase(session.token, { ...data, caseNo: record.id }, _id);
+      const result = await adminApi.saveCase(session.token, { ...data, cover: record.coverFileID || record.cover, images: record.imageFileIDs || record.images, coverFileID: undefined, imageFileIDs: undefined, caseNo: record.id }, _id);
       saved = { ...record, _id: result.id };
     }
     setCases((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
@@ -967,10 +1300,13 @@ export function AdminApp() {
         favorites: Number(record.favorites) || 0,
         shares: Number(record.shares) || 0,
         cover: record.cover || record.coverUrl || photos[0],
+        coverFileID: record.coverFileID || record.cover || record.coverUrl || "",
         featured: Boolean(record.featured),
         recommended: Boolean(record.recommended),
         homeHero: Boolean(record.homeHero),
         images: Array.isArray(record.images) && record.images.length ? record.images : [record.cover || record.coverUrl || photos[0]],
+        imageFileIDs: Array.isArray(record.imageFileIDs) && record.imageFileIDs.length ? record.imageFileIDs : (Array.isArray(record.images) ? record.images : []),
+        imageNames: Array.isArray(record.imageNames) ? record.imageNames : [],
         description: record.description || "",
         layoutInfo: record.layoutInfo || "",
         highlights: record.highlights || "",
@@ -1008,7 +1344,8 @@ export function AdminApp() {
     return () => window.clearInterval(timer);
   }, [session]);
 
-  if (!session) return <Login onLogin={setSession} />;
+  if (restoringSession) return <div className="login-page"><div className="login-card"><div className="login-brand"><img src={logoFull.src} alt="品诺筑家整装" /></div><p className="login-restoring">正在恢复登录状态…</p></div></div>;
+  if (!session) return <Login onLogin={acceptSession} />;
 
   const visibleNavItems = navItems.filter((item) => session.admin.role === "超级管理员" || !["admins", "settings"].includes(item.key));
   const activeCase = selectedCase || cases[0];
