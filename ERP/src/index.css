@@ -1,0 +1,420 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1a1a1a;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: #f5f6f8;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 滚动条 - 亮色 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
+/* 移动端隐藏滚动条 */
+@media (max-width: 767px) {
+  html {
+    font-size: 110%;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  * {
+    scrollbar-width: none;
+  }
+}
+
+@layer components {
+  .erp-page {
+    @apply p-4 md:p-6;
+    --erp-list-sticky-offset: 49px;
+  }
+
+  .erp-page-spaced {
+    @apply p-4 md:p-6 space-y-4;
+    --erp-list-sticky-offset: 49px;
+  }
+
+  .erp-page-header {
+    @apply flex items-center justify-between gap-3 mb-4;
+  }
+
+  .erp-page-title {
+    @apply text-base md:text-lg font-bold text-gray-900 leading-tight;
+  }
+
+  .erp-page-subtitle {
+    @apply text-gold-500 text-xs md:text-sm mt-0.5;
+  }
+
+  .erp-surface {
+    @apply bg-white rounded-xl border border-gray-100;
+    --erp-list-sticky-offset: 49px;
+  }
+
+  .erp-search-row {
+    @apply flex items-center gap-2 px-3 py-2 border-b border-gray-100;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(10px);
+  }
+
+  .erp-search-row .erp-select {
+    @apply py-1.5;
+  }
+
+  .erp-list-head {
+    @apply hidden md:grid items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-2 text-[11px] font-semibold text-gray-400;
+    position: sticky;
+    top: var(--erp-list-sticky-offset, 0);
+    z-index: 24;
+    backdrop-filter: blur(10px);
+  }
+
+  .erp-list-row {
+    @apply bg-white transition-colors hover:bg-gray-50;
+  }
+
+  .erp-search-field {
+    @apply flex-1 relative min-w-0;
+  }
+
+  .erp-search-icon {
+    @apply absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400;
+  }
+
+  .erp-search-input {
+    @apply w-full pl-8 pr-3 py-1.5 text-xs md:text-sm border border-gray-200 rounded-lg bg-white text-gray-700
+           placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-gold-400 transition-colors duration-150;
+  }
+
+  .erp-filter-button {
+    @apply flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium rounded-lg border transition-colors shrink-0;
+  }
+
+  .erp-filter-button-active {
+    @apply border-gold-400 text-gold-600;
+    background-color: #fff8e8;
+  }
+
+  .erp-filter-button-idle {
+  @apply bg-white border-gray-200 text-gray-600 hover:border-gray-300;
+}
+
+  .erp-filter-panel {
+    @apply p-3 border-b border-gray-100 bg-gray-50/50;
+  }
+
+  /* 隐藏滚动条但仍可滚动 */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 统一输入框 */
+  .erp-input {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 
+           placeholder-gray-400 bg-white
+           focus:outline-none focus:ring-1 focus:ring-gold-400 focus:border-gold-400
+           transition-colors duration-150;
+  }
+  
+  /* 统一下拉选择 */
+  .erp-select {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+           bg-white appearance-none cursor-pointer
+           focus:outline-none focus:ring-1 focus:ring-gold-400 focus:border-gold-400
+           transition-colors duration-150;
+  }
+  
+  /* 统一日期输入 - 增强版 */
+  .erp-date {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+           bg-white
+           focus:outline-none focus:ring-1 focus:ring-gold-400 focus:border-gold-400
+           transition-colors duration-150;
+  }
+
+  /* 日历图标（用伪元素模拟） */
+  .erp-date::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    filter: invert(0.5);
+    padding: 4px;
+  }
+  .erp-date::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
+  /* select 选项统一样式 */
+  .erp-select option {
+    @apply text-gray-700 bg-white py-2 px-3;
+  }
+
+  /* 统一所有表单控件hover态 */
+  .erp-input:hover,
+  .erp-select:hover,
+  .erp-date:hover {
+    @apply border-gray-300;
+  }
+
+  /* 禁用态 */
+  .erp-input:disabled,
+  .erp-select:disabled,
+  .erp-date:disabled {
+    @apply bg-gray-50 text-gray-400 cursor-not-allowed;
+  }
+
+  /* 统一主按钮 */
+  .erp-btn-primary {
+    @apply inline-flex items-center gap-1.5 bg-gray-900 hover:bg-black text-white 
+           text-sm font-medium px-3 py-2 rounded-lg transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-sm whitespace-nowrap;
+  }
+  
+  /* 统一次按钮 */
+  .erp-btn-secondary {
+    @apply inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 
+           hover:bg-gray-50 text-xs font-medium px-4 py-2 rounded-lg 
+           transition-colors duration-150;
+  }
+  
+  /* 统一标签/badge */
+  .erp-badge {
+    @apply inline-flex items-center text-xs px-2 py-0.5 rounded font-medium;
+  }
+
+  /* 响应式：移动端表单控件适当缩小 */
+  @media (max-width: 768px) {
+    .erp-input, .erp-select, .erp-date {
+      @apply text-xs py-1.5;
+    }
+  }
+}
+
+/* 响应式表格容器 */
+@media (max-width: 768px) {
+  .resp-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  body {
+    background-color: #f5f6f8;
+  }
+}
+
+.mobile-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ========== DataTable：固定表头 + 固定列 ========== */
+.data-table-wrapper {
+  @apply w-full;
+}
+
+/* 桌面端表格容器 */
+.data-table-scroll {
+  overflow: visible;
+}
+
+.data-table-wide-header {
+  position: sticky;
+  top: var(--erp-list-sticky-offset, 0);
+  z-index: 25;
+  overflow-x: hidden;
+  overflow-y: clip;
+  background: #fff;
+}
+
+.data-table-wide-body {
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+}
+
+/* 表头行：不做 sticky（整表在容器内滚动，header 跟随滚动），
+   但如果需要固定表头，外层容器 overflow:auto + max-height 即可 */
+.data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table-th {
+  @apply text-left py-3 px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap bg-white;
+  position: sticky;
+  top: var(--erp-list-sticky-offset, 0);
+  z-index: 20;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.erp-surface .data-table-th {
+  top: var(--erp-list-sticky-offset, 0);
+}
+
+.data-table-td {
+  @apply py-2.5 px-3 text-gray-700 align-top;
+  white-space: nowrap;
+  border-bottom: 1px solid #f9fafb;
+}
+
+.data-table-row:hover {
+  background-color: #f9fafb;
+}
+
+/* 固定左侧列 */
+.data-table-sticky-left {
+  position: sticky;
+  z-index: 10;
+}
+
+.data-table-sticky-td {
+  background-color: #fff;
+}
+
+.data-table-row:hover .data-table-sticky-td {
+  background-color: #f9fafb;
+}
+
+/* 让固定列的 th 也有背景 */
+.data-table-th.data-table-sticky-left {
+  z-index: 30;
+}
+
+.erp-page table thead th,
+.erp-page-spaced table thead th {
+  position: sticky;
+  top: var(--erp-list-sticky-offset, 0);
+  z-index: 20;
+  background-color: #fff;
+  box-shadow: inset 0 -1px 0 #f3f4f6;
+}
+
+.erp-surface table thead th {
+  top: var(--erp-list-sticky-offset, 0);
+}
+
+.erp-page table thead th:first-child,
+.erp-page-spaced table thead th:first-child {
+  z-index: 21;
+}
+
+.erp-page .data-table-wide-header table thead th,
+.erp-page-spaced .data-table-wide-header table thead th {
+  position: sticky;
+  top: auto;
+  box-shadow: inset 0 -1px 0 #f3f4f6;
+}
+
+.data-table-scroll-internal .data-table-th {
+  top: 0;
+}
+
+/* ========== 移动端迷你表格 ========== */
+.data-table-mobile-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.data-table-mobile-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.data-table-mobile {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+}
+
+.data-table-mobile-th {
+  @apply text-left py-2 px-2 text-[10px] font-semibold text-gray-400 uppercase whitespace-nowrap bg-white;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.data-table-mobile-td {
+  @apply py-2 px-2 text-gray-700 align-middle;
+  white-space: nowrap;
+  font-size: 12px;
+  border-bottom: 1px solid #f9fafb;
+}
+
+.data-table-mobile-row:active {
+  background-color: #f9fafb;
+}
+
+/* 移动端点击选中行：整行变灰，横滑后仍可识别 */
+.data-table-mobile-row-selected td {
+  background-color: #eef1f4;
+}
+.data-table-mobile-row-selected .data-table-mobile-sticky-td {
+  background-color: #eef1f4;
+}
+
+.data-table-mobile-sticky-td {
+  background-color: #fff;
+}
+
+.data-table-mobile-row:active .data-table-mobile-sticky-td {
+  background-color: #f9fafb;
+}
+
+/* 移动端固定列 th z-index 更高 */
+.data-table-mobile-th.data-table-sticky-left {
+  z-index: 30;
+}
+
+/* 抽屉滑入动画 */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}

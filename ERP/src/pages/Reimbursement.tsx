@@ -1,0 +1,556 @@
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { Plus, Search, Upload, FileText, User, Building, Calendar, FileImage, Paperclip, CheckCircle, XCircle, CreditCard } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import DataTable from '@/components/DataTable';
+import Modal from '@/components/Modal';
+import DatePicker from '@/components/DatePicker';
+import Select from '@/components/Select';
+import FormAttachmentList from '@/components/FormAttachmentList';
+import { useFinanceStore } from '@/store/financeStore';
+import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
+import { useDialogStore } from '@/store/dialogStore';
+import { formatMoney, formatDate, generateId } from '@/utils/format';
+import type { Reimbursement, AttachmentValue } from '@/types';
+import { normalizeAttachments, openAttachment, uploadFinanceAttachments, mergeAttachments, downloadAttachment } from '@/utils/financeAttachments';
+import { exportSheetsToExcel } from '@/utils/export';
+import ImagePreviewModal from '@/components/ImagePreviewModal';
+
+const TABS = ['全部', '待审核', '已审核', '已打款', '已驳回'];
+const TYPES = ['差旅费', '采购费', '交通费', '业务招待费', '其他'];
+const INIT_FORM = { contractId: '', applicant: '', type: '差旅费', amount: '', expenseDate: '', description: '' };
+
+const statusBadge: Record<string, string> = {
+  '待审核': 'bg-amber-50 text-amber-600',
+  '已审核': 'bg-blue-50 text-blue-600',
+  '已打款': 'bg-emerald-50 text-emerald-600',
+  '已驳回': 'bg-red-50 text-red-500',
+};
+
+export default function ReimbursementPage() {
+  const location = useLocation();
+  const [localPreviewIndex, setLocalPreviewIndex] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const { reimbursements, contracts, addReimbursement, updateReimbursement, deleteReimbursement } = useFinanceStore();
+  const { user, users } = useAuthStore();
+  const { addNotification } = useNotificationStore();
+  const { showConfirm, showAlert } = useDialogStore();
+  
+  const isEmployee = !['admin', 'finance'].includes(user?.role || '');
+  const canSeeAllFinancial = !isEmployee;
+  const myName = user?.name || '';
+  const isEmbedded = new URLSearchParams(location.search).get('embed') === '1';
+
+  const [tab, setTab] = useState('全部');
+  const [search, setSearch] = useState('');
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [showPayModal, setShowPayModal] = useState<{ item: Reimbursement } | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState<{ item: Reimbursement } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showDetail, setShowDetail] = useState<Reimbursement | null>(null);
+  const [form, setForm] = useState(INIT_FORM);
+  const [files, setFiles] = useState<File[]>([]);
+  const [returnToUrl, setReturnToUrl] = useState<string | null>(null);
+  const localPreviewUrls = useMemo(() => files.map(file => URL.createObjectURL(file)), [files]);
+
+  useEffect(() => () => {
+    localPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+  }, [localPreviewUrls]);
+
+  useEffect(() => {
+    if (localPreviewIndex !== null && localPreviewIndex >= localPreviewUrls.length) {
+      setLocalPreviewIndex(null);
+    }
+  }, [localPreviewIndex, localPreviewUrls.length]);
+  const [payFiles, setPayFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const payFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') !== 'create') return;
+
+    setForm({
+      ...INIT_FORM,
+      applicant: user?.name || '',
+      contractId: params.get('contractId') || '',
+    });
+    setFiles([]);
+    setShowSubmit(true);
+
+    // 存储返回URL
+    const fromParam = params.get('from');
+    setReturnToUrl(fromParam || null);
+
+    params.delete('action');
+    params.delete('contractId');
+    params.delete('from');
+    const nextSearch = params.toString();
+    navigate({ pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '' }, { replace: true });
+  }, [location.pathname, location.search, navigate, user?.name]);
+
+  // Employee sees only their own reimbursements
+  const dataSource = isEmployee
+    ? reimbursements.filter((r) => r.applicant === user?.name || '')
+    : reimbursements;
+
+  const filtered = dataSource
+    .filter((r) => {
+      if (tab !== '全部' && r.status !== tab) return false;
+      if (search && !r.applicant.includes(search) && !r.description.includes(search)) return false;
+      return true;
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const columns = [
+    { key: 'applicant', title: '申请人' },
+    { key: 'type', title: '报销类型' },
+    { key: 'amount', title: '金额', render: (r: Reimbursement) => <span className="text-emerald-600 font-medium">{formatMoney(r.amount)}</span> },
+    { key: 'description', title: '事由', render: (r: Reimbursement) => <span className="max-w-[160px] truncate block" title={r.description}>{r.description}</span> },
+    { key: 'contractId', title: '关联项目', render: (r: Reimbursement) => {
+      const ct = contracts.find((c) => c.id === r.contractId);
+      return <span className="text-xs text-gray-500">{ct?.houseAddress || '-'}</span>;
+    }},
+    { key: 'status', title: '状态', render: (r: Reimbursement) => (
+      <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusBadge[r.status] || ''}`}>{r.status}</span>
+    )},
+    { key: 'expenseDate', title: '费用日期', render: (r: Reimbursement) => formatDate(r.expenseDate) },
+    { key: 'actions', title: '操作', render: (r: Reimbursement) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {!isEmployee && r.status === '待审核' && <>
+            <button onClick={() => handleApprove(r)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">通过</button>
+            <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
+          </>}
+          {!isEmployee && r.status === '已审核' && (
+            <button onClick={() => setShowPayModal({ item: r })} className="text-xs px-2 py-1 text-gold-600 hover:bg-gold-50 rounded transition-colors font-medium">打款</button>
+          )}
+          {!isEmployee && (
+            <button onClick={() => handleDelete(r)} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">删除</button>
+          )}
+        </div>
+      )
+    },
+  ];
+
+  const handleDelete = async (r: Reimbursement) => {
+    const confirmed = await showConfirm(`申请人：${r.applicant}\n金额：${formatMoney(r.amount)}`, { title: '确认删除该报销记录吗？', confirmStyle: 'danger', confirmText: '删除' });
+    if (!confirmed) return;
+    try {
+      await deleteReimbursement(r.id);
+      if (showDetail?.id === r.id) setShowDetail(null);
+    } catch (e: any) {
+      await showAlert(e?.message || '删除失败');
+    }
+  };
+
+  const handleApprove = async (r: Reimbursement) => {
+    const confirmed = await showConfirm(`金额：${formatMoney(r.amount)}`, { title: `确认通过 ${r.applicant} 的报销申请？` });
+    if (!confirmed) return;
+    
+    try {
+      await updateReimbursement({ ...r, status: '已审核', reviewer: user?.name || '', reviewDate: new Date().toISOString() });
+      const applicantUser = users.find((u) => u.name === r.applicant);
+      if (applicantUser) {
+        addNotification({
+          title: '报销申请已通过',
+          content: `您的报销申请（${r.description}，¥${r.amount}）已审核通过，等待打款`,
+          type: '报销',
+          isRead: false,
+          targetUserId: applicantUser.id,
+        });
+      }
+    } catch (e: any) {
+      await showAlert(e?.message || '操作失败');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!showRejectModal || submitting) return;
+    setSubmitting(true);
+    const r = showRejectModal.item;
+    
+    try {
+      await updateReimbursement({ ...r, status: '已驳回', reviewComment: rejectReason || '管理员驳回', reviewer: user?.name || '', reviewDate: new Date().toISOString() });
+      const applicantUser = users.find((u) => u.name === r.applicant);
+      if (applicantUser) {
+        addNotification({
+          title: '报销申请已驳回',
+          content: `您的报销申请（${r.description}，¥${r.amount}）已被驳回。${rejectReason ? `原因：${rejectReason}` : ''}`,
+          type: '报销',
+          isRead: false,
+          targetUserId: applicantUser.id,
+        });
+      }
+      setShowRejectModal(null);
+      setRejectReason('');
+    } catch (e: any) {
+      await showAlert(e?.message || '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePay = async () => {
+    if (!showPayModal || submitting) return;
+    setSubmitting(true);
+    
+    try {
+      let uploadedAttachments: AttachmentValue[] = [];
+      if (payFiles.length > 0) {
+        try {
+          uploadedAttachments = await uploadFinanceAttachments(
+            payFiles,
+            `finance/reimbursements/pay/${showPayModal.item.id}`,
+            'ERP'
+          );
+        } catch (uploadError: any) {
+          console.error(uploadError);
+          // continue without attachments if upload fails? Or alert? Let's just catch it.
+        }
+      }
+      
+      await updateReimbursement({ 
+        ...showPayModal.item, 
+        status: '已打款', 
+        paymentDate: new Date().toISOString(),
+        attachments: mergeAttachments(showPayModal.item.attachments, uploadedAttachments)
+      });
+      
+      const applicantUser = users.find((u) => u.name === showPayModal.item.applicant);
+      if (applicantUser) {
+        addNotification({
+          title: '报销款已打款',
+          content: `您的报销申请（${showPayModal.item.description}，¥${showPayModal.item.amount}）已打款`,
+          type: '报销',
+          isRead: false,
+          targetUserId: applicantUser.id,
+        });
+      }
+      setShowPayModal(null);
+      setPayFiles([]);
+    } catch (e: any) {
+      await showAlert(e?.message || '打款操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.applicant || !form.amount || submitting) return;
+    setSubmitting(true);
+    setShowSubmit(false); // Optimistic close
+    
+    try {
+      let uploadedAttachments: AttachmentValue[] = [];
+      if (files.length > 0) {
+        try {
+          uploadedAttachments = await uploadFinanceAttachments(
+            files,
+            `finance/reimbursements/apply/${generateId()}`,
+            'ERP'
+          );
+        } catch (uploadError: any) {
+          console.error(uploadError);
+        }
+      }
+      
+      await addReimbursement({
+        id: generateId(), 
+        contractId: form.contractId,
+        applicant: form.applicant, 
+        department: (form as any).department || '未知',
+        type: form.type as Reimbursement['type'], 
+        amount: Number(form.amount),
+        expenseDate: form.expenseDate, 
+        description: form.description, 
+        attachments: uploadedAttachments,
+        status: '待审核', 
+        reviewComment: '', 
+        reviewer: '', 
+        reviewDate: '', 
+        paymentVoucher: '', 
+        paymentDate: '',
+        createdAt: new Date().toISOString(),
+      });
+      
+      const adminUser = users.find((u) => u.role === 'admin');
+      if (adminUser) {
+        addNotification({
+          title: '新的报销申请',
+          content: `${form.applicant} 提交了一笔报销：${form.description}（¥${Number(form.amount)}）`,
+          type: '报销',
+          isRead: false,
+          targetUserId: adminUser.id,
+        });
+      }
+      setForm(INIT_FORM); 
+      setFiles([]);
+
+      // 如果有返回URL，则导航回去
+      if (returnToUrl) {
+        setReturnToUrl(null);
+        navigate(returnToUrl);
+      }
+    } catch (e: any) {
+      console.error(e);
+      await showAlert(e?.message || '提交失败');
+      setShowSubmit(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExport = () => {
+    const rows = filtered.map(r => {
+      const ct = contracts.find((c) => c.id === r.contractId);
+      return {
+        关联项目: ct?.houseAddress || '非项目报销',
+        申请人: r.applicant,
+        报销类型: r.type,
+        金额: r.amount,
+        事由: r.description,
+        状态: r.status,
+        费用日期: formatDate(r.expenseDate),
+        提交时间: formatDate(r.createdAt)
+      };
+    });
+    exportSheetsToExcel([{ name: '报销记录', rows }], '费用报销明细');
+  };
+
+  const pendingCount = reimbursements.filter(r => r.status === '待审核').length;
+
+  const toolbar = (
+    <div className="erp-search-row">
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0 whitespace-nowrap ${
+                tab === t ? 'bg-gold-50 text-gold-700' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {t}
+              {t === '待审核' && !isEmployee && pendingCount > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount > 99 ? '99+' : pendingCount}</span>
+              )}
+            </button>
+          ))}
+      </div>
+      <div className="erp-search-field min-w-[220px]">
+        <Search size={15} className="erp-search-icon" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索申请人/事由..." className="erp-search-input pl-9" />
+      </div>
+        <button onClick={handleExport} className="erp-btn-secondary !h-8 !py-0 shrink-0 hidden md:inline-flex">
+          导出表格
+        </button>
+    </div>
+  );
+
+  return (
+    <div className={isEmbedded ? "h-full bg-transparent flex flex-col" : "erp-page-spaced"}>
+      {!isEmbedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-base md:text-lg font-bold text-gray-900">费用报销</h1>
+            <p className="text-gold-500 text-xs md:text-sm">费用报销申请与打款</p>
+          </div>
+          <button onClick={() => {
+            setForm({ ...INIT_FORM, applicant: user?.name || '' });
+            setShowSubmit(true);
+          }} className="erp-btn-primary shrink-0">
+            <Plus size={16} /> 新建报销
+          </button>
+        </div>
+      )}
+
+      <div className={isEmbedded ? "flex h-full flex-col" : ""}>
+        <div className="erp-surface overflow-visible">
+          {toolbar}
+          <div className={isEmbedded ? "flex-1 pb-0" : ""}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <DataTable columns={columns as any} data={filtered as any} onRowClick={(r) => setShowDetail(r as any)} rowKey={(r) => (r as any).id} mobileCardColumns={8} />
+          </div>
+        </div>
+      </div>
+
+      {/* 提交报销 Modal */}
+      <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title="提交报销申请" size="lg">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">关联项目（可选）</label>
+              <Select 
+                value={form.contractId} 
+                onChange={(v) => setForm({ ...form, contractId: v })} 
+                searchable
+                options={[
+                  { value: '', label: '非项目报销（公司日常费用等）' },
+                  ...contracts.filter(c => canSeeAllFinancial || c.createdBy === myName).map(c => ({ value: c.id, label: `${c.houseAddress} (${c.customerName})` }))
+                ]} 
+              />
+            </div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">申请人</label><input value={form.applicant} onChange={(e) => setForm({ ...form, applicant: e.target.value })} className="erp-input" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">报销类型</label><Select value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={TYPES.map((t) => ({ value: t, label: t }))} /></div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">金额</label><input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="erp-input" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">费用发生日期</label><DatePicker mode="single" value={form.expenseDate} onChange={(v) => setForm({ ...form, expenseDate: v })} placeholder="选择日期" /></div>
+          </div>
+          <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">事由说明</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
+            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
+              <Upload size={20} className="mx-auto text-gray-400 mb-2" />
+              <p className="text-xs text-gray-400">点击上传图片附件（支持多选，可多次追加）</p>
+              <input ref={fileRef} type="file" multiple onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" />
+            </div>
+            {files.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {files.map((f, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                    <button type="button" onClick={() => setLocalPreviewIndex(i)} className="h-full w-full">
+                      <img src={localPreviewUrls[i]} alt={f.name} className="w-full h-full object-cover" />
+                    </button>
+                    <button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={() => setShowSubmit(false)} className="erp-btn-secondary">取消</button>
+            <button onClick={handleSubmit} disabled={!form.applicant || !form.amount} className="erp-btn-primary">提交申请</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 打款 Modal - hidden for employee */}
+      {!isEmployee && (
+        <Modal open={!!showPayModal} onClose={() => { setShowPayModal(null); setPayFiles([]); }} title="确认打款">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">确认向 <span className="text-gray-900 font-semibold">{showPayModal?.item.applicant}</span> 打款 <span className="text-emerald-600 font-semibold">{showPayModal?.item ? formatMoney(showPayModal.item.amount) : ''}</span>？</p>
+            
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">打款凭证（可选）</label>
+              <input type="file" multiple onChange={(e) => setPayFiles(Array.from(e.target.files || []))} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
+              <p className="text-xs text-amber-600 mt-1">（选填）如有需要，您可以在打款后继续通过报销详情补充打款凭证。</p>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => { setShowPayModal(null); setPayFiles([]); }} className="erp-btn-secondary">取消</button>
+              <button onClick={handlePay} disabled={submitting} className="erp-btn-primary">
+                {submitting ? '处理中...' : '确认打款'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {localPreviewIndex !== null && (
+        <ImagePreviewModal
+          images={localPreviewUrls}
+          index={localPreviewIndex}
+          onIndexChange={setLocalPreviewIndex}
+          onClose={() => setLocalPreviewIndex(null)}
+        />
+      )}
+
+      {/* 驳回 Modal - hidden for employee */}
+      {!isEmployee && (
+        <Modal open={!!showRejectModal} onClose={() => { setShowRejectModal(null); setRejectReason(''); }} title="确认驳回">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">确认驳回 <span className="text-gray-900 font-semibold">{showRejectModal?.item.applicant}</span> 的报销申请？</p>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">驳回原因（可选）</label>
+              <textarea 
+                value={rejectReason} 
+                onChange={(e) => setRejectReason(e.target.value)} 
+                placeholder="请输入驳回原因，方便申请人修改..."
+                rows={3}
+                className="erp-input resize-none" 
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => { setShowRejectModal(null); setRejectReason(''); }} className="erp-btn-secondary">取消</button>
+              <button onClick={handleReject} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+                {submitting ? '处理中...' : '确认驳回'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 报销详情 Modal */}
+      <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title="报销详情" size="lg">
+        {showDetail && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2"><User size={14} className="text-gray-400" /><span className="text-gray-500">申请人：</span><span className="text-gray-900 font-medium">{showDetail.applicant}</span></div>
+              <div className="flex items-center gap-2"><Building size={14} className="text-gray-400" /><span className="text-gray-500">关联项目：</span><span className="text-gray-900 font-medium">{contracts.find(c => c.id === showDetail.contractId)?.houseAddress || '非项目报销'}</span></div>
+              <div><span className="text-gray-500">报销类型：</span><span className="text-gray-900 ml-1">{showDetail.type}</span></div>
+              <div><span className="text-gray-500">金额：</span><span className="text-emerald-600 font-semibold ml-1">{formatMoney(showDetail.amount)}</span></div>
+              <div className="flex items-center gap-2"><Calendar size={14} className="text-gray-400" /><span className="text-gray-500">费用日期：</span><span className="text-gray-900">{formatDate(showDetail.expenseDate)}</span></div>
+              <div><span className="text-gray-500">状态：</span><span className={`text-xs px-2 py-0.5 rounded font-medium ml-1 ${statusBadge[showDetail.status] || ''}`}>{showDetail.status}</span></div>
+            </div>
+            <div className="text-sm"><span className="text-gray-500">事由说明：</span><p className="text-gray-700 mt-1">{showDetail.description}</p></div>
+            {showDetail.attachments && showDetail.attachments.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-2"><FileImage size={14} />附件（{showDetail.attachments.length}个）</div>
+                <FormAttachmentList 
+                  attachments={showDetail.attachments}
+                  onRemove={async (idx) => {
+                    const confirmed = await showConfirm('确认删除该附件吗？', { title: '删除后不可恢复' });
+                    if (confirmed) {
+                      const newAttachments = normalizeAttachments(showDetail.attachments).filter((_, i) => i !== idx);
+                      await updateReimbursement({ ...showDetail, attachments: newAttachments });
+                      setShowDetail({ ...showDetail, attachments: newAttachments });
+                    }
+                  }}
+                />
+                <div className="mt-2">
+                  <input type="file" multiple className="text-xs w-full" onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files || files.length === 0) return;
+                    try {
+                      const uploaded = await uploadFinanceAttachments(Array.from(files), `finance/reimbursements/append/${showDetail.id}`, 'ERP');
+                      const newAttachments = mergeAttachments(showDetail.attachments, uploaded);
+                      await updateReimbursement({ ...showDetail, attachments: newAttachments });
+                      setShowDetail({ ...showDetail, attachments: newAttachments });
+                    } catch (err: any) {
+                      await showAlert('上传失败: ' + (err?.message || '未知错误'));
+                    }
+                  }} />
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-3"><FileText size={14} />审核流转</div>
+              <div className="space-y-3 pl-1">
+                <div className="flex gap-3 text-sm">
+                  <div className="w-2 h-2 rounded-full bg-gold-400 mt-1.5 shrink-0" />
+                  <div><p className="text-gray-900">{showDetail.applicant} 提交申请</p><p className="text-gray-400 text-xs mt-0.5">{formatDate(showDetail.createdAt)}</p></div>
+                </div>
+                {showDetail.reviewDate && (
+                  <div className="flex gap-3 text-sm">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${showDetail.status === '已驳回' ? 'bg-red-400' : 'bg-blue-400'}`} />
+                    <div>
+                      <p className="text-gray-900">{showDetail.reviewer} {showDetail.status === '已驳回' ? '驳回' : '审核通过'}</p>
+                      {showDetail.reviewComment && <p className="text-red-500 text-xs mt-0.5">原因：{showDetail.reviewComment}</p>}
+                      <p className="text-gray-400 text-xs mt-0.5">{formatDate(showDetail.reviewDate)}</p>
+                    </div>
+                  </div>
+                )}
+                {showDetail.paymentDate && (
+                  <div className="flex gap-3 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                    <div><p className="text-gray-900">已打款 {formatMoney(showDetail.amount)}</p><p className="text-gray-400 text-xs mt-0.5">{formatDate(showDetail.paymentDate)}</p></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}

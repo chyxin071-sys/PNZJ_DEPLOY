@@ -1,0 +1,15 @@
+.git
+.next
+.openai
+.wrangler
+node_modules
+dist
+build
+.vinext
+*.log
+*.tsbuildinfo
+.dev-server.*.log
+.next-dev.*.log
+.prod-server.*.log
+.wrangler.*.log
+.npm-install.*.log
