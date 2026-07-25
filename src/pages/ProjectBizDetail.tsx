@@ -122,12 +122,6 @@ function CloudImage({ src, className, alt }: { src: string, className?: string, 
     const cloudSrc = normalizeCloudMediaSource(src);
 
     if (cloudSrc.startsWith('cloud://')) {
-      // Browser requests to CloudBase temporary URLs can be blocked by CORS/hotlink rules.
-      // Use the deployed cloud function as the primary browser path; Mini Program keeps native URLs.
-      if (!isMiniProgramWebView()) {
-        void loadThroughCloudFunction();
-        return;
-      }
       getTempFileURL([cloudSrc])
         .then((tempUrlMap) => {
           if (cancelled) return;
@@ -1383,7 +1377,7 @@ export default function ProjectBizDetail() {
       }
 
       const cloudSources = Array.from(new Set(previewSources.filter(item => item.source.startsWith('cloud://')).map(item => item.source)));
-      const tempUrlMap = isMiniProgram && cloudSources.length > 0 ? await Promise.race([
+      const tempUrlMap = cloudSources.length > 0 ? await Promise.race([
         getTempFileURL(cloudSources),
         new Promise<Record<string, string>>((_, reject) => {
           window.setTimeout(() => reject(new Error('获取图片地址超时')), 15000);
@@ -1397,9 +1391,7 @@ export default function ProjectBizDetail() {
         let finalUrl = item.source;
         const isVideoSource = p.type === 'video' || /\.(mp4|mov|avi)(\?|$)/i.test(item.rawUrl);
         if (finalUrl.startsWith('cloud://')) {
-          finalUrl = !isMiniProgram && !isVideoSource
-            ? await getFileDataURL(finalUrl, 'original')
-            : (tempUrlMap[finalUrl] || finalUrl.replace(/^cloud:\/\/[^.]+\.([^/]+)\//, 'https://$1.tcb.qcloud.la/'));
+          finalUrl = tempUrlMap[finalUrl] || finalUrl.replace(/^cloud:\/\/[^.]+\.([^/]+)\//, 'https://$1.tcb.qcloud.la/');
         }
         
         const isVideo = isVideoSource || !!finalUrl.match(/\.(mp4|mov|avi)$/i);

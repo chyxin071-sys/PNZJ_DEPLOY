@@ -1,4 +1,5 @@
 import { cloudApp, initCloudBase } from '@/db/cloudbase';
+import { isMiniProgramWebView } from './miniProgramPreview';
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^\w.\-]/g, '_');
@@ -7,6 +8,21 @@ function sanitizeFilename(name: string): string {
 export interface UploadResult {
   fileID: string;
   requestId?: string;
+}
+
+function toBase64Url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+/**
+ * Desktop browsers fetch CloudBase files through the same-origin web service.
+ * This avoids expiring cross-origin temporary URLs breaking image lightboxes.
+ */
+export function getWebFileProxyURL(fileID: string): string {
+  return `/api/files/${toBase64Url(fileID)}`;
 }
 
 const nativeUploadResults = new WeakMap<File, UploadResult>();
@@ -84,6 +100,13 @@ export async function uploadFile(
 }
 
 export async function getTempFileURL(fileIDs: string[]): Promise<Record<string, string>> {
+  if (!import.meta.env.DEV && !isMiniProgramWebView()) {
+    return Object.fromEntries(fileIDs.filter(Boolean).map(fileID => [
+      fileID,
+      fileID.startsWith('cloud://') ? getWebFileProxyURL(fileID) : fileID,
+    ]));
+  }
+
   await initCloudBase();
 
   const result = await cloudApp.getTempFileURL({ fileList: fileIDs }) as any;
