@@ -268,12 +268,16 @@ export default function ProjectBizDetail() {
   const location = useLocation();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
-  const markRelatedAsRead = useNotificationStore((state) => state.markRelatedAsRead);
-
-  useEffect(() => {
-    if (!id || !notifications.some((item) => !item.isRead && item.relatedTo?.type === 'project' && item.relatedTo.id === id)) return;
-    void markRelatedAsRead('project', id);
-  }, [id, notifications, markRelatedAsRead]);
+  const hasProjectActionUnread = (actionKey: string) => notifications.some((item: any) => {
+    if (item.isRead || item.relatedTo?.type !== 'project' || item.relatedTo?.id !== id) return false;
+    const text = `${item.title || ''} ${item.content || ''} ${item.link || ''}`;
+    if (actionKey === 'logs') return /施工日志|\/logs(?:\?|$)/.test(text);
+    if (actionKey === 'inspections') return /巡检|整改|\/inspections(?:\?|$)/.test(text);
+    if (actionKey === 'files') return /资料|附件|上传|\/files(?:\?|$)/.test(text);
+    if (actionKey === 'share-access') return /查看申请|访问申请|\/share-access(?:\?|$)/.test(text);
+    if (['contract', 'income', 'reimbursement', 'cost'].includes(actionKey)) return /合同|收款|报销|成本|保险|报价/.test(text);
+    return /施工节点|工地节点|进度|开工|完工/.test(text);
+  });
   const myName = user?.name || '';
   const addUploadTasks = useUploadQueueStore(s => s.addTasks);
   const uploadTasks = useUploadQueueStore(s => s.tasks);
@@ -2262,6 +2266,9 @@ export default function ProjectBizDetail() {
                     className="relative aspect-square rounded-xl border border-gray-100 bg-white flex flex-col items-center justify-center gap-1.5 text-center shadow-sm"
                   >
                     {action.key === 'share-access' && pendingAccessCount > 0 && (
+                      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+                    )}
+                    {action.key !== 'share-access' && hasProjectActionUnread(action.key) && (
                       <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
                     )}
                     <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${action.tone}`}>

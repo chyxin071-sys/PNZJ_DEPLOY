@@ -472,12 +472,16 @@ export default function LeadDetail() {
   const location = useLocation();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
-  const markRelatedAsRead = useNotificationStore((state) => state.markRelatedAsRead);
-
-  useEffect(() => {
-    if (!id || !notifications.some((item) => !item.isRead && item.relatedTo?.type === 'lead' && item.relatedTo.id === id)) return;
-    void markRelatedAsRead('lead', id);
-  }, [id, notifications, markRelatedAsRead]);
+  const hasLeadActionUnread = (actionKey: string) => notifications.some((item: any) => {
+    if (item.isRead || item.relatedTo?.type !== 'lead' || item.relatedTo?.id !== id) return false;
+    const text = `${item.title || ''} ${item.content || ''} ${item.link || ''}`;
+    if (actionKey === 'design') return /设计|\/design(?:\?|$)/.test(text);
+    if (actionKey === 'material') return /主材|材料|\/material(?:\?|$)/.test(text);
+    if (actionKey === 'quote') return /报价|\/quote(?:\?|$)/.test(text);
+    if (actionKey === 'files') return /资料|附件|上传|\/files(?:\?|$)/.test(text);
+    if (actionKey === 'share-access') return /查看申请|访问申请|\/share-access(?:\?|$)/.test(text);
+    return /合同|收款|报销|成本|保险|跟进|客户资料/.test(text);
+  });
   const { currentBizType } = useBizStore();
   const { showAlert, showConfirm } = useDialogStore();
   const addUploadTasks = useUploadQueueStore(s => s.addTasks);
@@ -2196,15 +2200,15 @@ export default function LeadDetail() {
   };
 
   const businessActions = [
-    { label: '设计管理', icon: Clock, tone: 'bg-violet-50 text-violet-600', onClick: () => navigate(`/leads/${lead._id}/design`), enabled: currentBizType === '家装' },
-    { label: '主材清单', icon: Tag, tone: 'bg-orange-50 text-orange-600', onClick: () => navigate(`/leads/${lead._id}/material`), enabled: currentBizType === '家装' },
-    { label: '报价单', icon: FileText, tone: 'bg-blue-50 text-blue-600', onClick: () => navigate(`/leads/${lead._id}/quote`), enabled: currentBizType === '家装' },
-    { label: '项目资料', icon: Folder, tone: 'bg-cyan-50 text-cyan-600', onClick: () => navigate(`/leads/${lead._id}/files`), enabled: true },
-    { label: '查看申请', icon: Eye, tone: 'bg-purple-50 text-purple-600', onClick: openShareAccessFlow, enabled: true },
-    { label: hasContract ? '合同' : '新建合同', icon: Building, tone: 'bg-slate-100 text-slate-700', onClick: openContractFlow, enabled: true },
-    { label: '新增收款', icon: DollarSign, tone: 'bg-emerald-50 text-emerald-600', onClick: openIncomeFlow, enabled: true },
-    { label: '项目报销', icon: Receipt, tone: 'bg-rose-50 text-rose-600', onClick: openReimbursementFlow, enabled: true },
-    { label: '项目成本', icon: BarChart3, tone: 'bg-gray-100 text-gray-700', onClick: openProjectCostFlow, enabled: canViewFinance },
+    { key: 'design', label: '设计管理', icon: Clock, tone: 'bg-violet-50 text-violet-600', onClick: () => navigate(`/leads/${lead._id}/design`), enabled: currentBizType === '家装' },
+    { key: 'material', label: '主材清单', icon: Tag, tone: 'bg-orange-50 text-orange-600', onClick: () => navigate(`/leads/${lead._id}/material`), enabled: currentBizType === '家装' },
+    { key: 'quote', label: '报价单', icon: FileText, tone: 'bg-blue-50 text-blue-600', onClick: () => navigate(`/leads/${lead._id}/quote`), enabled: currentBizType === '家装' },
+    { key: 'files', label: '项目资料', icon: Folder, tone: 'bg-cyan-50 text-cyan-600', onClick: () => navigate(`/leads/${lead._id}/files`), enabled: true },
+    { key: 'share-access', label: '查看申请', icon: Eye, tone: 'bg-purple-50 text-purple-600', onClick: openShareAccessFlow, enabled: true },
+    { key: 'contract', label: hasContract ? '合同' : '新建合同', icon: Building, tone: 'bg-slate-100 text-slate-700', onClick: openContractFlow, enabled: true },
+    { key: 'income', label: '新增收款', icon: DollarSign, tone: 'bg-emerald-50 text-emerald-600', onClick: openIncomeFlow, enabled: true },
+    { key: 'reimbursement', label: '项目报销', icon: Receipt, tone: 'bg-rose-50 text-rose-600', onClick: openReimbursementFlow, enabled: true },
+    { key: 'cost', label: '项目成本', icon: BarChart3, tone: 'bg-gray-100 text-gray-700', onClick: openProjectCostFlow, enabled: canViewFinance },
   ].filter(item => item.enabled);
   const desktopBusinessActions = [
     { label: hasProject ? '查看工地' : '新建工地', icon: HardHat, tone: 'bg-amber-50 text-amber-600', onClick: openProjectFlow, enabled: hasProject || canEdit },
@@ -2364,6 +2368,9 @@ export default function LeadDetail() {
                   className="relative aspect-square rounded-xl border border-gray-100 bg-white flex flex-col items-center justify-center gap-1.5 text-center shadow-sm active:bg-gray-50 transition-colors"
                 >
                   {item.label === '查看申请' && pendingAccessCount > 0 && (
+                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                  {item.key !== 'share-access' && hasLeadActionUnread(item.key) && (
                     <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
                   )}
                   <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.tone}`}>
