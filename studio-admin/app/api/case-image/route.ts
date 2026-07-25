@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     status: 200,
     headers: {
       "Content-Type": upstream.headers.get("content-type") || "application/octet-stream",
-      "Cache-Control": "private, max-age=300",
+      "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000",
     },
   });
 }

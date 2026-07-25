@@ -141,11 +141,11 @@ export function PublicCaseDetail({ item }: { item: PublicCase }) {
       {sections.map((section, si) => <div className="public-detail-section" key={si}>
         <h3>{section.name}</h3>
         <div className="public-section-gallery">
-          {section.images.map((img, ii) => <button className={(sectionActives[si] || 0) === ii ? "active" : ""} onClick={() => setSectionActives((current) => ({ ...current, [si]: ii }))} key={`${img}-${ii}`}><img src={img} alt={section.name} /></button>)}
+          {section.images.map((img, ii) => <button className={(sectionActives[si] || 0) === ii ? "active" : ""} onClick={() => setSectionActives((current) => ({ ...current, [si]: ii }))} key={`${img}-${ii}`}><img src={img} alt={section.name} loading="lazy" decoding="async" /></button>)}
         </div>
         <div className="public-section-preview">
           <button onClick={() => setSectionLightbox({ section: si, index: sectionActives[si] || 0 })}>
-            <img src={section.images[sectionActives[si] || 0] || section.images[0]} alt={section.name} />
+            <img src={section.images[sectionActives[si] || 0] || section.images[0]} alt={section.name} loading="lazy" decoding="async" />
             <span>点击查看大图</span>
           </button>
         </div>
