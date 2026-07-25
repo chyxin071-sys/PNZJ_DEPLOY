@@ -158,7 +158,7 @@ export function PublicCaseDetail({ item }: { item: PublicCase }) {
         <span>点击查看大图</span>
       </button>
     </section>}
-    <section className="public-detail-brand-end"><img src={logoFull.src} alt="品诺筑家整装" /><div><strong>让设计，真正落地</strong><span>扫码添加设计顾问，获取专属设计建议</span></div><img className="public-brand-end-qr" src={designerQr.src} alt="咨询二维码" /></section>
+    <section className="public-detail-brand-end"><img src={logoFull.src} alt="品诺筑家整装" /><div><strong>品诺有心，筑家有道。</strong><span>扫码添加设计顾问，获取专属设计建议</span></div><img className="public-brand-end-qr" src={designerQr.src} alt="咨询二维码" /></section>
     <section className="public-detail-cta"><p>喜欢这个案例？让设计师结合你的户型给出建议。</p><a href="/#contact">咨询设计师 <ArrowRight size={18} /></a></section>
     {lightbox !== null && lightbox === -1 && <PublicLightbox images={[resolvedItem.cover]} index={0} close={() => setLightbox(null)} select={() => undefined} />}
     {lightbox !== null && lightbox >= 0 && images.length > 0 && <PublicLightbox images={images} index={Math.min(lightbox, images.length - 1)} close={() => setLightbox(null)} select={setLightbox} />}

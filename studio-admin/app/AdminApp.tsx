@@ -1216,10 +1216,19 @@ export function AdminApp() {
     try {
       const stored = JSON.parse(raw) as AdminSession;
       if (!stored.token || stored.mode !== "cloud") throw new Error("INVALID_STORED_SESSION");
+      setSession(stored);
+      setRestoringSession(false);
       adminApi.restoreSession(stored.token)
-        .then((restored) => setSession(restored))
-        .catch(() => window.localStorage.removeItem(ADMIN_SESSION_KEY))
-        .finally(() => setRestoringSession(false));
+        .then((restored) => {
+          setSession(restored);
+          window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(restored));
+        })
+        .catch((error) => {
+          if (error instanceof Error && error.message.includes("登录已过期")) {
+            window.localStorage.removeItem(ADMIN_SESSION_KEY);
+            setSession(null);
+          }
+        });
     } catch {
       window.localStorage.removeItem(ADMIN_SESSION_KEY);
       setRestoringSession(false);
@@ -1368,6 +1377,7 @@ export function AdminApp() {
   }, [session]);
 
   if (restoringSession) return <div className="login-page"><div className="login-card"><div className="login-brand"><img src={logoFull.src} alt="品诺筑家整装" /></div><p className="login-restoring">正在恢复登录状态…</p></div></div>;
+  if (restoringSession) return null;
   if (!session) return <Login onLogin={acceptSession} />;
 
   const visibleNavItems = navItems.filter((item) => session.admin.role === "超级管理员" || !["admins", "settings"].includes(item.key));
