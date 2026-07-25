@@ -44,6 +44,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "reac
 import { adminApi } from "./admin-api";
 import logoFull from "./assets/logo-full.png";
 import logoMark from "./assets/logo-mark.png";
+import designerQr from "./assets/designer-qr.png";
 
 type AdminSession = {
   token: string;
@@ -463,19 +464,26 @@ function CaseFacts({ item, mobile = false }: { item: CaseRecord; mobile?: boolea
 }
 
 function CasePreview({ item, canEdit, back, edit, notify }: { item: CaseRecord; canEdit: boolean; back: () => void; edit: () => void; notify: (message: string) => void }) {
-  const [activeImage, setActiveImage] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const images = item.images?.length ? item.images : [item.cover];
+  const sections = item.imageSections?.filter((section) => section.name && section.images.length) || [];
+  const sectionImages = sections.flatMap((section) => section.images);
+  const previewImages = [item.cover, ...(sectionImages.length ? sectionImages : images.filter((image) => image !== item.cover))];
   return <section className="page-section case-detail-page">
     <div className="subpage-head"><button className="back-button" onClick={back}><ChevronLeft size={17} />返回案例列表</button><div>{canEdit && <button className="gold-button" onClick={edit}><Edit3 size={16} />编辑案例</button>}<button className="line-button" onClick={() => { window.open(`/case/${item.id}`, "_blank", "noopener,noreferrer"); notify("已在新窗口打开网页版案例"); }}><Eye size={16} />浏览网页版</button></div></div>
     <div className="case-detail-layout">
       <div className="case-detail-main">
-        <div className="gallery"><button className="gallery-main-button" onClick={() => setLightboxIndex(activeImage)}><img className="gallery-main" src={images[activeImage]} alt={item.name} /><span>点击查看大图</span></button><div className="gallery-strip">{images.map((photo, index) => <button key={`${photo}-${index}`} onClick={() => setActiveImage(index)}><img className={index === activeImage ? "active" : ""} src={photo} alt="" /></button>)}</div></div>
+        <div className="gallery"><button className="gallery-main-button" onClick={() => setLightboxIndex(0)}><img className="gallery-main" src={item.cover} alt={item.name} /><span>点击查看封面</span></button></div>
         <CaseFacts item={item} mobile />
         <article className="case-story"><section><span>01</span><div><h2>案例说明</h2><div dangerouslySetInnerHTML={{ __html: item.description || "暂无案例说明" }} /></div></section><section><span>02</span><div><h2>户型信息</h2><div dangerouslySetInnerHTML={{ __html: item.layoutInfo || "暂无户型信息" }} /></div></section><section><span>03</span><div><h2>设计亮点</h2><div dangerouslySetInnerHTML={{ __html: item.highlights || "暂无设计亮点" }} /></div></section></article>
+        {sections.length > 0 ? <div className="admin-preview-sections">{sections.map((section, sectionIndex) => {
+          const offset = 1 + sections.slice(0, sectionIndex).reduce((sum, current) => sum + current.images.length, 0);
+          return <section key={`${section.name}-${sectionIndex}`}><header><span>SPACE {String(sectionIndex + 1).padStart(2, "0")}</span><h2>{section.name}</h2></header><div>{section.images.map((image, imageIndex) => <button key={`${image}-${imageIndex}`} onClick={() => setLightboxIndex(offset + imageIndex)}><img src={image} alt={section.name} /></button>)}</div></section>;
+        })}</div> : <div className="admin-preview-sections legacy"><section><header><span>GALLERY</span><h2>案例图片</h2></header><div>{images.map((image, index) => <button key={`${image}-${index}`} onClick={() => setLightboxIndex(previewImages.indexOf(image))}><img src={image} alt="" /></button>)}</div></section></div>}
+        <div className="case-detail-brand-end"><img src={logoFull.src} alt="品诺筑家整装" /><div><p>预约专属设计咨询</p><span>扫码添加设计顾问</span></div><img className="brand-end-qr" src={designerQr.src} alt="咨询二维码" /></div>
       </div>
       <CaseFacts item={item} />
-    </div>{lightboxIndex !== null && <ImageLightbox images={images} index={lightboxIndex} setIndex={setLightboxIndex} close={() => setLightboxIndex(null)} />}
+    </div>{lightboxIndex !== null && <ImageLightbox images={previewImages} index={Math.min(lightboxIndex, previewImages.length - 1)} setIndex={setLightboxIndex} close={() => setLightboxIndex(null)} />}
   </section>;
 }
 

@@ -7098,3 +7098,98 @@ html body {
   border-color: #b7833d;
   color: #b7833d;
 }
+
+.admin-preview-sections {
+  display: grid;
+  gap: 52px;
+  padding: 12px 4px 64px;
+}
+.admin-preview-sections section header span {
+  color: #b7833d;
+  font-size: 11px;
+  letter-spacing: .16em;
+}
+.admin-preview-sections section header h2 {
+  margin: 7px 0 18px;
+  font-size: 24px;
+}
+.admin-preview-sections section > div {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 62%);
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scroll-snap-type: x mandatory;
+}
+.admin-preview-sections section > div button {
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 10px;
+  background: #ededee;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+.admin-preview-sections section > div img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.case-detail-brand-end,
+.public-detail-brand-end {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 30px 0 90px;
+  padding: 36px 40px;
+  border: 1px solid #e4e4e7;
+  border-radius: 14px;
+  background: #fafafa;
+}
+.case-detail-brand-end > img:first-child,
+.public-detail-brand-end > img:first-child {
+  width: 170px;
+  height: auto;
+}
+.case-detail-brand-end > div,
+.public-detail-brand-end > div {
+  display: grid;
+  gap: 7px;
+  margin-left: auto;
+}
+.case-detail-brand-end p,
+.public-detail-brand-end strong { margin: 0; font-size: 17px; }
+.case-detail-brand-end span,
+.public-detail-brand-end span { color: #777; font-size: 13px; }
+.case-detail-brand-end .brand-end-qr,
+.public-detail-brand-end .public-brand-end-qr {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+}
+.public-detail-story {
+  margin-top: 52px;
+  border-top: 1px solid var(--public-line);
+}
+.public-detail-story article {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 24px;
+  padding: 42px 0;
+  border-bottom: 1px solid var(--public-line);
+}
+.public-detail-story article > span { color: #b7833d; font-size: 13px; font-weight: 700; }
+.public-detail-story h2 { margin: 0 0 16px; font-size: 24px; }
+.public-detail-story p { margin: 0; color: #555; font-size: 16px; line-height: 2; white-space: pre-wrap; }
+
+@media (max-width: 760px) {
+  .admin-preview-sections section > div { grid-auto-columns: 86%; }
+  .case-detail-brand-end,
+  .public-detail-brand-end { padding: 26px 22px; gap: 14px; }
+  .case-detail-brand-end > img:first-child,
+  .public-detail-brand-end > img:first-child { width: 120px; }
+  .case-detail-brand-end .brand-end-qr,
+  .public-detail-brand-end .public-brand-end-qr { width: 70px; height: 70px; }
+}

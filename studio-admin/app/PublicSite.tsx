@@ -110,12 +110,10 @@ export function PublicCaseDetail({ item }: { item: PublicCase }) {
   const [sectionActives, setSectionActives] = useState<Record<number, number>>({});
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [sectionLightbox, setSectionLightbox] = useState<{ section: number; index: number } | null>(null);
-  const [tab, setTab] = useState("案例说明");
   useEffect(() => setActive(0), [resolvedItem.id]);
   const images = resolvedItem.images.length ? resolvedItem.images : [resolvedItem.cover];
   const sections = resolvedItem.imageSections || [];
   const hasSections = sections.length > 0;
-  const content: Record<string, string | string[]> = { "案例说明": resolvedItem.description, "户型信息": resolvedItem.layoutInfo, "设计亮点": resolvedItem.highlights, "标签": resolvedItem.tags };
   return <main className="public-site public-detail"><PublicHeader /><div className="public-detail-back"><a href="/#cases"><ChevronLeft size={18} />返回案例库</a></div>
     {/* Cover */}
     <section className="public-detail-cover">
@@ -132,10 +130,11 @@ export function PublicCaseDetail({ item }: { item: PublicCase }) {
         <p>{resolvedItem.community} · {resolvedItem.layout} · {resolvedItem.area}㎡</p>
       </div>
     </section>
-    {/* Content tabs */}
-    <section className="public-detail-copy">
-      <nav>{Object.keys(content).map((name) => <button className={tab === name ? "active" : ""} onClick={() => setTab(name)} key={name}>{name}</button>)}</nav>
-      {Array.isArray(content[tab]) ? <div className="public-tags">{(content[tab] as string[]).map((tag) => <span key={tag}>{tag}</span>)}</div> : <p>{content[tab] as string}</p>}
+    {/* Numbered text content */}
+    <section className="public-detail-story">
+      <article><span>01</span><div><h2>案例说明</h2><p>{resolvedItem.description || "暂无案例说明"}</p></div></article>
+      <article><span>02</span><div><h2>户型信息</h2><p>{resolvedItem.layoutInfo || "暂无户型信息"}</p></div></article>
+      <article><span>03</span><div><h2>设计亮点</h2><p>{resolvedItem.highlights || "暂无设计亮点"}</p></div></article>
     </section>
     {/* Image sections */}
     {hasSections ? <section className="public-detail-sections">
@@ -159,6 +158,7 @@ export function PublicCaseDetail({ item }: { item: PublicCase }) {
         <span>点击查看大图</span>
       </button>
     </section>}
+    <section className="public-detail-brand-end"><img src={logoFull.src} alt="品诺筑家整装" /><div><strong>让设计，真正落地</strong><span>扫码添加设计顾问，获取专属设计建议</span></div><img className="public-brand-end-qr" src={designerQr.src} alt="咨询二维码" /></section>
     <section className="public-detail-cta"><p>喜欢这个案例？让设计师结合你的户型给出建议。</p><a href="/#contact">咨询设计师 <ArrowRight size={18} /></a></section>
     {lightbox !== null && lightbox === -1 && <PublicLightbox images={[resolvedItem.cover]} index={0} close={() => setLightbox(null)} select={() => undefined} />}
     {lightbox !== null && lightbox >= 0 && images.length > 0 && <PublicLightbox images={images} index={Math.min(lightbox, images.length - 1)} close={() => setLightbox(null)} select={setLightbox} />}
