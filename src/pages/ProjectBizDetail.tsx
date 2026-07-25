@@ -1648,6 +1648,31 @@ export default function ProjectBizDetail() {
     setShowLogModal(true);
   };
 
+  const handleDeleteLog = async (log: ProjectLog) => {
+    if (!window.confirm('确认删除这条施工日志吗？删除后无法恢复。')) return;
+    try {
+      await projectLogsAPI.delete(log.id);
+      void createNotificationEventSafely({
+        operationId: stableOperationId('project-log-deleted', id, log.id),
+        eventType: 'PROJECT_LOG_DELETED',
+        actorUserId: user?.id || '',
+        recipientUserIds: await resolveProjectParticipantUserIds(project, lead),
+        recipientRoles: ['admin'],
+        category: 'project',
+        title: '施工日志已删除',
+        content: `${myName}为“${project.customer || project.address || '工地'}”删除了一条施工日志`,
+        link: `/projects-biz/${id}`,
+        relatedTo: { type: 'project', id: id || '', name: project.customer || project.address || '工地' },
+        channels: ['station', 'wechat'],
+      });
+      setSwipedLogId(null);
+      await loadLogsAndInspections();
+    } catch (error) {
+      console.error('delete project log failed', error);
+      alert('删除施工日志失败，请稍后重试。');
+    }
+  };
+
   const handleSaveInspection = async () => {
     if (!newInspectionForm.title.trim() || isSubmittingInspection) return;
     if (project?.status === '已完工') {
@@ -3785,10 +3810,11 @@ export default function ProjectBizDetail() {
                     {canEditSite && (
                       <div className="absolute inset-y-0 right-0 flex md:hidden">
                         <button onClick={() => openEditLogModal(log)} className="w-16 bg-amber-500 text-xs font-semibold text-white">编辑</button>
+                        <button onClick={() => void handleDeleteLog(log)} className="w-16 bg-red-500 text-xs font-semibold text-white">删除</button>
                       </div>
                     )}
                   <div
-                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === logKey ? '-translate-x-16' : 'translate-x-0'} md:!translate-x-0`}
+                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === logKey ? '-translate-x-32' : 'translate-x-0'} md:!translate-x-0`}
                     onTouchStart={(event) => { logSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
                     onTouchEnd={(event) => {
                       const startX = logSwipeStartX.current;
@@ -3814,6 +3840,7 @@ export default function ProjectBizDetail() {
                         {canEditSite && (
                           <div className="hidden items-center gap-1 md:flex">
                             <button type="button" onClick={() => openEditLogModal(log)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="编辑日志"><Edit3 size={14} /></button>
+                            <button type="button" onClick={() => void handleDeleteLog(log)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="删除日志"><Trash2 size={14} /></button>
                           </div>
                         )}
                         {log.visibleToCustomer !== false && (
