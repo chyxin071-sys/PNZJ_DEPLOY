@@ -1313,6 +1313,15 @@ export function AdminApp() {
         images: Array.isArray(record.images) && record.images.length ? record.images : [record.cover || record.coverUrl || photos[0]],
         imageFileIDs: Array.isArray(record.imageFileIDs) && record.imageFileIDs.length ? record.imageFileIDs : (Array.isArray(record.images) ? record.images : []),
         imageNames: Array.isArray(record.imageNames) ? record.imageNames : [],
+        imageSections: Array.isArray(record.imageSections) ? record.imageSections.map((section: any) => ({
+          name: String(section.name || "").trim(),
+          images: Array.isArray(section.images) ? section.images.map(String).filter(Boolean) : [],
+          imageFileIDs: Array.isArray(section.imageFileIDs)
+            ? section.imageFileIDs.map(String).filter(Boolean)
+            : Array.isArray(section.images)
+              ? section.images.map(String).filter(Boolean)
+              : [],
+        })).filter((section: any) => section.name && section.images.length) : [],
         description: record.description || "",
         layoutInfo: record.layoutInfo || "",
         highlights: record.highlights || "",
