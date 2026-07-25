@@ -545,6 +545,7 @@ function CaseEdit({ item, back, save, notify, communities, styles, currentUserna
     (item?.imageFileIDs || []).forEach((fileID, index) => { if (item.images[index]) previews[fileID] = item.images[index]; });
     return previews;
   });
+  const previewUrl = (value: string) => assetPreviews[value] || value;
   const [uploadingImages, setUploadingImages] = useState<string[]>([]);
   const [coverDragging, setCoverDragging] = useState(false);
   const [description, setDescription] = useState(item?.description || "");
