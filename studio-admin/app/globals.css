@@ -6941,6 +6941,10 @@ html body {
   background: #fafafa;
   transition: border-color .16s, background .16s, box-shadow .16s;
 }
+.placement-tags span.hot {
+  color: #b45309;
+  background: #fff1d6;
+}
 .image-section-card.is-dragging {
   border-color: #b7833d;
   background: rgba(183, 131, 61, .08);

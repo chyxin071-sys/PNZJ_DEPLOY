@@ -76,7 +76,12 @@ type View =
   | "tags"
   | "admins"
   | "settings";
-type CaseScope = "全部案例" | "精选案例" | "推荐案例" | "首页大图";
+type CaseScope =
+  | "全部案例"
+  | "热门小区"
+  | "精选案例"
+  | "推荐案例"
+  | "首页大图";
 type SettingsTab = "水印设置" | "品牌资料" | "基础设置";
 
 type CaseRecord = {
@@ -94,6 +99,7 @@ type CaseRecord = {
   cover: string;
   featured: boolean;
   recommended: boolean;
+  hot?: boolean;
   homeHero: boolean;
   images: string[];
   imageNames?: string[];
@@ -1081,7 +1087,7 @@ function CaseActions({
   open: (view: View, item?: CaseRecord) => void;
   requestAction: (
     item: CaseRecord,
-    action: "status" | "home" | "delete",
+    action: "status" | "hot" | "home" | "delete",
   ) => void;
 }) {
   return (
@@ -1097,9 +1103,14 @@ function CaseActions({
             {item.status === "已下架" ? "上架" : "下架"}
           </button>
           {item.status === "已上架" && (
-            <button onClick={() => requestAction(item, "home")}>
-              {item.homeHero ? "取消首页" : "首页展示"}
-            </button>
+            <>
+              <button onClick={() => requestAction(item, "hot")}>
+                {item.hot ? "取消热门" : "设为热门"}
+              </button>
+              <button onClick={() => requestAction(item, "home")}>
+                {item.homeHero ? "取消首页" : "首页展示"}
+              </button>
+            </>
           )}
           <button
             className="danger"
@@ -1141,13 +1152,20 @@ function CasesList({
   const [deleteCaseId, setDeleteCaseId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<{
     item: CaseRecord;
-    action: "status" | "home";
+    action: "status" | "hot" | "home";
   } | null>(null);
-  const scopes: CaseScope[] = ["全部案例", "精选案例", "推荐案例", "首页大图"];
+  const scopes: CaseScope[] = [
+    "全部案例",
+    "热门小区",
+    "精选案例",
+    "推荐案例",
+    "首页大图",
+  ];
 
   const filtered = cases.filter((item) => {
     const scopeMatch =
       scope === "全部案例" ||
+      (scope === "热门小区" && item.hot) ||
       (scope === "精选案例" && item.featured) ||
       (scope === "推荐案例" && item.recommended) ||
       (scope === "首页大图" && item.homeHero);
@@ -1166,7 +1184,7 @@ function CasesList({
 
   function requestAction(
     item: CaseRecord,
-    action: "status" | "home" | "delete",
+    action: "status" | "hot" | "home" | "delete",
   ) {
     if (action === "delete") removeCase(item.id);
     else setPendingAction({ item, action });
@@ -1187,10 +1205,22 @@ function CasesList({
                 status: nextStatus,
                 featured: false,
                 recommended: false,
+                hot: false,
                 homeHero: false,
               },
         );
         notify(`案例已${nextStatus === "已上架" ? "上架" : "下架"}`);
+      } else if (action === "hot") {
+        if (item.status !== "已上架") {
+          notify("请先上架案例，再设置热门小区");
+          return;
+        }
+        if (!item.hot && cases.filter((record) => record.hot).length >= 10) {
+          notify("热门小区案例最多设置10个，请先取消一个");
+          return;
+        }
+        await persistCasePatch(item, { hot: !item.hot });
+        notify(item.hot ? "已取消热门小区展示" : "已加入热门小区案例");
       } else {
         if (item.status !== "已上架") {
           notify("请先上架案例，再设置首页展示");
@@ -1219,7 +1249,9 @@ function CasesList({
                 {item === "全部案例"
                   ? cases.length
                   : cases.filter((record) =>
-                      item === "精选案例"
+                      item === "热门小区"
+                        ? record.hot
+                        : item === "精选案例"
                         ? record.featured
                         : item === "推荐案例"
                           ? record.recommended
@@ -1322,6 +1354,7 @@ function CasesList({
                   {item.community} · {item.style}
                 </p>
                 <div className="placement-tags">
+                  {item.hot && <span className="hot">热门</span>}
                   {item.featured && <span className="featured">精选</span>}
                   {item.recommended && (
                     <span className="recommended">推荐</span>
@@ -1385,6 +1418,7 @@ function CasesList({
                     <td>{item.style}</td>
                     <td>
                       <div className="placement-tags">
+                        {item.hot && <span className="hot">热门</span>}
                         {item.featured && (
                           <span className="featured">精选</span>
                         )}
@@ -1418,6 +1452,10 @@ function CasesList({
           title={
             pendingAction.action === "status"
               ? `${pendingAction.item.status === "已下架" ? "上架" : "下架"}这个案例？`
+              : pendingAction.action === "hot"
+                ? pendingAction.item.hot
+                  ? "取消热门小区展示？"
+                  : "加入热门小区案例？"
               : pendingAction.item.homeHero
                 ? "取消首页展示？"
                 : "设为首页展示案例？"
@@ -1425,6 +1463,8 @@ function CasesList({
           text={
             pendingAction.action === "status"
               ? "状态变更后会立即影响小程序与网页版的可见性。"
+              : pendingAction.action === "hot"
+                ? "小程序首页最多展示10个热门小区案例。"
               : "首页首屏仅展示一个主案例，确认后会替换当前首页案例。"
           }
           cancel={() => setPendingAction(null)}
@@ -2351,6 +2391,7 @@ function CaseEdit({
         coverFileID,
         featured: item?.featured || false,
         recommended: item?.recommended || false,
+        hot: item?.hot || false,
         homeHero: item?.homeHero || false,
         images: allSectionImages,
         imageFileIDs: allSectionFileIDs,
@@ -4632,6 +4673,7 @@ export function AdminApp() {
             record.coverFileID || record.cover || record.coverUrl || "",
           featured: Boolean(record.featured),
           recommended: Boolean(record.recommended),
+          hot: Boolean(record.hot),
           homeHero: Boolean(record.homeHero),
           images:
             Array.isArray(record.images) && record.images.length
