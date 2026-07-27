@@ -18,9 +18,27 @@ function cosFallback(url: URL) {
 async function loadImage(url: URL) {
   return fetch(url, {
     redirect: "follow",
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(8_000),
     headers: { "User-Agent": "PNZJ-Admin-Image-Proxy/1.0" },
   });
+}
+
+async function loadFirstAvailable(url: URL) {
+  const candidates = [url];
+  const fallback = cosFallback(url);
+  if (fallback) candidates.push(fallback);
+  const attempts = await Promise.allSettled(candidates.map(loadImage));
+  const successful = attempts.find(
+    (attempt): attempt is PromiseFulfilledResult<Response> =>
+      attempt.status === "fulfilled" && attempt.value.ok,
+  );
+  if (successful) return successful.value;
+  const firstResponse = attempts.find(
+    (attempt): attempt is PromiseFulfilledResult<Response> =>
+      attempt.status === "fulfilled",
+  );
+  if (firstResponse) return firstResponse.value;
+  throw new Error("Image source unavailable");
 }
 
 export async function GET(request: Request) {
@@ -37,27 +55,9 @@ export async function GET(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await loadImage(url);
+    upstream = await loadFirstAvailable(url);
   } catch {
-    const fallback = cosFallback(url);
-    if (!fallback) return new Response("Image source unavailable", { status: 504 });
-    try {
-      upstream = await loadImage(fallback);
-    } catch {
-      return new Response("Image source unavailable", { status: 504 });
-    }
-  }
-
-  if (!upstream.ok) {
-    const fallback = cosFallback(url);
-    if (fallback) {
-      try {
-        const retry = await loadImage(fallback);
-        if (retry.ok) upstream = retry;
-      } catch {
-        // Keep the original upstream response and status.
-      }
-    }
+    return new Response("Image source unavailable", { status: 504 });
   }
   if (!upstream.ok) return new Response("Image source rejected the request", { status: upstream.status });
 
