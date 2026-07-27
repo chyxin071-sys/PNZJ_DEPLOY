@@ -46,6 +46,13 @@ const defaultHomeStages = (): PaymentStage[] => [
   { name: '竣工尾款', amount: 0, ratio: 0 },
 ];
 
+function parseMoneyInput(value: string | number) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = value.replace(/[，,\s￥¥]/g, '');
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
 function normalizePaymentStages(contract?: Contract | null): PaymentStage[] {
   const stages = contract?.paymentStages || [];
   if (!contract) return defaultHomeStages();
@@ -121,7 +128,8 @@ export default function ContractDetail() {
   const [directContract, setDirectContract] = useState<Contract | null>(null);
   const [directReceipts, setDirectReceipts] = useState<Receipt[]>([]);
   const contract = useMemo(() => {
-    return contracts.find((c) => c.id === id || (c as any)._id === id) || directContract;
+    const directMatches = directContract && (directContract.id === id || (directContract as any)._id === id);
+    return directMatches ? directContract : contracts.find((c) => c.id === id || (c as any)._id === id) || directContract;
   }, [contracts, directContract, id]);
   const [directLoading, setDirectLoading] = useState(false);
 
@@ -287,7 +295,7 @@ export default function ContractDetail() {
     const stages = stageForm.map((s, i) => {
       if (i !== idx) return s;
       if (field === 'amount') {
-        return { ...s, amount: Number(value) || 0, ratio: 0 };
+        return { ...s, amount: parseMoneyInput(value), ratio: 0 };
       }
       return { ...s, [field]: String(value), ratio: 0 };
     });
@@ -305,7 +313,10 @@ export default function ContractDetail() {
     const amount = contract.contractAmount || 0;
     const stages = stageForm
       .filter((stage) => stage.name.trim())
-      .map((stage) => ({ ...stage, name: stage.name.trim(), amount: Number(stage.amount) || 0, ratio: amount > 0 ? (Number(stage.amount) || 0) / amount : 0 }));
+      .map((stage) => {
+        const stageAmount = parseMoneyInput(stage.amount);
+        return { ...stage, name: stage.name.trim(), amount: stageAmount, ratio: amount > 0 ? stageAmount / amount : 0 };
+      });
     await saveContractChanges({
       ...contract,
       paymentStages: stages.length > 0 ? stages : (contract.bizType === '工装' ? defaultCommercialStages() : defaultHomeStages()),
@@ -316,6 +327,7 @@ export default function ContractDetail() {
   const saveContractChanges = async (nextContract: Contract) => {
     if (canViewFinance) {
       await updateContract(nextContract);
+      setDirectContract(nextContract);
       return;
     }
     await contractsAPI.put(nextContract);
