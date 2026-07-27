@@ -220,8 +220,68 @@ body {
 
   /* 响应式：移动端表单控件适当缩小 */
   @media (max-width: 768px) {
+    .erp-page,
+    .erp-page-spaced {
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    .erp-page-header {
+      align-items: flex-start;
+    }
+
+    .erp-page-header > * {
+      min-width: 0;
+    }
+
+    .erp-mobile-safe-actions {
+      padding-right: env(safe-area-inset-right);
+    }
+
+    .erp-mobile-primary-action {
+      min-height: 44px;
+      max-width: min(44vw, 11rem);
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
     .erp-input, .erp-select, .erp-date {
       @apply text-xs py-1.5;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .erp-search-row {
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
+    .erp-search-row .erp-search-field {
+      flex: 1 1 100%;
+      width: 100%;
+    }
+
+    .erp-search-row > .shrink-0 {
+      width: 100%;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+
+    .erp-filter-button,
+    .erp-search-row .erp-filter-button,
+    .erp-search-row .md\:hidden {
+      min-height: 36px;
+    }
+
+    .erp-lead-stat-card {
+      width: calc((100% - 8px) / 3);
+      padding: 0.55rem;
+    }
+
+    .erp-lead-stat-card p {
+      font-size: 1.05rem;
+      line-height: 1.25rem;
     }
   }
 }

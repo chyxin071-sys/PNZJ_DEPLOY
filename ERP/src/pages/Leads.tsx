@@ -1292,8 +1292,8 @@ export default function Leads() {
 
   return (
     <div className="erp-page">
-      <div className="erp-page-header">
-        <div>
+      <div className="erp-page-header erp-mobile-safe-actions">
+        <div className="min-w-0">
           <h1 className="erp-page-title">客户管理</h1>
           <p className="erp-page-subtitle">{isDesktopSignedView ? `${signedItems.length} 个已签单客户` : '管理客户线索与跟进'}</p>
         </div>
@@ -1304,8 +1304,8 @@ export default function Leads() {
           if (myRole === 'manager') autoAssign.manager = [myName];
           setForm({ ...INIT_FORM, ...autoAssign });
           setShowCreate(true);
-        }} className="erp-btn-primary">
-          <Plus size={16} /> 新建客户
+        }} className="erp-btn-primary erp-mobile-primary-action">
+          <Plus size={16} className="shrink-0" /> <span className="truncate">新建客户</span>
         </button>
       </div>
 
@@ -1315,7 +1315,7 @@ export default function Leads() {
           const active = statFilter === card.key;
           return (
             <button key={card.key} type="button" onClick={() => setStatFilter(active && statFilter !== 'all' ? 'all' : card.key)}
-              className={`flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
+              className={`erp-lead-stat-card flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] md:text-xs text-gray-400">{card.label}</span>
                 <Icon size={14} className={active ? card.color : 'text-gray-300'} />
