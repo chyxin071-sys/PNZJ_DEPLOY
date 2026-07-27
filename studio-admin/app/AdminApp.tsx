@@ -355,6 +355,31 @@ const initialCustomers: Customer[] = [
   },
 ];
 
+function formatChinaDateTime(value: unknown) {
+  if (!value) return "-";
+  if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value)
+  ) {
+    return value.slice(0, 16);
+  }
+  const date = new Date(value as string | number | Date);
+  if (Number.isNaN(date.getTime()))
+    return String(value).replace("T", " ").slice(0, 16);
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}`;
+}
+
 function mapLeadToCustomer(record: any): Customer {
   return {
     id: record.customerNo || record._id,
@@ -369,10 +394,7 @@ function mapLeadToCustomer(record: any): Customer {
         : record.source || "-",
     status: record.status || "新客户",
     category: "",
-    createdAt:
-      typeof record.createdAt === "string"
-        ? record.createdAt.replace("T", " ").slice(0, 16)
-        : "-",
+    createdAt: formatChinaDateTime(record.createdAt),
     openid: record.miniProgram?.openid || "",
     visitorId: record.miniProgram?.visitorId || "",
     avatarFileID: record.miniProgram?.avatarFileID || record.avatarFileID || "",
@@ -446,10 +468,7 @@ function mapCaseRecord(record: any): CaseRecord {
     highlights: record.highlights || "",
     tags: Array.isArray(record.tags) ? record.tags.map(String).filter(Boolean) : [],
     uploader: record.uploader || record.createdBy || record.updatedBy || "-",
-    updatedAt:
-      typeof record.updatedAt === "string"
-        ? record.updatedAt.replace("T", " ").slice(0, 16)
-        : "-",
+    updatedAt: formatChinaDateTime(record.updatedAt),
     detailsLoaded: Boolean(record.detailsLoaded),
   };
 }
@@ -3504,8 +3523,8 @@ function Notifications({
                     <b>{event.caseName || target?.name || "未命名案例"}</b>
                   </p>
                   <span>
-                    {typeof event.createdAt === "string"
-                      ? event.createdAt.replace("T", " ").slice(0, 16)
+                    {event.createdAt
+                      ? formatChinaDateTime(event.createdAt)
                       : "刚刚"}
                   </span>
                 </div>
