@@ -117,16 +117,19 @@ export default function ReimbursementPage() {
     )},
     { key: 'expenseDate', title: '费用日期', render: (r: Reimbursement) => formatDate(r.expenseDate) },
     { key: 'actions', title: '操作', render: (r: Reimbursement) => (
-        <div className="flex min-w-[96px] flex-col items-start gap-1" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-2">
-            {!isEmployee && r.status === '待审核' && <>
-              <button onClick={() => handleApprove(r)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">通过</button>
-              <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
-            </>}
-            {!isEmployee && r.status === '已审核' && (
-              <button onClick={() => setShowPayModal({ item: r })} className="text-xs px-2 py-1 text-gold-600 hover:bg-gold-50 rounded transition-colors font-medium">打款</button>
-            )}
-          </div>
+        <div className="flex min-w-[96px] items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {!isEmployee && r.status === '待审核' && <>
+            <button onClick={() => handleApprove(r)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">通过</button>
+            <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
+          </>}
+          {!isEmployee && r.status === '已审核' && (
+            <button onClick={() => setShowPayModal({ item: r })} className="text-xs px-2 py-1 text-gold-600 hover:bg-gold-50 rounded transition-colors font-medium">打款</button>
+          )}
+        </div>
+      )
+    },
+    { key: 'delete', title: '删除', render: (r: Reimbursement) => (
+        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
           {!isEmployee && (
             <button onClick={() => handleDelete(r)} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">删除</button>
           )}
