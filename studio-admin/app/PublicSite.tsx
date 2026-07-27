@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Clock3, MapPin, Menu, Phone, Search, X } from "lucide-react";
 import logoFull from "./assets/logo-full.png";
-import logoMark from "./assets/logo-mark.png";
 import designerQr from "./assets/designer-qr.png";
 import { publicCases, type PublicCase } from "./public-data";
 import { publicApi } from "./admin-api";
@@ -74,11 +73,11 @@ function PublicLightbox({ images, index, close, select }: { images: string[]; in
 
 function PublicHeader() {
   const [open, setOpen] = useState(false);
-  return <header className="public-header"><a href="/" className="public-brand"><img src={logoFull.src} alt="品诺筑家整装" /></a><button className="public-menu" onClick={() => setOpen(!open)} aria-label="打开导航">{open ? <X /> : <Menu />}</button><nav className={open ? "open" : ""}><a href="/#home" onClick={() => setOpen(false)}>首页</a><a href="/#cases" onClick={() => setOpen(false)}>案例库</a><a href="/#about" onClick={() => setOpen(false)}>关于我们</a><a href="/#contact" onClick={() => setOpen(false)}>联系咨询</a></nav></header>;
+  return <header className="public-header"><a href="/" className="public-brand"><img src={logoFull.src} alt="品诺筑家整装" /></a><button className="public-menu" onClick={() => setOpen(!open)} aria-label="打开导航">{open ? <X /> : <Menu />}</button><nav className={open ? "open" : ""}><a href="/#works" onClick={() => setOpen(false)}>空间案例</a><a href="/#approach" onClick={() => setOpen(false)}>整装方法</a><a href="/#about" onClick={() => setOpen(false)}>关于品诺</a><a href="/#contact" onClick={() => setOpen(false)}>预约咨询</a><a className="public-nav-erp" href="/erp">客户中心</a></nav></header>;
 }
 
-function CaseCard({ item }: { item: PublicCase }) {
-  return <a className="public-case-card" href={`/case/${item.id}`}><div><img src={item.cover} alt={item.name} /><span>{item.style}</span></div><h3>{item.name}</h3><p>{item.layout} · {item.area}㎡</p><footer><span>{item.community}</span><ArrowRight size={18} /></footer></a>;
+function CaseCard({ item, index }: { item: PublicCase; index: number }) {
+  return <a className={`public-case-card public-case-card-${index % 5}`} href={`/case/${item.id}`}><div><img src={item.cover} alt={item.name} loading={index > 3 ? "lazy" : "eager"} decoding="async" /><span>{String(index + 1).padStart(2, "0")}</span><i>VIEW PROJECT <ArrowRight size={15} /></i></div><header><div><p>{item.community} · {item.style}</p><h3>{item.name}</h3></div><p>{item.layout}<br />{item.area}㎡</p></header></a>;
 }
 
 export function PublicSite() {
@@ -91,15 +90,22 @@ export function PublicSite() {
   const address = siteConfig.company?.address || "甘肃省嘉峪关市河西建材城品诺筑家整装";
   const businessHours = siteConfig.company?.businessHours || "9:00-18:00";
   const contactQr = designerQr.src;
-  return <main className="public-site">
+  const secondary = cases[1] || heroCase;
+  const aboutImage = siteConfig.media?.aboutCover || cases[4 % Math.max(cases.length, 1)]?.cover || heroCase.cover;
+  return <main className="public-site public-home">
     <PublicHeader />
-    <section className="public-hero" id="home" style={{ backgroundImage: `linear-gradient(90deg, rgba(16,15,13,.72), rgba(16,15,13,.08)), url(${heroCase.cover})` }}>
-      <div><img src={logoMark.src} alt="" /><p>PINNUO HOME · JIAYUGUAN</p><h1>品诺筑家整装</h1><h2>用设计，让家真正落地</h2><a href="#cases">查看案例 <ArrowRight size={18} /></a></div>
+    <section className="public-hero" id="home">
+      <img className="public-hero-image" src={heroCase.cover} alt={heroCase.name} />
+      <div className="public-hero-shade" />
+      <div className="public-hero-copy"><p>PINNUO HOME / JIAYUGUAN</p><h1>家，不止被设计<br />更需要被实现</h1><div><span>品诺有心，筑家有道</span><a href={`/case/${heroCase.id}`}>探索本案 <ArrowRight size={18} /></a></div></div>
+      <a className="public-hero-index" href="#works"><span>SCROLL TO EXPLORE</span><b>01</b></a>
     </section>
-    <section className="public-cases" id="cases"><header><div><span>SELECTED WORKS</span><h2>案例库</h2></div><p>按小区与风格，快速找到更接近你理想生活的空间参考。</p></header><div className="public-case-tools"><label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索小区或案例" /></label><div>{styles.map((item) => <button className={style === item ? "active" : ""} onClick={() => setStyle(item)} key={item}>{item}</button>)}</div></div><div className="public-case-grid">{filtered.map((item) => <CaseCard item={item} key={item.id} />)}</div></section>
-    <section className="public-about" id="about"><div className="public-about-image" style={{ backgroundImage: `url(${siteConfig.media?.aboutCover || cases[4 % cases.length]?.cover || heroCase.cover})` }} /><div><span>OUR STORY</span><h2>扎根嘉峪关二十余年</h2><p>2002年，我们从福建远赴嘉峪关，从瓷砖销售起步。承蒙客户朋友一路信任与扶持，我们在这座城市安家，也把对家的理解沉淀进每一次服务。</p><p>2019年，品诺筑家整装正式成立，开启一站式全屋整装落地服务。品质立身，诚信做人，是我们的根，也是我们始终不变的承诺。</p><blockquote>{siteConfig.brand?.slogan || "良心做人，匠心做事。"}</blockquote></div></section>
+    <section className="public-intro" id="approach"><header><span>01 / OUR APPROACH</span><p>从生活方式出发，以设计统筹施工、主材、定制与软装，让审美与落地不再割裂。</p></header><h2>我们不交付一张效果图<br />我们交付一个真正住得好的家</h2><div className="public-intro-stats"><div><b>2002</b><span>品牌服务起点</span></div><div><b>1:1</b><span>效果与落地协同</span></div><div><b>全案</b><span>设计到交付闭环</span></div></div></section>
+    <section className="public-featured"><a href={`/case/${secondary.id}`}><img src={secondary.cover} alt={secondary.name} /><div><span>FEATURED RESIDENCE</span><h2>{secondary.name}</h2><p>{secondary.community} / {secondary.layout} / {secondary.area}㎡</p></div></a></section>
+    <section className="public-cases" id="works"><header><div><span>02 / SELECTED WORKS</span><h2>空间案例</h2></div><p>按真实小区、户型与生活需求整理。每个案例都呈现从概念到空间落地的完整思考。</p></header><div className="public-case-tools"><label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索小区、案例或户型" /></label><div>{styles.map((item) => <button className={style === item ? "active" : ""} onClick={() => setStyle(item)} key={item}>{item}</button>)}</div><span>{filtered.length} PROJECTS</span></div><div className="public-case-grid">{filtered.map((item, index) => <CaseCard item={item} index={index} key={item.id} />)}</div>{filtered.length === 0 && <div className="public-no-cases">没有找到匹配案例，试试其他关键词。</div>}</section>
+    <section className="public-about" id="about"><div className="public-about-image" style={{ backgroundImage: `url(${aboutImage})` }} /><div><span>03 / ABOUT PINNUO</span><h2>在嘉峪关<br />认真做好每一个家</h2><p>从材料经营到全案整装，我们对家的理解来自二十余年的真实交付。设计不是孤立的表达，而是预算、工艺、尺度与日常生活共同形成的答案。</p><p>品诺筑家坚持把复杂的装修过程整合成清晰、可控、可落地的服务。</p><blockquote>{siteConfig.brand?.slogan || "品诺有心，筑家有道"}</blockquote></div></section>
     <section className="public-contact" id="contact"><div><span>DESIGN CONSULTATION</span><h2>聊聊你理想中的家</h2><p>提交咨询后，品诺筑家顾问会结合小区、户型与居住需求提供初步建议。</p><dl><div><MapPin /><dt>公司地址</dt><dd>{address}</dd></div><div><Clock3 /><dt>营业时间</dt><dd>每日 {businessHours}</dd></div><div><Phone /><dt>咨询方式</dt><dd>扫码添加品诺筑家顾问微信</dd></div></dl></div><figure><img src={contactQr} alt="品诺筑家顾问微信二维码" /><figcaption>扫码添加品诺筑家顾问微信</figcaption></figure></section>
-    <footer className="public-footer"><img src={logoFull.src} alt="品诺筑家整装" /><p>品质立身，诚信做人，用心交付每一个家。</p><span>© 2026 品诺筑家整装</span></footer>
+    <footer className="public-footer"><div><img src={logoFull.src} alt="品诺筑家整装" /><p>品诺有心，筑家有道</p></div><div><a href="#works">案例</a><a href="#approach">方法</a><a href="#about">关于</a><a href="#contact">联系</a></div><span>© 2026 PINNUO HOME</span></footer>
   </main>;
 }
 
