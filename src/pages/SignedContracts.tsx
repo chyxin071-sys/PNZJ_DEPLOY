@@ -486,12 +486,12 @@ export default function SignedContracts() {
               )},
               { key: 'quoteLink', title: '报价', width: '80px', render: (row: any) => (
                 row.quoteId ? (
-                  <LinkBtn icon={PenTool} label="报价" onClick={() => { saveScroll(); navigate(`/quotes-biz/${row.quoteId}`); }} />
+                  <LinkBtn icon={PenTool} label="报价" onClick={() => { saveScroll(); navigate(`/quotes-biz/${row.quoteId}`, { state: { from: '/signed-contracts' } }); }} />
                 ) : <span className="text-[11px] text-gray-300">-</span>
               )},
               { key: 'contractLink', title: '合同', width: '80px', render: (row: any) => (
                 row.contractId ? (
-                  <LinkBtn icon={FileText} label="合同" onClick={() => { saveScroll(); navigate(`/contracts/${row.contractId}`); }} />
+                  <LinkBtn icon={FileText} label="合同" onClick={() => { saveScroll(); navigate(`/contracts/${row.contractId}`, { state: { from: '/signed-contracts' } }); }} />
                 ) : <span className="text-[11px] text-gray-300">-</span>
               )},
               { key: 'contractAmount', title: '合同金额', sortable: true, render: (row: any) => (
@@ -545,7 +545,7 @@ export default function SignedContracts() {
               )},
               { key: 'siteLink', title: '工地详情', width: '90px', render: (row: any) => (
                 row.projectId ? (
-                  <LinkBtn icon={HardHat} label="工地详情" onClick={() => { saveScroll(); navigate(`/projects-biz/${row.projectId}`); }} />
+                  <LinkBtn icon={HardHat} label="工地详情" onClick={() => { saveScroll(); navigate(`/projects-biz/${row.projectId}`, { state: { from: '/signed-contracts' } }); }} />
                 ) : <span className="text-[11px] text-gray-300">-</span>
               )},
               { key: 'sales', title: '销售', render: renderAssigneeCol('sales', '销售', salesOptions) },

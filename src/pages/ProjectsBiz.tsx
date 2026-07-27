@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Calendar, Trash2, Edit3, ChevronRight,
   LayoutTemplate, X, Save, BookOpen, ChevronDown, Eye, Layers, CheckCircle,
@@ -18,6 +18,7 @@ import {
 } from '@/config/constructionTemplates';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
+import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 import { uploadFile as uploadToCloud } from '@/utils/cloudStorage';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
@@ -346,6 +347,8 @@ const MOBILE_DELETE_WIDTH = 88;
 
 export default function ProjectsBiz() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
@@ -1172,7 +1175,7 @@ export default function ProjectsBiz() {
                       return;
                     }
                     saveProjectListScroll();
-                    navigate(`/projects-biz/${projectId}`);
+                    navigate(`/projects-biz/${projectId}`, { state: { from: returnPath } });
                   }}
                 >
                   {/* 移动端 */}

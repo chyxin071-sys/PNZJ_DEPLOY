@@ -24,6 +24,7 @@ import {
 } from '@/services/notificationService';
 import { syncLeadRelations } from '@/utils/syncLeadRelations';
 import { addLeadAuditFollowUp, describeLeadChanges, namesText, notifyLeadAssignment, notifyLeadEvent } from '@/utils/leadAudit';
+import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 
 const STATUS_COLORS: Record<string, string> = {
   '跟进中': 'bg-blue-50 text-blue-600',
@@ -410,6 +411,7 @@ const ROLE_COLORS: Record<string, string> = {
 export default function Leads() {
   const navigate = useNavigate();
   const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
@@ -726,7 +728,7 @@ export default function Leads() {
     const showFull = isRelated || row.status === '已签单';
     if (!showFull) return;
     saveScroll();
-    const fromPath = isDesktopSignedView ? '/leads?filter=signed' : `${location.pathname}${location.search}`;
+    const fromPath = isDesktopSignedView ? '/leads?filter=signed' : returnPath;
     navigate(`/leads/${(row as any)._id}`, {
       state: { from: fromPath },
     });
@@ -1827,17 +1829,17 @@ export default function Leads() {
                 )},
                 { key: 'siteLink', title: '工地详情', width: '90px', render: (row: any) => (
                   row.projectId ? (
-                    <LinkBtn icon={HardHat} label="工地详情" onClick={() => { saveScroll(); navigate(`/projects-biz/${row.projectId}`); }} />
+                    <LinkBtn icon={HardHat} label="工地详情" onClick={() => { saveScroll(); navigate(`/projects-biz/${row.projectId}`, { state: { from: returnPath } }); }} />
                   ) : <span className="text-[11px] text-gray-300">-</span>
                 )},
                 { key: 'quoteLink', title: '报价', width: '80px', render: (row: any) => (
                   row.quoteId ? (
-                    <LinkBtn icon={PenTool} label="报价" onClick={() => { saveScroll(); navigate(`/quotes-biz/${row.quoteId}`); }} />
+                    <LinkBtn icon={PenTool} label="报价" onClick={() => { saveScroll(); navigate(`/quotes-biz/${row.quoteId}`, { state: { from: returnPath } }); }} />
                   ) : <span className="text-[11px] text-gray-300">-</span>
                 )},
                 { key: 'contractLink', title: '合同', width: '80px', render: (row: any) => (
                   row.contractId ? (
-                    <LinkBtn icon={FileText} label="合同" onClick={() => { saveScroll(); navigate(`/contracts/${row.contractId}`); }} />
+                    <LinkBtn icon={FileText} label="合同" onClick={() => { saveScroll(); navigate(`/contracts/${row.contractId}`, { state: { from: returnPath } }); }} />
                   ) : <span className="text-[11px] text-gray-300">-</span>
                 )},
                 { key: 'incomeLink', title: '客户收款', width: '90px', render: (row: any) => (

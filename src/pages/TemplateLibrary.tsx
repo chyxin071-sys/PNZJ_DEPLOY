@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Loader2, ChevronDown, ChevronRight, Trash2, ImagePlus, X } from 'lucide-react';
 import { systemConfigsAPI } from '@/db/api';
 import { cloudApp } from '@/db/cloudbase';
@@ -7,6 +6,7 @@ import { DEFAULT_TEMPLATES, buildNodesFromTemplate, makeId } from '@/config/cons
 import { uploadFile as uploadToCloud } from '@/utils/cloudStorage';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
+import { useSmartBack } from '@/hooks/useSmartBack';
 
 const TEMPLATE_DOC_ID = 'default_project_template';
 const LEGACY_TEMPLATE_DOC_ID = 'project_template';
@@ -78,7 +78,7 @@ function snapshotTemplate(nodes: any[]) {
 }
 
 export default function TemplateLibrary() {
-  const navigate = useNavigate();
+  const smartBack = useSmartBack('/');
   const [nodes, setNodes] = useState<any[]>([]);
   const [craftPreview, setCraftPreview] = useState<{ images: string[]; index: number } | null>(null);
 
@@ -177,7 +177,7 @@ export default function TemplateLibrary() {
 
   const handleBack = () => {
     if (isDirty && !window.confirm('模板库有未保存的修改，确定放弃并返回吗？')) return;
-    navigate(-1);
+    smartBack();
   };
 
   const discardChanges = () => {

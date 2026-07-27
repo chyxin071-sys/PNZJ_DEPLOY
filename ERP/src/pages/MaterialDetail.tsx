@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, ArrowDownCircle, ArrowUpCircle, Edit3, PackageOpen } from 'lucide-react';
 import { materialsAPI, inventoryRecordsAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
+import { useSmartBack } from '@/hooks/useSmartBack';
 
 export default function MaterialDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const smartBack = useSmartBack('/materials');
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
 
@@ -115,7 +116,7 @@ export default function MaterialDetail() {
     return (
       <div className="erp-page">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={() => smartBack()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={18} />
           </button>
           <h1 className="text-lg font-bold">材料不存在</h1>
@@ -127,7 +128,7 @@ export default function MaterialDetail() {
   return (
     <div className="erp-page">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => smartBack()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">

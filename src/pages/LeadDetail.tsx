@@ -18,6 +18,7 @@ import { useDialogStore } from '@/store/dialogStore';
 import { useUploadQueueStore } from '@/store/uploadQueueStore';
 import { formatDate, formatDateTime, generateId } from '@/utils/format';
 import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
+import { getCurrentReturnPath, useSmartBack } from '@/hooks/useSmartBack';
 import { downloadAttachment, openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
 import {
@@ -472,6 +473,8 @@ export default function LeadDetail() {
   const { id, section } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
+  const smartBack = useSmartBack('/leads');
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
   const markRelatedAsRead = useNotificationStore((state) => state.markRelatedAsRead);
@@ -2179,7 +2182,7 @@ export default function LeadDetail() {
 
   const openContractFlow = async () => {
     if (hasContract && contractInfo) {
-      navigate(`/contracts/${contractInfo.id || contractInfo._id}`);
+      navigate(`/contracts/${contractInfo.id || contractInfo._id}`, { state: { from: returnPath } });
       return;
     }
     // 校验客户状态
@@ -2210,7 +2213,7 @@ export default function LeadDetail() {
 
   const openProjectFlow = async () => {
     if (hasProject && projectInfo) {
-      navigate(`/projects-biz/${projectInfo._id}`);
+      navigate(`/projects-biz/${projectInfo._id}`, { state: { from: returnPath } });
       return;
     }
     if (lead?.status !== '已签单') {
@@ -2260,7 +2263,7 @@ export default function LeadDetail() {
 
   const openShareAccessFlow = async () => {
     if (hasProject && projectInfo) {
-      navigate(`/projects-biz/${projectInfo._id || projectInfo.id}/share-access`);
+      navigate(`/projects-biz/${projectInfo._id || projectInfo.id}/share-access`, { state: { from: returnPath } });
       return;
     }
     const confirmed = await showConfirm('查看申请需要先关联工地。是否立即新建工地？');
@@ -2353,7 +2356,7 @@ export default function LeadDetail() {
         {/* header */}
         <div className="flex items-start justify-between px-3 md:px-6 py-4 md:py-4 gap-3 md:gap-4">
           <div className="flex items-start gap-2.5 md:gap-3 min-w-0 flex-1">
-            <button onClick={() => navigate(returnToLeads)} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => smartBack()} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
               <ArrowLeft size={18} className="text-gray-400" />
             </button>
             <div className="min-w-0 flex-1">

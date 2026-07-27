@@ -11,10 +11,11 @@ import { formatMoney, formatDate } from '@/utils/format';
 import type { Receipt, Expense, AttachmentValue } from '@/types';
 import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Paperclip, Download } from 'lucide-react';
 import { getAttachmentSummary, normalizeAttachments, openAttachment } from '@/utils/financeAttachments';
 import { contractsAPI } from '@/db/api';
+import { useSmartBack } from '@/hooks/useSmartBack';
 
 echarts.use([PieChart, BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
@@ -56,7 +57,7 @@ function AttachmentCell({ attachments, onDelete }: { attachments?: AttachmentVal
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const smartBack = useSmartBack('/projects');
   const { contracts, receipts, expenses } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const [catTab, setCatTab] = useState<string>('全部');
@@ -163,7 +164,7 @@ export default function ProjectDetail() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-gray-400 text-sm mb-4">项目不存在</p>
-        <button onClick={() => navigate(-1)} className="erp-btn-secondary">
+        <button onClick={() => smartBack()} className="erp-btn-secondary">
           <ArrowLeft size={14} className="inline mr-1" />返回项目列表
         </button>
       </div>
@@ -206,7 +207,7 @@ export default function ProjectDetail() {
     <div className="erp-page-spaced">
       {/* 头部 */}
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+        <button onClick={() => smartBack()} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div>

@@ -22,6 +22,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { useBizStore } from '@/store/bizStore';
 import { useUploadQueueStore } from '@/store/uploadQueueStore';
 import { useDialogStore } from '@/store/dialogStore';
+import { getCurrentReturnPath, useSmartBack } from '@/hooks/useSmartBack';
 import {
   CraftTemplate, getTemplates, buildNodesFromTemplate, makeId,
   DEFAULT_NODE_TYPE, normalizeNodeType, TYPE_OPTIONS,
@@ -268,6 +269,7 @@ export default function ProjectBizDetail() {
   const { id, section } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
   const { user } = useAuthStore();
   const { showConfirm } = useDialogStore();
   const notifications = useNotificationStore((state) => state.notifications);
@@ -306,6 +308,7 @@ export default function ProjectBizDetail() {
     { key: 'files', label: currentBizType === '工装' ? '合同资料' : '项目资料' },
   ];
   const standaloneSection = (['logs', 'inspections'] as const).includes(section as any) ? section as 'logs' | 'inspections' : null;
+  const smartBack = useSmartBack(standaloneSection ? `/projects-biz/${id}` : '/projects-biz');
 
   const [project, setProject] = useState<any>(null);
   const [lead, setLead] = useState<any>(null);
@@ -2008,7 +2011,7 @@ export default function ProjectBizDetail() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <HardHat className="w-12 h-12 text-gray-300 mb-3" />
         <p className="text-gray-400 text-sm">工地不存在</p>
-        <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 bg-gold-400 text-black rounded-lg text-sm">返回工地列表</button>
+        <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black rounded-lg text-sm">返回工地列表</button>
       </div>
     );
   }
@@ -2030,19 +2033,19 @@ export default function ProjectBizDetail() {
   ];
   const getProjectShareTitle = (suffix = '工地进度播报') => `[品诺筑家] ${project.address || project.customer || '工地'} ${suffix}`;
   const handleOpenShareAccess = async () => {
-    navigate(`/projects-biz/${project._id || id}/share-access`);
+    navigate(`/projects-biz/${project._id || id}/share-access`, { state: { from: returnPath } });
   };
   const projectQuickActions = [
-    { key: 'customer', label: '客户详情', icon: Users, tone: 'bg-blue-50 text-blue-600', onClick: () => lead?._id ? navigate(`/leads/${lead._id}`) : setActiveTab('customer') },
-    { key: 'logs', label: '施工日志', icon: ClipboardList, tone: 'bg-cyan-50 text-cyan-600', onClick: () => navigate(`/projects-biz/${id}/logs`) },
-    { key: 'inspections', label: '工地巡检', icon: Shield, tone: 'bg-emerald-50 text-emerald-600', onClick: () => navigate(`/projects-biz/${id}/inspections`) },
+    { key: 'customer', label: '客户详情', icon: Users, tone: 'bg-blue-50 text-blue-600', onClick: () => lead?._id ? navigate(`/leads/${lead._id}`, { state: { from: returnPath } }) : setActiveTab('customer') },
+    { key: 'logs', label: '施工日志', icon: ClipboardList, tone: 'bg-cyan-50 text-cyan-600', onClick: () => navigate(`/projects-biz/${id}/logs`, { state: { from: returnPath } }) },
+    { key: 'inspections', label: '工地巡检', icon: Shield, tone: 'bg-emerald-50 text-emerald-600', onClick: () => navigate(`/projects-biz/${id}/inspections`, { state: { from: returnPath } }) },
     { key: 'share-access', label: '查看申请', icon: Eye, tone: 'bg-purple-50 text-purple-600', onClick: handleOpenShareAccess },
     {
       key: 'contract',
       label: relatedContract ? (currentBizType === '工装' ? '查看合同' : '查看合同') : '新建合同',
       icon: FileText,
       tone: 'bg-slate-100 text-slate-700',
-      onClick: () => relatedContract ? navigate(`/contracts/${relatedContract.id || relatedContract._id}`) : setContractDrawerOpen(true),
+      onClick: () => relatedContract ? navigate(`/contracts/${relatedContract.id || relatedContract._id}`, { state: { from: returnPath } }) : setContractDrawerOpen(true),
     },
     {
       key: 'reimbursement',
@@ -2101,7 +2104,7 @@ export default function ProjectBizDetail() {
       tone: 'bg-orange-50 text-orange-600',
       onClick: () => {
         if (lead?._id) {
-          navigate(`/leads/${lead._id}/material`);
+          navigate(`/leads/${lead._id}/material`, { state: { from: returnPath } });
         } else {
           alert('请先关联客户');
         }
@@ -2114,7 +2117,7 @@ export default function ProjectBizDetail() {
       tone: 'bg-teal-50 text-teal-600',
       onClick: () => {
         if (lead?._id) {
-          navigate(`/leads/${lead._id}/files`);
+          navigate(`/leads/${lead._id}/files`, { state: { from: returnPath } });
         } else {
           alert('请先关联客户');
         }
@@ -2232,7 +2235,7 @@ export default function ProjectBizDetail() {
       <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-start justify-between px-3 md:px-6 py-4 gap-3 md:gap-4">
           <div className="flex items-start gap-2.5 md:gap-3 min-w-0 flex-1">
-            <button onClick={() => navigate(-1)} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => smartBack()} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
               <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
             </button>
             <div className="min-w-0 flex-1">
@@ -4039,7 +4042,7 @@ export default function ProjectBizDetail() {
                   <p className="mt-1 text-xs text-gray-400">同步展示关联客户详情页中的资料文件。</p>
                 </div>
                 {lead?._id && (
-                  <button onClick={() => navigate(`/leads/${lead._id}/files`)} className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white">
+                  <button onClick={() => navigate(`/leads/${lead._id}/files`, { state: { from: returnPath } })} className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white">
                     <ExternalLink className="w-3.5 h-3.5" /> 管理资料
                   </button>
                 )}
@@ -4082,7 +4085,7 @@ export default function ProjectBizDetail() {
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900">{lead.name || lead.customerName || '-'}</h3>
-                  <button onClick={() => navigate(`/leads/${lead._id}`)} className="flex items-center gap-1 text-xs text-gold-600 hover:text-gold-700">
+                  <button onClick={() => navigate(`/leads/${lead._id}`, { state: { from: returnPath } })} className="flex items-center gap-1 text-xs text-gold-600 hover:text-gold-700">
                     <ExternalLink className="w-3.5 h-3.5" /> 查看客户详情
                   </button>
                 </div>
@@ -4140,7 +4143,7 @@ export default function ProjectBizDetail() {
                 <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm text-gray-400">暂无关联客户信息</p>
                 <p className="text-xs text-gray-300 mt-1">客户信息将在关联客户线索后自动同步</p>
-                <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded-lg">
+                <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded-lg">
                   关联客户
                 </button>
               </div>
@@ -4167,7 +4170,7 @@ export default function ProjectBizDetail() {
                         <span className="text-xs text-gray-400 ml-2">{c.bizType}</span>
                       </div>
                     </div>
-                    <button onClick={() => navigate(`/contracts/${c.id || c._id}`)} className="flex items-center gap-1 text-xs text-gold-600 hover:text-gold-700">
+                    <button onClick={() => navigate(`/contracts/${c.id || c._id}`, { state: { from: returnPath } })} className="flex items-center gap-1 text-xs text-gold-600 hover:text-gold-700">
                       <ExternalLink className="w-3.5 h-3.5" /> 查看合同详情
                     </button>
                   </div>
@@ -4241,7 +4244,7 @@ export default function ProjectBizDetail() {
                 <FileText className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm text-gray-400">暂无关联合同</p>
                 <p className="text-xs text-gray-300 mt-1">合同信息将在签订合同后自动同步显示</p>
-                <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded-lg">
+                <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded-lg">
                   查看所有合同
                 </button>
               </div>

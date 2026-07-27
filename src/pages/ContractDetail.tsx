@@ -9,11 +9,12 @@ import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { leadsAPI, contractsAPI, receiptsAPI } from '@/db/api';
 import { exportSheetsToExcel } from '@/utils/export';
 import { getAttachmentSummary, normalizeAttachments, uploadFinanceAttachments, mergeAttachments } from '@/utils/financeAttachments';
 import { useDialogStore } from '@/store/dialogStore';
+import { getCurrentReturnPath, useSmartBack } from '@/hooks/useSmartBack';
 import { Users } from 'lucide-react';
 
 const QUOTATION_STATUS_CLASS: Record<string, string> = {
@@ -101,6 +102,9 @@ type PendingUpload = UploadProgressItem & { file: File };
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
+  const smartBack = useSmartBack('/contracts');
   const {
     contracts,
     receipts,
@@ -737,7 +741,7 @@ export default function ContractDetail() {
     try {
       // 0. 如果合同绑定了唯一的 customerId，直接跳转，不再依赖可能被修改的文本匹配
       if (contract.customerId) {
-        navigate(`/leads/${contract.customerId}`);
+        navigate(`/leads/${contract.customerId}`, { state: { from: returnPath } });
         return;
       }
 
@@ -759,7 +763,7 @@ export default function ContractDetail() {
       }
 
       if (matches.length > 0) {
-        navigate(`/leads/${matches[0]._id}`);
+        navigate(`/leads/${matches[0]._id}`, { state: { from: returnPath } });
       } else {
         await showAlert('未找到关联的客户记录，可能是客户姓名/电话被修改或已删除。');
       }
@@ -782,7 +786,7 @@ export default function ContractDetail() {
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-gray-400 text-sm mb-4">合同不存在</p>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => smartBack()}
           className="erp-btn-secondary"
         >
           <ArrowLeft size={14} className="inline mr-1" />
@@ -1155,7 +1159,7 @@ export default function ContractDetail() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-start gap-3 md:flex-1 md:items-center">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => smartBack()}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors shrink-0"
           >
             <ArrowLeft size={20} />

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Search, ArrowLeft, X, ChevronLeft, ChevronRight, FileText, ArrowDownCircle, ArrowUpCircle, Loader2 } from 'lucide-react';
 import { inventoryRecordsAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
+import { useSmartBack } from '@/hooks/useSmartBack';
 
 const PAGE_SIZE = 30;
 
 export default function InventoryRecords() {
-  const navigate = useNavigate();
+  const smartBack = useSmartBack('/materials');
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const isFinance = user?.role === 'finance';
@@ -60,7 +60,7 @@ export default function InventoryRecords() {
   return (
     <div className="erp-page">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => smartBack()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useAuthStore } from '@/store/authStore';
@@ -11,6 +11,7 @@ import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import DatePicker from '@/components/DatePicker';
 import ContractDrawer from '@/components/ContractDrawer';
+import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 
 const PAGE_SIZE = 20;
 
@@ -47,6 +48,8 @@ function focusNextOnEnter(event: React.KeyboardEvent<HTMLElement>) {
 
 export default function Contracts() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { currentBizType } = useBizStore();
@@ -258,7 +261,7 @@ export default function Contracts() {
           createdAt: new Date().toISOString(),
           createdBy: myName,
         });
-        navigate(`/contracts/${newId}`);
+        navigate(`/contracts/${newId}`, { state: { from: returnPath }, replace: true });
         return;
       }
       setModalOpen(false);
@@ -392,7 +395,7 @@ export default function Contracts() {
               data={pageData}
               emptyText={pageLoading ? '正在加载合同...' : '暂无合同数据'}
               rowKey={(row) => String(row.id)}
-              onRowClick={(row) => navigate(`/contracts/${(row as Contract).id}`)}
+              onRowClick={(row) => navigate(`/contracts/${(row as Contract).id}`, { state: { from: returnPath } })}
               mobileCardColumns={isCommercial ? 4 : homeMobileColumns}
             />
             {totalCount > PAGE_SIZE && (
@@ -448,7 +451,7 @@ export default function Contracts() {
             onClose={() => setHomeDrawerOpen(false)}
             onSaved={(contractId) => {
               setHomeDrawerOpen(false);
-              navigate(`/contracts/${contractId}`);
+              navigate(`/contracts/${contractId}`, { state: { from: returnPath }, replace: true });
             }}
           />
       </>

@@ -9,6 +9,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import logoUrl from '@/assets/logo.png';
 import { useBizStore } from '@/store/bizStore';
 import { isMiniProgramWebView } from '@/utils/miniProgramPreview';
+import { useSmartBack } from '@/hooks/useSmartBack';
 import type { BizType } from '@/types';
 import RouteErrorBoundary from './RouteErrorBoundary';
 
@@ -136,6 +137,8 @@ export default function Layout() {
   const { showConfirm } = useDialogStore();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
   const { currentBizType, setBizType, bizTypes } = useBizStore();
+  const mobileRouteState = useMemo(() => getMobileRouteState(location.pathname), [location.pathname]);
+  const smartBack = useSmartBack(mobileRouteState.backPath || '/');
 
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -224,11 +227,10 @@ export default function Layout() {
             </button>
             {/* 手机端非底部Tab页：返回按钮 */}
             {(() => {
-              const routeState = getMobileRouteState(location.pathname);
-              if (!routeState.showBottomTab && routeState.canBack) {
+              if (!mobileRouteState.showBottomTab && mobileRouteState.canBack) {
                 return (
                   <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => smartBack()}
                     className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors shrink-0"
                   >
                     <ArrowLeft size={18} />

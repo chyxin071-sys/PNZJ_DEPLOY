@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, Download, FileText, User, Wallet } from 'lucide-react';
 import { quotesAPI } from '@/db/api';
 import { formatDate, formatMoney } from '@/utils/format';
 import { normalizeAttachments, openAttachment } from '@/utils/financeAttachments';
+import { useSmartBack } from '@/hooks/useSmartBack';
 
 export default function QuoteBizDetail() {
-  const navigate = useNavigate();
+  const smartBack = useSmartBack('/quotes-biz');
   const { id } = useParams();
   const [quote, setQuote] = useState<any | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -67,7 +68,7 @@ export default function QuoteBizDetail() {
       <div className="erp-page">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => smartBack()}
           className="mb-4 inline-flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-800"
         >
           <ArrowLeft size={16} />
@@ -84,7 +85,7 @@ export default function QuoteBizDetail() {
     <div className="erp-page">
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => smartBack()}
         className="mb-4 inline-flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-800"
       >
         <ArrowLeft size={16} />

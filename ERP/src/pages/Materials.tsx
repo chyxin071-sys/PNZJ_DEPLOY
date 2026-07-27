@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search, Plus, PackageOpen, Edit3, Trash2, X, Loader2, Clock, ArrowUpCircle, ArrowDownCircle,
   Layers, CheckCircle, AlertTriangle, ChevronRight
@@ -7,6 +7,7 @@ import {
 import { materialsAPI, inventoryRecordsAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
 import BottomDrawer from '@/components/BottomDrawer';
+import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 
 const CATEGORIES = ['全部', '大地砖', '小地砖', '墙砖'];
 
@@ -87,6 +88,8 @@ export default function Materials() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = getCurrentReturnPath(location.pathname, location.search);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -378,7 +381,7 @@ export default function Materials() {
           <p className="text-gold-500 text-xs md:text-sm">管理材料信息、库存和供应商</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/inventory-records')}
+          <button onClick={() => navigate('/inventory-records', { state: { from: returnPath } })}
             className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
             <Clock size={14} /> <span className="hidden sm:inline">出入库记录</span>
           </button>
@@ -458,7 +461,7 @@ export default function Materials() {
                     const isLowStock = (m.stock || 0) <= 10;
                     return (
                       <tr key={m._id} className="hover:bg-gray-50/50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/materials/${m._id}`)}>
+                        onClick={() => navigate(`/materials/${m._id}`, { state: { from: returnPath } })}>
                         <td className="py-3 px-4">
                           <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">{m.spec || '-'}</p>
                         </td>
@@ -538,7 +541,7 @@ export default function Materials() {
                         if (showActions) {
                           setSwipedId(null);
                         } else {
-                          navigate(`/materials/${m._id}`);
+                          navigate(`/materials/${m._id}`, { state: { from: returnPath } });
                         }
                       }}
                     >
