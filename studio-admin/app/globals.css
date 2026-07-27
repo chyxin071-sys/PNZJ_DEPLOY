@@ -6204,7 +6204,7 @@ html body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px 12px;
 }
 
@@ -6940,6 +6940,10 @@ html body {
   border-radius: 10px;
   background: #fafafa;
   transition: border-color .16s, background .16s, box-shadow .16s;
+}
+
+.case-table td:last-child {
+  white-space: nowrap;
 }
 .placement-tags span.hot {
   color: #b45309;
