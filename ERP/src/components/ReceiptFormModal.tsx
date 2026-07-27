@@ -9,7 +9,9 @@ import { formatMoney, generateId } from '@/utils/format';
 import { uploadFinanceAttachments, mergeAttachments } from '@/utils/financeAttachments';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
+import { useAuthStore } from '@/store/authStore';
 import type { AttachmentValue, Contract, Receipt } from '@/types';
+import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 
 type PendingUpload = UploadProgressItem & { file: File };
 
@@ -51,6 +53,7 @@ interface ReceiptFormModalProps {
 export default function ReceiptFormModal({ open, onClose, defaultContractId, defaultStage, editingReceipt, onSuccess, defaultContract, receiptsOverride, onDirectAdd, onDirectUpdate, compact }: ReceiptFormModalProps) {
   const { receipts, contracts, addReceipt, updateReceipt } = useFinanceStore();
   const { currentBizType } = useBizStore();
+  const { user } = useAuthStore();
   const effectiveContracts = useMemo(() => {
     if (!defaultContract || contracts.some((c) => c.id === defaultContract.id)) return contracts;
     return [defaultContract, ...contracts];
@@ -225,6 +228,14 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         await onDirectAdd(receiptData as Receipt);
       } else {
         await addReceipt(receiptData as any);
+      }
+      if (!editingReceipt && selectedContract.customerId) {
+        await addLeadAuditFollowUp({
+          leadId: selectedContract.customerId,
+          actorName: user?.name || '员工',
+          content: `${user?.name || '员工'}新增收款：${selectedContract.houseAddress || selectedContract.contractNo}，阶段“${form.stage}”，金额 ${Number(form.amount)}，方式 ${paymentMethod}，日期 ${form.receiptDate}。${form.remark ? `备注：${form.remark}` : ''}`,
+          createdAt: receiptData.createdAt,
+        });
       }
       onClose();
       if (onSuccess) onSuccess();

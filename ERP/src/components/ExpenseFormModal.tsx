@@ -9,7 +9,9 @@ import { formatMoney, generateId } from '@/utils/format';
 import { uploadFinanceAttachments, mergeAttachments } from '@/utils/financeAttachments';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
+import { useAuthStore } from '@/store/authStore';
 import type { AttachmentValue } from '@/types';
+import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 
 type PendingUpload = UploadProgressItem & { file: File };
 
@@ -40,6 +42,7 @@ interface ExpenseFormModalProps {
 export default function ExpenseFormModal({ open, onClose, defaultContractId, editingExpense, onSuccess, compact }: ExpenseFormModalProps) {
   const { expenses, receipts, contracts, addExpense, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
+  const { user } = useAuthStore();
   const [submitting, setSubmitting] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [contractSearch, setContractSearch] = useState('');
@@ -163,6 +166,14 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
 
       if (editingExpense) await updateExpense(expenseData as any);
       else await addExpense(expenseData as any);
+      if (!editingExpense && selectedContract?.customerId) {
+        await addLeadAuditFollowUp({
+          leadId: selectedContract.customerId,
+          actorName: user?.name || '员工',
+          content: `${user?.name || '员工'}新增支出：${selectedContract.houseAddress || selectedContract.contractNo}，类别“${category}”，金额 ${Number(form.amount)}，收款方/供应商 ${form.supplier}，状态 ${form.status}，日期 ${form.expenseDate}。${form.remark ? `备注：${form.remark}` : ''}`,
+          createdAt: expenseData.createdAt,
+        });
+      }
       onClose();
       if (onSuccess) onSuccess();
     } catch (error: any) {

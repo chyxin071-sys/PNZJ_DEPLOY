@@ -33,6 +33,7 @@ import {
   resolveUserIdsByNames,
   stableOperationId,
 } from '@/services/notificationService';
+import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 
 const CACHED_URLS = new Map<string, string>();
 const CLOUD_STORAGE_PREFIX = 'cloud://cloud1-8grodf5s3006f004.636c-cloud1-8grodf5s3006f004-1421470557/';
@@ -739,6 +740,12 @@ export default function ProjectBizDetail() {
     const projectDocId = getProjectDocId(project);
     if (!projectDocId) return;
     await projectsAPI.update(projectDocId, { status: newStatus });
+    await addLeadAuditFollowUp({
+      leadId: project.leadId || lead?._id,
+      lead,
+      actorName: myName,
+      content: `${myName}将工地“${project.address || project.customer || '工地'}”状态从“${project.status || '未设置'}”更新为“${newStatus}”。`,
+    });
     void sendProjectUpdateNotification(
       'PROJECT_STATUS_UPDATED',
       stableOperationId('project-status-updated', projectDocId, newStatus, Date.now()),
@@ -941,6 +948,12 @@ export default function ProjectBizDetail() {
       if (projectDocId) {
         try {
           await projectsAPI.update(projectDocId, updates);
+          await addLeadAuditFollowUp({
+            leadId: project.leadId || lead?._id,
+            lead,
+            actorName: myName,
+            content: `${myName}开始施工节点：${section.name || node.name}，工地：${project.address || project.customer || '工地'}。`,
+          });
           void createNotificationEventSafely({
             operationId: stableOperationId('project-section-started', projectDocId, nodeId, secIdx, dateStr),
             eventType: 'PROJECT_SECTION_STARTED',
@@ -1010,6 +1023,12 @@ export default function ProjectBizDetail() {
         await syncToDB(newNodesData);
         const projectDocId = getProjectDocId(project);
         if (projectDocId) {
+          await addLeadAuditFollowUp({
+            leadId: project.leadId || lead?._id,
+            lead,
+            actorName: myName,
+            content: `${myName}完成施工节点：${section.name || node.name}，工地：${project.address || project.customer || '工地'}。`,
+          });
           void createNotificationEventSafely({
             operationId: stableOperationId('project-section-completed', projectDocId, nodeId, secIdx, section.submitTime),
             eventType: 'PROJECT_SECTION_COMPLETED',
@@ -1605,6 +1624,12 @@ export default function ProjectBizDetail() {
           createdAt: new Date().toISOString(),
         });
       }
+      await addLeadAuditFollowUp({
+        leadId: project?.leadId || lead?._id,
+        lead,
+        actorName: myName,
+        content: `${myName}${editingLog ? '更新' : '新增'}施工日志：阶段“${newLogForm.stage}”，内容：${newLogForm.content.trim().slice(0, 100)}。`,
+      });
       void createNotificationEventSafely({
         operationId: stableOperationId(editingLog ? 'project-log-updated' : 'project-log-created', id, logId),
         eventType: editingLog ? 'PROJECT_LOG_UPDATED' : 'PROJECT_LOG_CREATED',
@@ -1691,6 +1716,12 @@ export default function ProjectBizDetail() {
         photos: newInspectionForm.photos,
         inspectorName: myName,
         createdAt: new Date().toISOString(),
+      });
+      await addLeadAuditFollowUp({
+        leadId: project?.leadId || lead?._id,
+        lead,
+        actorName: myName,
+        content: `${myName}新增工地巡检：${newInspectionForm.title}，状态：${newInspectionForm.status}。${newInspectionForm.description ? `说明：${newInspectionForm.description.slice(0, 100)}` : ''}`,
       });
 
       void createNotificationEventSafely({

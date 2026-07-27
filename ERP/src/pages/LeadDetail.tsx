@@ -25,6 +25,7 @@ import {
   resolveUserIdsByNames,
   stableOperationId,
 } from '@/services/notificationService';
+import { addLeadAuditFollowUp, describeLeadChanges, namesText, notifyLeadAssignment } from '@/utils/leadAudit';
 import { syncLeadRelations } from '@/utils/syncLeadRelations';
 import {
   ArrowLeft, Phone, MapPin, Edit3, Plus, Trash2, X, Calendar, Clock,
@@ -790,8 +791,26 @@ export default function LeadDetail() {
     try {
       const leadData = await leadsAPI.doc(id).get();
       let leadObj = Array.isArray(leadData) ? leadData[0] : leadData;
-      const fuRes = await followUpsAPI.where({ leadId: id }).orderBy('createdAt', 'desc').toArray();
-      setFollowUps(fuRes.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const leadKeys = Array.from(new Set([
+        id,
+        leadObj?._id,
+        leadObj?.id,
+        leadObj?.customerNo,
+      ].filter(Boolean).map(String)));
+      const followUpLists = await Promise.all(
+        leadKeys.map((key) => followUpsAPI.where({ leadId: key }).orderBy('createdAt', 'desc').toArray())
+      );
+      const seenFollowUps = new Set<string>();
+      const fuRes = followUpLists
+        .flat()
+        .filter((item: any) => {
+          const itemKey = String(item?._id || item?.id || `${item?.leadId || ''}-${item?.createdAt || ''}-${item?.content || ''}`);
+          if (seenFollowUps.has(itemKey)) return false;
+          seenFollowUps.add(itemKey);
+          return true;
+        })
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setFollowUps(fuRes);
       const [projRes, userData, allContracts] = await Promise.all([
         projectsAPI.where({ leadId: id }).toArray(),
         usersAPI.toArray(),
@@ -879,7 +898,7 @@ export default function LeadDetail() {
         recipientRoles: ['admin'],
         category: 'lead',
         title: '新增客户跟进',
-        content: `${myName}为客户“${lead?.name || '客户'}”新增了跟进记录`,
+        content: `${myName}为客户“${lead?.name || '客户'}”新增了${followForm.method}记录：${followForm.content.trim().slice(0, 80)}`,
         link: `/leads/${id}`,
         relatedTo: { type: 'lead', id, name: lead?.name || '客户' },
         channels: ['station', 'wechat'],
@@ -923,6 +942,13 @@ export default function LeadDetail() {
     setLead((prev: any) => prev ? { ...prev, status: newStatus } : prev);
     const updatedAt = new Date().toISOString();
     await leadsAPI.update(id, { status: newStatus, updatedAt });
+    await addLeadAuditFollowUp({
+      leadId: id,
+      lead,
+      actorName: myName,
+      content: `${myName}将客户状态从“${lead?.status || '未设置'}”调整为“${newStatus}”。`,
+      createdAt: updatedAt,
+    });
     const recipientUserIds = await resolveUserIdsByNames(lead?.sales, lead?.designer);
     void createNotificationEventSafely({
       operationId: stableOperationId('lead-status-changed', id, newStatus, updatedAt),
@@ -958,6 +984,29 @@ export default function LeadDetail() {
     setShowEditModal(false);
     const updatedAt = new Date().toISOString();
     await leadsAPI.update(id, { ...editForm, updatedAt });
+    const changes = describeLeadChanges(lead, editForm, [
+      { key: 'name', label: '客户姓名' },
+      { key: 'phone', label: '联系电话' },
+      { key: 'address', label: '项目地址' },
+      { key: 'area', label: '面积' },
+      { key: 'budget', label: '预算' },
+      { key: 'requirementType', label: '需求类型' },
+      { key: 'rating', label: '客户评级' },
+      { key: 'source', label: '客户来源' },
+      { key: 'sales', label: '销售', type: 'people' },
+      { key: 'designer', label: '设计', type: 'people' },
+      { key: 'manager', label: '工程', type: 'people' },
+      { key: 'remark', label: '备注' },
+    ]);
+    if (changes.length > 0) {
+      await addLeadAuditFollowUp({
+        leadId: id,
+        lead: { ...lead, ...editForm },
+        actorName: myName,
+        content: `${myName}编辑客户资料：${changes.join('；')}。`,
+        createdAt: updatedAt,
+      });
+    }
     try {
       await syncLeadRelations(id, { ...lead, ...editForm, updatedAt }, lead);
     } catch (e) {
@@ -972,7 +1021,9 @@ export default function LeadDetail() {
       recipientRoles: ['admin'],
       category: 'lead',
       title: '客户资料已编辑',
-      content: `${myName}修改了客户“${editForm.name || lead?.name || '客户'}”的资料或跟进人员`,
+      content: changes.length > 0
+        ? `${myName}编辑了客户“${editForm.name || lead?.name || '客户'}”：${changes.join('；')}。`
+        : `${myName}修改了客户“${editForm.name || lead?.name || '客户'}”的资料`,
       link: `/leads/${id}`,
       relatedTo: { type: 'lead', id, name: editForm.name || lead?.name || '客户' },
       channels: ['station', 'wechat'],
@@ -997,6 +1048,13 @@ export default function LeadDetail() {
     try {
       const updatedAt = new Date().toISOString();
       await leadsAPI.update(id, { [field]: nextValues, updatedAt });
+      await addLeadAuditFollowUp({
+        leadId: id,
+        lead,
+        actorName: myName,
+        content: `${myName}调整跟进人员：${personnelModal.title}从“${namesText(previousValues)}”调整为“${namesText(nextValues)}”。`,
+        createdAt: updatedAt,
+      });
 
       await syncLeadRelations(id, { ...lead, [field]: nextValues, updatedAt }, lead);
       const recipientUserIds = await resolveUserIdsByNames(
@@ -1012,7 +1070,7 @@ export default function LeadDetail() {
         recipientRoles: ['admin'],
         category: 'lead',
         title: '客户跟进人员已调整',
-        content: `${myName}调整了客户“${lead?.name || '客户'}”的跟进人员`,
+        content: `${myName}将客户“${lead?.name || '客户'}”的${personnelModal.title}从“${namesText(previousValues)}”调整为“${namesText(nextValues)}”`,
         link: `/leads/${id}`,
         relatedTo: { type: 'lead', id, name: lead?.name || '客户' },
         channels: ['station', 'wechat'],
@@ -1029,10 +1087,19 @@ export default function LeadDetail() {
           recipientUserIds: assignedUserIds,
           category: 'lead',
           title: '客户已分配给你',
-          content: `${myName}将客户“${lead?.name || '客户'}”分配给你负责`,
+          content: `${myName}将客户“${lead?.name || '客户'}”分配给：${namesText(newlyAssignedNames)}`,
           link: `/leads/${id}`,
           relatedTo: { type: 'lead', id, name: lead?.name || '客户' },
           channels: ['station', 'wechat'],
+        });
+        await notifyLeadAssignment({
+          lead: { ...lead, [field]: nextValues },
+          actorUserId: myId,
+          actorName: myName,
+          field,
+          previous: previousValues,
+          next: nextValues,
+          operationSuffix: updatedAt,
         });
       }
     } catch (e) {

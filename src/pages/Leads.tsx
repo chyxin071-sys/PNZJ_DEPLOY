@@ -23,6 +23,7 @@ import {
   stableOperationId,
 } from '@/services/notificationService';
 import { syncLeadRelations } from '@/utils/syncLeadRelations';
+import { addLeadAuditFollowUp, describeLeadChanges, namesText, notifyLeadAssignment, notifyLeadEvent } from '@/utils/leadAudit';
 
 const STATUS_COLORS: Record<string, string> = {
   '跟进中': 'bg-blue-50 text-blue-600',
@@ -788,8 +789,8 @@ export default function Leads() {
     })
     .sort((a, b) => {
       if (!sortField || !sortOrder) {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        const aTime = Number(a.lastFollowUpAt || 0) || (a.updatedAt ? new Date(a.updatedAt).getTime() : 0) || (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const bTime = Number(b.lastFollowUpAt || 0) || (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) || (b.createdAt ? new Date(b.createdAt).getTime() : 0);
         return bTime - aTime;
       }
       const getVal = (obj: any, field: string) => {
@@ -947,6 +948,13 @@ export default function Leads() {
         followUps: [],
       };
       await leadsAPI.add(newLead);
+      await addLeadAuditFollowUp({
+        leadId: newLead._id,
+        lead: newLead,
+        actorName: myName,
+        content: `${myName}新建客户：${newLead.name}，电话 ${newLead.phone || '未填写'}，地址 ${newLead.address || '未填写'}；初始状态为跟进中。`,
+        createdAt: nowIso,
+      });
 
       await createNotificationEventSafely({
         operationId: stableOperationId('lead-created', newLead._id),
@@ -970,7 +978,7 @@ export default function Leads() {
           recipientUserIds: assignedUserIds,
           category: 'lead',
           title: '新客户分配',
-          content: `客户“${newLead.name}”已分配给你`,
+          content: `${myName}将客户“${newLead.name}”分配给：${namesText([...toPersonArray(newLead.sales), ...toPersonArray(newLead.designer), ...toPersonArray(newLead.manager)])}`,
           link: `/leads/${newLead._id}`,
           relatedTo: { type: 'lead', id: newLead._id, name: newLead.name },
           channels: ['station', 'wechat'],
@@ -994,6 +1002,40 @@ export default function Leads() {
     const originalLead = allLeads.find((l: any) => l._id === _id);
     const updateData = { ...rest, updatedAt: new Date().toISOString() };
     await leadsAPI.update(_id, updateData);
+    const changes = describeLeadChanges(originalLead, updateData, [
+      { key: 'name', label: '客户姓名' },
+      { key: 'phone', label: '联系电话' },
+      { key: 'address', label: '项目地址' },
+      { key: 'status', label: '客户状态' },
+      { key: 'rating', label: '客户评级' },
+      { key: 'source', label: '客户来源' },
+      { key: 'sales', label: '销售', type: 'people' },
+      { key: 'designer', label: '设计', type: 'people' },
+      { key: 'manager', label: '工程', type: 'people' },
+      { key: 'remark', label: '备注' },
+    ]);
+    if (changes.length > 0) {
+      const nextLead = { ...originalLead, ...updateData };
+      await addLeadAuditFollowUp({
+        leadId: _id,
+        lead: nextLead,
+        actorName: myName,
+        content: `${myName}编辑客户资料：${changes.join('；')}。`,
+        createdAt: updateData.updatedAt,
+      });
+      const recipientUserIds = await resolveUserIdsByNames(nextLead.sales, nextLead.designer, nextLead.manager);
+      void notifyLeadEvent({
+        operationParts: ['lead-profile-edited-detail', _id, updateData.updatedAt],
+        eventType: 'LEAD_PROFILE_EDITED',
+        actorUserId: myId,
+        actorName: myName,
+        lead: nextLead,
+        title: '客户资料已编辑',
+        content: `${myName}编辑了客户“${nextLead.name || '客户'}”：${changes.join('；')}。`,
+        recipientUserIds,
+        recipientRoles: ['admin'],
+      });
+    }
 
     try {
       await syncLeadRelations(_id, { ...originalLead, ...updateData }, originalLead);
@@ -1031,7 +1073,12 @@ export default function Leads() {
         || c.customerNo === customerNo
         || (customerPhone && c.customerName === lead?.name && c.customerPhone === customerPhone)
       );
-      const relatedFollowUps = allFollowUps.filter((f: any) => f.leadId === id);
+      const leadKeys = new Set(
+        [id, lead?._id, lead?.id, customerNo]
+          .filter(Boolean)
+          .map(String)
+      );
+      const relatedFollowUps = allFollowUps.filter((f: any) => leadKeys.has(String(f.leadId || '')));
 
       const confirmed = await showConfirm(
         [
@@ -1082,12 +1129,30 @@ export default function Leads() {
       setShowLostModal(true);
       return;
     }
-    await leadsAPI.update(id, { status: newStatus, updatedAt: new Date().toISOString() });
+    const lead = allLeads.find((item: any) => item._id === id);
+    const updatedAt = new Date().toISOString();
+    await leadsAPI.update(id, { status: newStatus, updatedAt });
+    await addLeadAuditFollowUp({
+      leadId: id,
+      lead,
+      actorName: myName,
+      content: `${myName}将客户状态从“${lead?.status || '未设置'}”调整为“${newStatus}”。`,
+      createdAt: updatedAt,
+    });
     fetchLeads(true);
   };
 
   const handleRatingChange = async (id: string, newRating: string) => {
-    await leadsAPI.update(id, { rating: newRating, updatedAt: new Date().toISOString() });
+    const lead = allLeads.find((item: any) => item._id === id);
+    const updatedAt = new Date().toISOString();
+    await leadsAPI.update(id, { rating: newRating, updatedAt });
+    await addLeadAuditFollowUp({
+      leadId: id,
+      lead,
+      actorName: myName,
+      content: `${myName}将客户评级从“${lead?.rating || '未设置'}”调整为“${newRating}”。`,
+      createdAt: updatedAt,
+    });
     fetchLeads(true);
   };
 
@@ -1102,9 +1167,17 @@ export default function Leads() {
       signDate,
       updatedAt: new Date().toISOString(),
     });
+    const signedAt = new Date().toISOString();
+    const sigLead = allLeads.find((l: any) => l._id === signLeadId);
+    await addLeadAuditFollowUp({
+      leadId: signLeadId,
+      lead: sigLead,
+      actorName: myName,
+      content: `${myName}将客户状态调整为“已签单”，签单人：${signer}，签单日期：${signDate}。`,
+      createdAt: signedAt,
+    });
     setShowSignModal(false);
     setShowCelebration(true);
-    const sigLead = allLeads.find((l: any) => l._id === signLeadId);
     setTimeout(() => {
       setShowCelebration(false);
       setSignLeadId('');
@@ -1127,6 +1200,13 @@ export default function Leads() {
       status: '已流失',
       lostReason: reason,
       updatedAt: new Date().toISOString(),
+    });
+    const lostLead = allLeads.find((item: any) => item._id === lostLeadId);
+    await addLeadAuditFollowUp({
+      leadId: lostLeadId,
+      lead: lostLead,
+      actorName: myName,
+      content: `${myName}将客户状态调整为“已流失”，流失原因：${reason}。`,
     });
     setShowLostModal(false);
     setLostLeadId('');
@@ -1175,6 +1255,22 @@ export default function Leads() {
       const originalLead = allLeads.find((lead: any) => lead._id === leadId);
       const updatedAt = new Date().toISOString();
       await leadsAPI.update(leadId, { [role]: persons, updatedAt });
+      await addLeadAuditFollowUp({
+        leadId,
+        lead: originalLead,
+        actorName: myName,
+        content: `${myName}调整跟进人员：${role === 'sales' ? '销售' : role === 'designer' ? '设计' : '工程'}从“${namesText(originalLead?.[role])}”调整为“${namesText(persons)}”。`,
+        createdAt: updatedAt,
+      });
+      await notifyLeadAssignment({
+        lead: { ...originalLead, [role]: persons },
+        actorUserId: myId,
+        actorName: myName,
+        field: role,
+        previous: originalLead?.[role],
+        next: persons,
+        operationSuffix: updatedAt,
+      });
       try {
         await syncLeadRelations(leadId, { ...originalLead, [role]: persons, updatedAt }, originalLead);
       } catch (e) {

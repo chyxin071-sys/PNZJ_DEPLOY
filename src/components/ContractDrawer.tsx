@@ -8,6 +8,7 @@ import { generateId, normalizeAddress } from '@/utils/format';
 import { leadsAPI } from '@/db/api';
 import DatePicker from '@/components/DatePicker';
 import type { Contract } from '@/types';
+import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 
 interface ContractDrawerProps {
   open: boolean;
@@ -207,7 +208,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         onClose();
         return;
       }
-      await addContract({
+      const contractPayload: Contract = {
         id: newId,
         contractNo: form.contractNo,
         customerId: selectedLeadId,
@@ -218,7 +219,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         houseAddress: normalizeAddress(form.houseAddress),
         contractAmount: amount,
         paymentStages: stages.length > 0 ? stages : [{ name: '全款', amount, ratio: 1 }],
-        status: '进行中',
+        status: '进行中' as const,
         signDate: form.signDate || new Date().toISOString().slice(0, 10),
         expectedEndDate: form.expectedEndDate,
         projectManager: form.projectManager,
@@ -226,7 +227,16 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         designer: form.designer,
         remark: form.remark,
         createdAt: new Date().toISOString(),
-      });
+      };
+      await addContract(contractPayload);
+      if (selectedLeadId) {
+        await addLeadAuditFollowUp({
+          leadId: selectedLeadId,
+          actorName: user?.name || '员工',
+          content: `${user?.name || '员工'}新建合同：合同编号 ${form.contractNo}，合同金额 ${amount}，签订日期 ${contractPayload.signDate}。`,
+          createdAt: contractPayload.createdAt,
+        });
+      }
       void createNotificationEventSafely({
         operationId: stableOperationId('contract-created', newId),
         eventType: 'CONTRACT_CREATED',
