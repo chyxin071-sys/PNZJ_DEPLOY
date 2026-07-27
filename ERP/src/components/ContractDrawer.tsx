@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Trash2, X, Search, Link as LinkIcon } from 'lucide-react';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
@@ -67,6 +67,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
     stages: (currentBizType === '工装' ? commercialDefaultStages() : homeDefaultStages()) as StageForm[],
   });
   const [saving, setSaving] = useState(false);
+  const saveLockRef = useRef(false);
   const [signedLeads, setSignedLeads] = useState<any[]>([]);
   const [leadSearch, setLeadSearch] = useState('');
   const [showLeadPicker, setShowLeadPicker] = useState(false);
@@ -168,7 +169,8 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
   };
 
   const handleSave = async () => {
-    if (!form.contractNo || !form.customerName || saving) return;
+    if (!form.contractNo || !form.customerName || saving || saveLockRef.current) return;
+    saveLockRef.current = true;
     setSaving(true);
     try {
       const amount = Math.round(parseFloat(form.contractAmount) || 0);
@@ -177,6 +179,16 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         .map(s => ({ ...s, ratio: amount > 0 ? (s.amount || 0) / amount : 0 }));
 
       const newId = generateId();
+      const exists = contracts.some((contract) =>
+        contract.bizType === currentBizType &&
+        contract.contractNo === form.contractNo &&
+        (!selectedLeadId || contract.customerId === selectedLeadId)
+      );
+      if (exists) {
+        console.warn('合同已存在，已拦截重复新增:', form.contractNo);
+        onClose();
+        return;
+      }
       await addContract({
         id: newId,
         contractNo: form.contractNo,
@@ -203,8 +215,8 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         actorUserId: user?.id || '',
         recipientRoles: ['admin'],
         category: 'contract',
-        title: '????',
-        content: `${user?.name || '??'}???${form.customerName}????${form.contractNo}?`,
+        title: '新建合同',
+        content: `${user?.name || '员工'}新建了${form.customerName}的合同，合同编号${form.contractNo}`,
         link: `/contracts/${newId}`,
         relatedTo: { type: 'contract', id: newId, name: form.contractNo },
         channels: ['station', 'wechat'],
@@ -215,6 +227,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
       console.error('保存合同失败:', e);
     } finally {
       setSaving(false);
+      saveLockRef.current = false;
     }
   };
 
@@ -237,7 +250,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-start md:justify-end">
       {/* 遮罩 */}
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/30" onClick={() => { if (!saving) onClose(); }} />
 
       {/* 面板：移动端底部上滑，桌面端右侧滑入 */}
       <div className={`
@@ -251,7 +264,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         {/* 头部 */}
         <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b border-gray-100 px-5 md:px-6 py-3.5 md:py-4">
           <h2 className="text-sm md:text-base font-semibold text-gray-900">新建合同</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button onClick={onClose} disabled={saving} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={20} /></button>
         </div>
 
         <div className="px-5 md:px-6 py-5 space-y-5">
@@ -388,7 +401,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         {/* 底部按钮 */}
         <div className="sticky bottom-0 bg-white border-t border-gray-100 px-5 md:px-6 py-4 flex justify-end gap-3">
           <button onClick={onClose} className="erp-btn-secondary text-xs" disabled={saving}>取消</button>
-          <button onClick={handleSave} className="erp-btn-primary text-xs" disabled={saving || (currentBizType === '家装' && !hasSelectedCustomer)}>
+          <button onClick={handleSave} className="erp-btn-primary text-xs" disabled={saving || saveLockRef.current || (currentBizType === '家装' && !hasSelectedCustomer)}>
             {saving ? '保存中...' : '确认新增'}
           </button>
         </div>
