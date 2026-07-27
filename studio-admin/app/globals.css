@@ -6976,6 +6976,13 @@ html body {
   background: #fee2e2;
   color: #dc2626;
 }
+
+.admin-editor-error {
+  margin: 0 32px 4px;
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.5;
+}
 .section-order-actions {
   display: flex;
   gap: 4px;

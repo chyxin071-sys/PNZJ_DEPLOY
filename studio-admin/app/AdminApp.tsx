@@ -1071,6 +1071,8 @@ function Admins({ session, notify, forceLogout }: { session: AdminSession; notif
     { account: "editor01", name: "张三", phone: "13911111111", role: "管理员", createdAt: "2026-04-05", status: "正常" },
   ]);
   const [editing, setEditing] = useState<AdminRecord | null>(null);
+  const [editorError, setEditorError] = useState("");
+  const [savingAdmin, setSavingAdmin] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<string | null>(null);
   const [resetAccount, setResetAccount] = useState<string | null>(null);
@@ -1082,19 +1084,30 @@ function Admins({ session, notify, forceLogout }: { session: AdminSession; notif
 
   function openNew() {
     setIsNew(true);
+    setEditorError("");
     setEditing({ account: "", name: "", phone: "", role: "管理员", createdAt: new Date().toISOString().slice(0, 10), status: "正常" });
   }
 
   async function saveAdmin() {
-    if (!editing?.account.trim() || !editing.name.trim() || !/^1\d{10}$/.test(editing.phone)) { notify("请填写账号、姓名和正确的11位手机号"); return; }
-    if (isNew && list.some((item) => item.account === editing.account)) { notify("管理员账号已存在"); return; }
+    if (!editing?.account.trim()) { setEditorError("请填写管理员账号"); return; }
+    if (!editing.name.trim()) { setEditorError("请填写管理员姓名"); return; }
+    if (!/^1\d{10}$/.test(editing.phone)) { setEditorError("手机号必须是以 1 开头的11位号码"); return; }
+    if (isNew && list.some((item) => item.account === editing.account)) { setEditorError("管理员账号已存在，请更换账号"); return; }
     const previous = list.find((item) => item._id ? item._id === editing._id : item.account === (editing.originalAccount || editing.account));
-    if (session.mode === "cloud") await adminApi.saveAdmin(session.token, { id: editing._id, account: editing.account, name: editing.name, phone: editing.phone, role: editing.role });
-    const savedRecord = { ...editing, originalAccount: undefined };
-    setList((current) => isNew ? [...current, savedRecord] : current.map((item) => item._id ? item._id === editing._id ? savedRecord : item : item.account === previous?.account ? savedRecord : item));
-    setEditing(null);
-    notify(isNew ? "管理员已添加，初始密码为 888888" : "管理员资料已更新");
-    if (!isNew && previous?.account === session.admin.username && previous.account !== editing.account) forceLogout();
+    setEditorError("");
+    setSavingAdmin(true);
+    try {
+      if (session.mode === "cloud") await adminApi.saveAdmin(session.token, { id: editing._id, account: editing.account.trim(), name: editing.name.trim(), phone: editing.phone, role: editing.role });
+      const savedRecord = { ...editing, account: editing.account.trim(), name: editing.name.trim(), originalAccount: undefined };
+      setList((current) => isNew ? [...current, savedRecord] : current.map((item) => item._id ? item._id === editing._id ? savedRecord : item : item.account === previous?.account ? savedRecord : item));
+      setEditing(null);
+      notify(isNew ? "管理员已添加，初始密码为 888888" : "管理员资料已更新");
+      if (!isNew && previous?.account === session.admin.username && previous.account !== editing.account) forceLogout();
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "管理员保存失败，请稍后重试");
+    } finally {
+      setSavingAdmin(false);
+    }
   }
 
   async function toggle(record: AdminRecord) {
@@ -1136,7 +1149,7 @@ function Admins({ session, notify, forceLogout }: { session: AdminSession; notif
       const isSelf = item.account === session.admin.username;
       return <tr key={item._id || item.account}><td className="strong">{item.account}</td><td>{item.name}</td><td><span className={`role-badge ${item.role === "超级管理员" ? "super" : ""}`}>{item.role}</span></td><td>{item.phone}</td><td>{typeof item.createdAt === "string" ? item.createdAt.slice(0, 10) : "-"}</td><td><Status value={item.status} /></td><td><div className="table-actions"><button onClick={() => { setIsNew(false); setEditing({ ...item, originalAccount: item.account }); }}>编辑</button><button onClick={() => setResetAccount(item.account)}>重置密码</button><button disabled={isSelf && item.status === "正常"} title={isSelf ? "当前登录账号不能禁用自己" : ""} onClick={() => void toggle(item)}>{item.status === "正常" ? "禁用" : "启用"}</button><button disabled={isSelf} className="danger" onClick={() => setDeletingAccount(item.account)}>删除</button></div></td></tr>;
     })}</tbody>
-  </table><Pager total={list.length} /></div>{editing && <div className="dialog-layer"><button className="dialog-backdrop" onClick={() => setEditing(null)} /><form className="admin-editor" onSubmit={(event) => { event.preventDefault(); void saveAdmin(); }}><header><div><h3>{isNew ? "新增管理员" : "编辑管理员"}</h3><p>{isNew ? "新账号初始密码为 888888" : "修改账号后会强制该账号重新登录"}</p></div><button type="button" onClick={() => setEditing(null)}><X size={20} /></button></header><div className="admin-editor-fields"><label><span>管理员账号</span><input value={editing.account} onChange={(e) => setEditing({ ...editing, account: e.target.value })} autoFocus /></label><label><span>姓名</span><input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></label><label><span>角色</span><SmartSelect value={editing.role} options={["超级管理员", "管理员"]} onChange={(role) => setEditing({ ...editing, role: role as AdminRecord["role"] })} /></label><label><span>手机号</span><input value={editing.phone} inputMode="numeric" maxLength={11} onChange={(e) => setEditing({ ...editing, phone: e.target.value.replace(/\D/g, "") })} /></label></div><footer><button type="button" className="line-button" onClick={() => setEditing(null)}>取消</button><button data-enter-submit className="gold-button">保存管理员</button></footer></form></div>}{resetAccount && <ConfirmAction title={`重置 ${resetAccount} 的密码？`} text="密码将重置为 888888，现有登录会话会立即失效。" cancel={() => setResetAccount(null)} confirm={() => void confirmReset()} />}{deletingAccount && <ConfirmAction title="删除该管理员？" text="删除后该账号将无法登录管理后台。" cancel={() => setDeletingAccount(null)} confirm={() => void confirmDelete()} />}</section>;
+  </table><Pager total={list.length} /></div>{editing && <div className="dialog-layer"><button className="dialog-backdrop" onClick={() => setEditing(null)} /><form className="admin-editor" onSubmit={(event) => { event.preventDefault(); void saveAdmin(); }}><header><div><h3>{isNew ? "新增管理员" : "编辑管理员"}</h3><p>{isNew ? "新账号初始密码为 888888" : "修改账号后会强制该账号重新登录"}</p></div><button type="button" onClick={() => setEditing(null)}><X size={20} /></button></header><div className="admin-editor-fields"><label><span>管理员账号</span><input name="admin-account" value={editing.account} onChange={(e) => { setEditorError(""); setEditing({ ...editing, account: e.target.value }); }} autoFocus /></label><label><span>姓名</span><input name="admin-name" value={editing.name} onChange={(e) => { setEditorError(""); setEditing({ ...editing, name: e.target.value }); }} /></label><label><span>角色</span><SmartSelect value={editing.role} options={["超级管理员", "管理员"]} onChange={(role) => setEditing({ ...editing, role: role as AdminRecord["role"] })} /></label><label><span>手机号（11位）</span><input name="admin-phone" value={editing.phone} inputMode="numeric" maxLength={11} placeholder="请输入11位手机号" onChange={(e) => { setEditorError(""); setEditing({ ...editing, phone: e.target.value.replace(/\D/g, "") }); }} /></label></div>{editorError && <p className="admin-editor-error" role="alert">{editorError}</p>}<footer><button type="button" className="line-button" onClick={() => setEditing(null)}>取消</button><button data-enter-submit className="gold-button" disabled={savingAdmin}>{savingAdmin ? "正在保存…" : "保存管理员"}</button></footer></form></div>}{resetAccount && <ConfirmAction title={`重置 ${resetAccount} 的密码？`} text="密码将重置为 888888，现有登录会话会立即失效。" cancel={() => setResetAccount(null)} confirm={() => void confirmReset()} />}{deletingAccount && <ConfirmAction title="删除该管理员？" text="删除后该账号将无法登录管理后台。" cancel={() => setDeletingAccount(null)} confirm={() => void confirmDelete()} />}</section>;
 }
 
 const watermarkPositions = [
