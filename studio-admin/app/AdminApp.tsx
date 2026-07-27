@@ -387,6 +387,20 @@ function mapLeadToCustomer(record: any): Customer {
   };
 }
 
+function mapCustomerOverview(records: any[]): Customer[] {
+  const customers = records.map(mapLeadToCustomer);
+  const legacyVisitors = customers.filter((item) => item.id.startsWith("visitor:"));
+  const visitorNumberById = new Map(
+    [...legacyVisitors]
+      .reverse()
+      .map((item, index) => [item.id, `W${String(index + 1).padStart(3, "0")}`]),
+  );
+  return customers.map((item) => ({
+    ...item,
+    id: visitorNumberById.get(item.id) || item.id,
+  }));
+}
+
 function mapCaseRecord(record: any): CaseRecord {
   return {
     _id: record._id,
@@ -4894,7 +4908,7 @@ export function AdminApp() {
     adminApi
       .listCustomerOverview(session.token)
       .then((records) => {
-        setCustomers(records.map(mapLeadToCustomer));
+        setCustomers(mapCustomerOverview(records));
       })
       .catch(() => notify("ERP 客户数据暂时无法加载"));
     adminApi
@@ -4908,7 +4922,7 @@ export function AdminApp() {
     const refreshCustomerActivity = () => {
       adminApi
         .listCustomerOverview(session.token)
-        .then((records) => setCustomers(records.map(mapLeadToCustomer)))
+        .then((records) => setCustomers(mapCustomerOverview(records)))
         .catch(() => undefined);
       adminApi
         .getAnalytics(session.token)
