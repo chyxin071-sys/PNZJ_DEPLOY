@@ -35,11 +35,26 @@ const homeDefaultStages = (): StageForm[] => [
   { name: '泥木验收款', amount: 0, ratio: 0 },
   { name: '竣工尾款', amount: 0, ratio: 0 },
 ];
+const HOME_STAGE_WEIGHTS = [0.1, 0.3, 0.25, 0.25, 0.1];
 const commercialDefaultStages = (): StageForm[] => [
   { name: '回款', amount: 0, ratio: 0 },
   { name: '质保金', amount: 0, ratio: 0 },
 ];
 const today = () => new Date().toISOString().slice(0, 10);
+
+function applyHomeDefaultStageAmounts(stages: StageForm[], amount: number) {
+  if (amount <= 0 || stages.length === 0 || stages.some((stage) => (stage.amount || 0) > 0)) {
+    return stages;
+  }
+  let allocated = 0;
+  return stages.map((stage, index) => {
+    const isLast = index === stages.length - 1;
+    const weight = HOME_STAGE_WEIGHTS[index] ?? 0;
+    const stageAmount = isLast ? amount - allocated : Math.round(amount * weight);
+    allocated += stageAmount;
+    return { ...stage, amount: stageAmount, ratio: amount > 0 ? stageAmount / amount : 0 };
+  });
+}
 
 /** 自适应高度 textarea ref 回调 */
 function autoResize(el: HTMLTextAreaElement | null) {
@@ -174,7 +189,10 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
     setSaving(true);
     try {
       const amount = Math.round(parseFloat(form.contractAmount) || 0);
-      const stages = form.stages
+      const stageForms = currentBizType === '家装'
+        ? applyHomeDefaultStageAmounts(form.stages, amount)
+        : form.stages;
+      const stages = stageForms
         .filter(s => s.name.trim())
         .map(s => ({ ...s, ratio: amount > 0 ? (s.amount || 0) / amount : 0 }));
 

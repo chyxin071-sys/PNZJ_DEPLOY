@@ -15,6 +15,13 @@ type PendingUpload = UploadProgressItem & { file: File };
 
 const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
 
+function getStageReceiptStatus(stage: { amount: number; paid: number; due: number }) {
+  if ((stage.amount || 0) <= 0) return 'unset';
+  if (stage.due <= 0) return 'paid';
+  if (stage.paid > 0) return 'partial';
+  return 'pending';
+}
+
 function focusNextOnEnter(event: React.KeyboardEvent<HTMLElement>) {
   if (event.key !== 'Enter' || event.shiftKey) return;
   const target = event.target as HTMLElement;
@@ -305,12 +312,25 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
               </div>
             </div>
             <div className="space-y-1">
-              {contractPaymentInfo.stages.map((s, i) => (
-                <div key={i} className={`flex items-center justify-between text-xs px-2 py-1 rounded ${s.due <= 0 ? 'bg-emerald-50 text-emerald-600' : s.paid > 0 ? 'bg-amber-50 text-amber-600' : 'text-gray-400'}`}>
-                  <span>{s.name}</span>
-                  <span>{s.due <= 0 ? '✓ 已收齐' : s.paid > 0 ? `${formatMoney(s.paid)} / ${formatMoney(s.amount)}` : `应收 ${formatMoney(s.amount)}`}</span>
-                </div>
-              ))}
+              {contractPaymentInfo.stages.map((s, i) => {
+                const status = getStageReceiptStatus(s);
+                return (
+                  <div key={i} className={`flex items-center justify-between text-xs px-2 py-1 rounded ${
+                    status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
+                    status === 'partial' ? 'bg-amber-50 text-amber-600' :
+                    status === 'unset' ? 'bg-gray-100 text-gray-400' :
+                    'text-gray-400'
+                  }`}>
+                    <span>{s.name}</span>
+                    <span>
+                      {status === 'paid' ? '✓ 已收齐' :
+                        status === 'partial' ? `${formatMoney(s.paid)} / ${formatMoney(s.amount)}` :
+                        status === 'unset' ? '待设置金额' :
+                        `应收 ${formatMoney(s.amount)}`}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
