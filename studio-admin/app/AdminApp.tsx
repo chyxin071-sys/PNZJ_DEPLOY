@@ -139,7 +139,7 @@ type Customer = {
 type AnalyticsEvent = {
   _id?: string;
   type:
-    "profile_update" | "case_view" | "favorite_add" | "favorite_remove" | "share" | "consultation";
+    "case_view" | "favorite_add" | "favorite_remove" | "share" | "consultation";
   caseId?: string;
   caseName?: string;
   openid?: string;
@@ -373,8 +373,6 @@ function mapLeadToCustomer(record: any): Customer {
         ? record.createdAt.replace("T", " ").slice(0, 16)
         : "-",
     openid: record.miniProgram?.openid || "",
-    visitorId: record.miniProgram?.visitorId || "",
-    avatarFileID: record.miniProgram?.avatarFileID || record.avatarFileID || "",
     decorationStatus:
       record.miniProgram?.decorationStatus || record.requirementType || "",
     question:
@@ -383,58 +381,6 @@ function mapLeadToCustomer(record: any): Customer {
       record.remark ||
       "",
     sourceCaseName: record.miniProgram?.sourceCaseName || "",
-  };
-}
-
-function mapCaseRecord(record: any): CaseRecord {
-  return {
-    _id: record._id,
-    id: record.caseNo || record._id,
-    name: record.name || record.title || "未命名案例",
-    community: record.community || "-",
-    area: Number(record.area) || 0,
-    layout: record.layout || "-",
-    style: record.style || "-",
-    status: record.status || "草稿",
-    views: Number(record.views) || 0,
-    favorites: Number(record.favorites) || 0,
-    shares: Number(record.shares) || 0,
-    cover: record.cover || record.coverUrl || "",
-    coverFileID: record.coverFileID || record.cover || record.coverUrl || "",
-    featured: Boolean(record.featured),
-    recommended: Boolean(record.recommended),
-    hot: Boolean(record.hot),
-    homeHero: Boolean(record.homeHero),
-    images: Array.isArray(record.images) ? record.images : [],
-    imageFileIDs:
-      Array.isArray(record.imageFileIDs) && record.imageFileIDs.length
-        ? record.imageFileIDs
-        : Array.isArray(record.images) ? record.images : [],
-    imageNames: Array.isArray(record.imageNames) ? record.imageNames : [],
-    imageSections: Array.isArray(record.imageSections)
-      ? record.imageSections
-          .map((section: any) => ({
-            name: String(section.name || "").trim(),
-            images: Array.isArray(section.images)
-              ? section.images.map(String).filter(Boolean)
-              : [],
-            imageFileIDs: Array.isArray(section.imageFileIDs)
-              ? section.imageFileIDs.map(String).filter(Boolean)
-              : Array.isArray(section.images)
-                ? section.images.map(String).filter(Boolean)
-                : [],
-          }))
-          .filter((section: any) => section.name && section.images.length)
-      : [],
-    description: record.description || "",
-    layoutInfo: record.layoutInfo || "",
-    highlights: record.highlights || "",
-    tags: Array.isArray(record.tags) ? record.tags.map(String).filter(Boolean) : [],
-    uploader: record.uploader || record.createdBy || record.updatedBy || "-",
-    updatedAt:
-      typeof record.updatedAt === "string"
-        ? record.updatedAt.replace("T", " ").slice(0, 16)
-        : "-",
   };
 }
 
@@ -1092,7 +1038,7 @@ function Status({ value }: { value: string }) {
             value.includes("联系") ||
             value.includes("意向")
           ? "blue"
-          : value.includes("草稿") || value.includes("新") || value.includes("浏览")
+          : value.includes("草稿") || value.includes("新")
             ? "gold"
             : "gray";
   return <span className={`status ${tone}`}>{value}</span>;
@@ -1192,9 +1138,6 @@ function CasesList({
   persistCasePatch,
   open,
   notify,
-  hasMore,
-  loadingMore,
-  loadMore,
 }: {
   cases: CaseRecord[];
   styles: string[];
@@ -1206,9 +1149,6 @@ function CasesList({
   ) => Promise<void>;
   open: (view: View, item?: CaseRecord) => void;
   notify: (message: string) => void;
-  hasMore: boolean;
-  loadingMore: boolean;
-  loadMore: () => void;
 }) {
   const [scope, setScope] = useState<CaseScope>("全部案例");
   const [query, setQuery] = useState("");
@@ -1511,13 +1451,6 @@ function CasesList({
             </tbody>
           </table>
           <Pager total={filtered.length} />
-        </div>
-      )}
-      {hasMore && scope === "全部案例" && !query && style === "全部" && status === "全部" && (
-        <div className="load-more-row">
-          <button className="line-button" disabled={loadingMore} onClick={loadMore}>
-            {loadingMore ? "正在加载…" : "加载更多案例"}
-          </button>
         </div>
       )}
       {pendingAction && (
@@ -4555,9 +4488,6 @@ export function AdminApp() {
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
   const [caseReturnView, setCaseReturnView] = useState<View>("cases");
   const [cases, setCases] = useState<CaseRecord[]>([]);
-  const [casePage, setCasePage] = useState(1);
-  const [hasMoreCases, setHasMoreCases] = useState(true);
-  const [loadingMoreCases, setLoadingMoreCases] = useState(false);
   const [communities, setCommunities] = useState<string[]>([]);
   const [styles, setStyles] = useState<string[]>(DEFAULT_STYLES);
   const [spaces, setSpaces] = useState<string[]>(DEFAULT_SPACES);
@@ -4742,26 +4672,6 @@ export function AdminApp() {
     return Promise.resolve(URL.createObjectURL(file));
   }
 
-  async function loadMoreCases() {
-    if (!session || session.mode !== "cloud" || loadingMoreCases || !hasMoreCases) return;
-    const nextPage = casePage + 1;
-    setLoadingMoreCases(true);
-    try {
-      const records = await adminApi.listCases(session.token, nextPage, 20);
-      const mapped = records.map(mapCaseRecord);
-      setCases((current) => {
-        const known = new Set(current.map((item) => item._id || item.id));
-        return [...current, ...mapped.filter((item) => !known.has(item._id || item.id))];
-      });
-      setCasePage(nextPage);
-      setHasMoreCases(records.length === 20);
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "更多案例加载失败");
-    } finally {
-      setLoadingMoreCases(false);
-    }
-  }
-
   function addCommunity(value: string) {
     const clean = value.trim();
     if (!clean) return;
@@ -4819,7 +4729,7 @@ export function AdminApp() {
           views: Number(record.views) || 0,
           favorites: Number(record.favorites) || 0,
           shares: Number(record.shares) || 0,
-          cover: record.cover || record.coverUrl || "",
+          cover: record.cover || record.coverUrl || photos[0],
           coverFileID:
             record.coverFileID || record.cover || record.coverUrl || "",
           featured: Boolean(record.featured),
@@ -4829,7 +4739,7 @@ export function AdminApp() {
           images:
             Array.isArray(record.images) && record.images.length
               ? record.images
-              : [],
+              : [record.cover || record.coverUrl || photos[0]],
           imageFileIDs:
             Array.isArray(record.imageFileIDs) && record.imageFileIDs.length
               ? record.imageFileIDs
@@ -4866,8 +4776,6 @@ export function AdminApp() {
               : "-",
         }));
         setCases(mappedCases);
-        setCasePage(1);
-        setHasMoreCases(records.length === 20);
         const caseCommunities = Array.from(
           new Set(mappedCases.map((item) => item.community).filter(Boolean)),
         );
@@ -4926,7 +4834,7 @@ export function AdminApp() {
       })
       .catch(() => notify("案例数据暂时无法加载"));
     adminApi
-      .listCustomerOverview(session.token)
+      .listLeads(session.token)
       .then((records) => {
         setCustomers(records.map(mapLeadToCustomer));
       })
@@ -4941,7 +4849,7 @@ export function AdminApp() {
     if (!session || session.mode !== "cloud") return;
     const refreshCustomerActivity = () => {
       adminApi
-        .listCustomerOverview(session.token)
+        .listLeads(session.token)
         .then((records) => setCustomers(records.map(mapLeadToCustomer)))
         .catch(() => undefined);
       adminApi
@@ -5089,9 +4997,6 @@ export function AdminApp() {
                 persistCasePatch={persistCasePatch}
                 open={navigate}
                 notify={notify}
-                hasMore={hasMoreCases}
-                loadingMore={loadingMoreCases}
-                loadMore={() => void loadMoreCases()}
               />
           )}
           {view === "case-preview" && (
