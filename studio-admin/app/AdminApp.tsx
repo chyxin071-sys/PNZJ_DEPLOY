@@ -170,6 +170,7 @@ const DEFAULT_STYLES = [
   "轻奢",
   "新中式",
 ];
+const DEFAULT_SPACES = ["客厅", "餐厅", "卧室", "厨房", "卫生间", "阳台"];
 
 const initialCases: CaseRecord[] = [
   {
@@ -1863,9 +1864,11 @@ function CaseEdit({
   notify,
   communities,
   styles,
+  spaces,
   currentUsername,
   addCommunity,
   addStyle,
+  addSpace,
   uploadAsset,
 }: {
   item?: CaseRecord;
@@ -1874,9 +1877,11 @@ function CaseEdit({
   notify: (message: string) => void;
   communities: string[];
   styles: string[];
+  spaces: string[];
   currentUsername: string;
   addCommunity: (value: string) => void;
   addStyle: (value: string) => void;
+  addSpace: (value: string) => Promise<void>;
   uploadAsset: (file: File) => Promise<string>;
 }) {
   const [name, setName] = useState(item?.name || "");
@@ -2372,8 +2377,14 @@ function CaseEdit({
       );
       if (unnamedWithImages) {
         notify("请填写所有图片分区的名称");
+        savingRef.current = false;
         return;
       }
+      await Promise.all(
+        Array.from(
+          new Set(cleanSections.map((section) => section.name).filter(Boolean)),
+        ).map((sectionName) => addSpace(sectionName)),
+      );
       const allSectionImages = imageSections.flatMap(
         (section) => section.images,
       );
@@ -2661,6 +2672,7 @@ function CaseEdit({
                     <div className="section-header">
                       <input
                         className="section-name-input"
+                        list="case-space-options"
                         value={section.name}
                         maxLength={20}
                         onChange={(event) =>
@@ -2784,6 +2796,11 @@ function CaseEdit({
                   <Plus size={18} />
                   添加分区
                 </button>
+                <datalist id="case-space-options">
+                  {spaces.map((space) => (
+                    <option key={space} value={space} />
+                  ))}
+                </datalist>
               </div>
             </div>
           </div>
@@ -3500,20 +3517,24 @@ function TagsView({
   notify,
   communities,
   styles,
+  spaces,
   updateCommunities,
   updateStyles,
+  updateSpaces,
 }: {
   session: AdminSession;
   notify: (message: string) => void;
   communities: string[];
   styles: string[];
+  spaces: string[];
   updateCommunities: (values: string[]) => void;
   updateStyles: (values: string[]) => void;
+  updateSpaces: (values: string[]) => void;
 }) {
   const defaultGroups: Record<string, string[]> = {
     风格: styles.length ? styles : DEFAULT_STYLES,
     户型: ["2室2厅", "3室2厅", "4室2厅", "复式", "别墅"],
-    空间: ["客厅", "餐厅", "卧室", "厨房", "卫生间", "阳台"],
+    空间: spaces.length ? spaces : DEFAULT_SPACES,
     面积: ["80㎡以下", "80-100㎡", "100-120㎡", "120-150㎡", "150㎡以上"],
     小区: communities,
   };
@@ -3528,8 +3549,13 @@ function TagsView({
   } | null>(null);
 
   useEffect(() => {
-    setGroups((current) => ({ ...current, 小区: communities, 风格: styles }));
-  }, [communities, styles]);
+    setGroups((current) => ({
+      ...current,
+      小区: communities,
+      风格: styles,
+      空间: spaces,
+    }));
+  }, [communities, styles, spaces]);
 
   useEffect(() => {
     if (session.mode !== "cloud") return;
@@ -3559,6 +3585,7 @@ function TagsView({
         setGroupIds(ids);
         updateCommunities(next.小区);
         updateStyles(next.风格);
+        updateSpaces(next.空间);
       })
       .catch(() => notify("标签数据暂时无法加载"));
   }, [session.token]);
@@ -3598,6 +3625,7 @@ function TagsView({
     setGroups((current) => ({ ...current, [editor.group]: nextValues }));
     if (editor.group === "小区") updateCommunities(nextValues);
     if (editor.group === "风格") updateStyles(nextValues);
+    if (editor.group === "空间") updateSpaces(nextValues);
     notify(editor.old ? "标签已修改" : "标签已添加");
     setEditor(null);
   }
@@ -3616,6 +3644,7 @@ function TagsView({
     setGroups((current) => ({ ...current, [deleting.group]: nextValues }));
     if (deleting.group === "小区") updateCommunities(nextValues);
     if (deleting.group === "风格") updateStyles(nextValues);
+    if (deleting.group === "空间") updateSpaces(nextValues);
     setDeleting(null);
     notify("标签已删除");
   }
@@ -4461,6 +4490,7 @@ export function AdminApp() {
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [communities, setCommunities] = useState<string[]>([]);
   const [styles, setStyles] = useState<string[]>(DEFAULT_STYLES);
+  const [spaces, setSpaces] = useState<string[]>(DEFAULT_SPACES);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -4658,6 +4688,30 @@ export function AdminApp() {
     );
   }
 
+  async function addSpace(value: string) {
+    const clean = value.trim();
+    if (!clean || spaces.includes(clean)) return;
+    const next = [...spaces, clean];
+    if (session?.mode === "cloud") {
+      const records = (await adminApi.listTags(session.token)) as any[];
+      const record = records.find(
+        (item) => String(item.group || item.category || "") === "空间",
+      );
+      const existing = Array.isArray(record?.values)
+        ? record.values.map(String).filter(Boolean)
+        : spaces;
+      const values = Array.from(new Set([...existing, clean]));
+      await adminApi.saveTag(
+        session.token,
+        { group: "空间", values },
+        record?._id,
+      );
+      setSpaces(values);
+      return;
+    }
+    setSpaces(next);
+  }
+
   useEffect(() => {
     if (!session || session.mode !== "cloud") return;
     adminApi
@@ -4743,6 +4797,11 @@ export function AdminApp() {
               String(record.group || record.category || "") === "风格" &&
               Array.isArray(record.values),
           );
+          const spaceGroup = tagRecords.find(
+            (record) =>
+              String(record.group || record.category || "") === "空间" &&
+              Array.isArray(record.values),
+          );
           setCommunities(
             communityGroup
               ? Array.from(
@@ -4760,9 +4819,17 @@ export function AdminApp() {
                 )
               : caseStyles,
           );
+          setSpaces(
+            spaceGroup
+              ? Array.from(
+                  new Set(spaceGroup.values.map(String).filter(Boolean)),
+                )
+              : DEFAULT_SPACES,
+          );
         } catch {
           setCommunities(caseCommunities);
           setStyles(caseStyles);
+          setSpaces(DEFAULT_SPACES);
         }
       })
       .catch(() => notify("案例数据暂时无法加载"));
@@ -4953,9 +5020,11 @@ export function AdminApp() {
               notify={notify}
               communities={communities}
               styles={styles}
+              spaces={spaces}
               currentUsername={session.admin.username}
               addCommunity={addCommunity}
               addStyle={addStyle}
+              addSpace={addSpace}
               uploadAsset={uploadAsset}
             />
           )}
@@ -4984,8 +5053,10 @@ export function AdminApp() {
               notify={notify}
               communities={communities}
               styles={styles}
+              spaces={spaces}
               updateCommunities={setCommunities}
               updateStyles={setStyles}
+              updateSpaces={setSpaces}
             />
           )}
           {view === "admins" && (
