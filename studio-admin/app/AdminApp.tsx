@@ -143,6 +143,11 @@ type AnalyticsEvent = {
   caseId?: string;
   caseName?: string;
   openid?: string;
+  visitorId?: string;
+  nickname?: string;
+  avatarFileID?: string;
+  phone?: string;
+  community?: string;
   createdAt?: string | Date;
 };
 
@@ -3409,12 +3414,14 @@ function Notifications({
               <div className="notification-customer">
                 <span>
                   {customer?.phone ||
+                    event.phone ||
                     (event.nickname
                       ? `访客编号 ${event.visitorId?.slice(-8) || "-"}`
                       : "未完善个人信息")}
                 </span>
                 <b>
                   {customer?.community ||
+                    event.community ||
                     (event.nickname ? "尚未提交咨询" : "匿名浏览")}
                 </b>
                 {customer && (
