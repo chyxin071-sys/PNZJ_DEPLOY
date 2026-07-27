@@ -2100,11 +2100,19 @@ function CaseEdit({
 
   // --- Image Section Operations ---
 
-  function addSection() {
+  function addSection(focusName = false) {
     setImageSections((current) => [
       ...current,
       { name: "", images: [], imageFileIDs: [] },
     ]);
+    if (focusName) {
+      window.requestAnimationFrame(() => {
+        const inputs = document.querySelectorAll<HTMLInputElement>(
+          ".section-name-input",
+        );
+        inputs[inputs.length - 1]?.focus();
+      });
+    }
   }
 
   function removeSection(index: number) {
@@ -2565,7 +2573,45 @@ function CaseEdit({
               </h4>
               <div className="section-list">
                 {imageSections.map((section, si) => (
-                  <div className="image-section-card" key={si}>
+                  <div
+                    className={`image-section-card${sectionDragging && activeSectionIndex === si ? " is-dragging" : ""}`}
+                    key={si}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      setSectionDragging(true);
+                      setActiveSectionIndex(si);
+                    }}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDragLeave={(event) => {
+                      if (
+                        !event.currentTarget.contains(
+                          event.relatedTarget as Node,
+                        )
+                      ) {
+                        setSectionDragging(false);
+                        setActiveSectionIndex(null);
+                      }
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setSectionDragging(false);
+                      setActiveSectionIndex(null);
+                      if (event.dataTransfer.files.length) {
+                        void uploadToSection(
+                          si,
+                          Array.from(event.dataTransfer.files),
+                        );
+                      } else if (sectionDragItem) {
+                        moveSectionImage(
+                          sectionDragItem.section,
+                          sectionDragItem.image,
+                          si,
+                          section.images.length,
+                        );
+                      }
+                      setSectionDragItem(null);
+                    }}
+                  >
                     <div className="section-header">
                       <input
                         className="section-name-input"
@@ -2574,6 +2620,12 @@ function CaseEdit({
                         onChange={(event) =>
                           updateSectionName(si, event.target.value)
                         }
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          addSection(true);
+                        }}
                         placeholder="分区名称（如：客厅）"
                       />
                       <div className="section-order-actions">
@@ -2600,43 +2652,7 @@ function CaseEdit({
                         <X size={14} />
                       </button>
                     </div>
-                    <div
-                      className={`section-drop-zone${sectionDragging && activeSectionIndex === si ? " is-dragging" : ""}`}
-                      onDragEnter={(event) => {
-                        event.preventDefault();
-                        setSectionDragging(true);
-                        setActiveSectionIndex(si);
-                      }}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDragLeave={(event) => {
-                        if (
-                          !event.currentTarget.contains(
-                            event.relatedTarget as Node,
-                          )
-                        ) {
-                          setSectionDragging(false);
-                          setActiveSectionIndex(null);
-                        }
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        setSectionDragging(false);
-                        setActiveSectionIndex(null);
-                        if (event.dataTransfer.files.length)
-                          void uploadToSection(
-                            si,
-                            Array.from(event.dataTransfer.files),
-                          );
-                        else if (sectionDragItem)
-                          moveSectionImage(
-                            sectionDragItem.section,
-                            sectionDragItem.image,
-                            si,
-                            section.images.length,
-                          );
-                        setSectionDragItem(null);
-                      }}
-                    >
+                    <div className="section-drop-zone">
                       <div className="section-image-grid">
                         {section.images.map((img, ii) => {
                           const flatIndex =
@@ -2715,7 +2731,10 @@ function CaseEdit({
                     </div>
                   </div>
                 ))}
-                <button className="add-section-btn" onClick={addSection}>
+                <button
+                  className="add-section-btn"
+                  onClick={() => addSection(true)}
+                >
                   <Plus size={18} />
                   添加分区
                 </button>

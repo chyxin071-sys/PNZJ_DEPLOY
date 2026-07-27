@@ -6939,6 +6939,12 @@ html body {
   border: 1px solid #e5e5e7;
   border-radius: 10px;
   background: #fafafa;
+  transition: border-color .16s, background .16s, box-shadow .16s;
+}
+.image-section-card.is-dragging {
+  border-color: #b7833d;
+  background: rgba(183, 131, 61, .08);
+  box-shadow: 0 0 0 3px rgba(183, 131, 61, .12);
 }
 .section-header {
   display: flex;
@@ -7123,12 +7129,9 @@ html body {
 }
 .admin-preview-sections section > div {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(260px, 62%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  overflow-x: auto;
   padding-bottom: 10px;
-  scroll-snap-type: x mandatory;
 }
 .admin-preview-sections section > div button {
   padding: 0;
@@ -7138,7 +7141,6 @@ html body {
   border-radius: 10px;
   background: #ededee;
   cursor: pointer;
-  scroll-snap-align: start;
 }
 .admin-preview-sections section > div img {
   width: 100%;
@@ -7193,7 +7195,7 @@ html body {
 .public-detail-story p { margin: 0; color: #555; font-size: 16px; line-height: 2; white-space: pre-wrap; }
 
 @media (max-width: 760px) {
-  .admin-preview-sections section > div { grid-auto-columns: 86%; }
+  .admin-preview-sections section > div { grid-template-columns: 1fr; }
   .case-detail-brand-end,
   .public-detail-brand-end { padding: 26px 22px; gap: 14px; }
   .case-detail-brand-end > img:first-child,
