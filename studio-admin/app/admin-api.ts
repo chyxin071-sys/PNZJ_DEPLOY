@@ -177,13 +177,13 @@ export const adminApi = {
     }
   },
 
-  async listCases(token: string) {
-    const records = await callCloud<unknown[]>("listCases", { page: 1, pageSize: 50 }, token);
+  async listCases(token: string, page = 1, pageSize = 20) {
+    const records = await callCloud<unknown[]>("listCases", { page, pageSize }, token);
     return hydrateCaseAssetUrls(records);
   },
 
-  listLeads(token: string) {
-    return callCloud<unknown[]>("listLeads", { page: 1, pageSize: 50 }, token);
+  listCustomerOverview(token: string) {
+    return callCloud<unknown[]>("listCustomerOverview", {}, token);
   },
 
   getAnalytics(token: string) {

@@ -7782,3 +7782,8 @@ html body {
     gap: 22px;
   }
 }
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 18px 0 4px;
+}
