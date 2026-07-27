@@ -506,6 +506,7 @@ export default function LeadDetail() {
   }, []);
 
   const defaultFolders = currentBizType === '工装' ? ['合同资料', '默认文件夹'] : ['设计图纸', '合同资料', '现场照片', '报价单', '主材清单', '默认文件夹'];
+  const isContractFolder = (folderName?: string) => ['合同资料', '合同文件夹'].includes(String(folderName || '').trim());
 
 
   const [lead, setLead] = useState<any>(null);
@@ -1744,6 +1745,18 @@ export default function LeadDetail() {
     }
     
     await leadsAPI.update(id, updates);
+
+    if (deleted && isContractFolder(deleted.folderName) && contractInfo?.attachments?.length) {
+      const nextAttachments = (contractInfo.attachments || []).filter((att: any) => {
+        const attachmentFileID = typeof att === 'string' ? att : att.fileID;
+        return attachmentFileID !== fileID;
+      });
+      if (nextAttachments.length !== contractInfo.attachments.length) {
+        const nextContract = { ...contractInfo, attachments: nextAttachments };
+        await contractsAPI.put(nextContract);
+        setContractInfo(nextContract);
+      }
+    }
     
     if (deleted) {
       await followUpsAPI.add({
@@ -2016,8 +2029,10 @@ export default function LeadDetail() {
   
   if (contractInfo?.attachments) {
     contractInfo.attachments.forEach((att: any, idx: number) => {
+      const attachmentFileID = typeof att === 'string' ? att : att.fileID;
+      if (allFiles.some((file: any) => file.fileID === attachmentFileID)) return;
       allFiles.push({
-        fileID: typeof att === 'string' ? att : att.fileID,
+        fileID: attachmentFileID,
         name: typeof att === 'string' ? `合同附件_${idx+1}` : att.name,
         size: typeof att === 'string' ? 0 : att.size || 0,
         folderName: '合同资料',

@@ -3,7 +3,7 @@ import { ArrowLeft, FileText, TrendingUp, Wallet, Plus, Pencil, Download, Paperc
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatDate, generateId, normalizeAddress } from '@/utils/format';
-import type { Receipt, Expense, Quotation, Contract, PaymentStage, AttachmentValue, InvoiceRecord } from '@/types';
+import type { Receipt, Expense, Quotation, Contract, PaymentStage, AttachmentValue, InvoiceRecord, FileAttachment } from '@/types';
 import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
@@ -68,6 +68,22 @@ function normalizePaymentStages(contract?: Contract | null): PaymentStage[] {
   ];
 }
 
+const CONTRACT_FILE_FOLDERS = ['合同资料', '合同文件夹'];
+
+function isContractFileFolder(folderName?: string) {
+  return CONTRACT_FILE_FOLDERS.includes(String(folderName || '').trim());
+}
+
+function mergeAttachmentsByFileId(items: Array<FileAttachment & Record<string, any>>) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.fileID || `${item.name || ''}-${item.uploadTime || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 import FormAttachmentList from '@/components/FormAttachmentList';
 import UploadProgressList, { createUploadProgressItem, type UploadProgressItem } from '@/components/UploadProgressList';
 import ReceiptFormModal from '@/components/ReceiptFormModal';
@@ -127,6 +143,7 @@ export default function ContractDetail() {
 
   const [directContract, setDirectContract] = useState<Contract | null>(null);
   const [directReceipts, setDirectReceipts] = useState<Receipt[]>([]);
+  const [relatedLead, setRelatedLead] = useState<any>(null);
   const contract = useMemo(() => {
     const directMatches = directContract && (directContract.id === id || (directContract as any)._id === id);
     return directMatches ? directContract : contracts.find((c) => c.id === id || (c as any)._id === id) || directContract;
@@ -157,6 +174,32 @@ export default function ContractDetail() {
     })();
     return () => { cancelled = true; };
   }, [canViewFinance, contract, id]);
+
+  useEffect(() => {
+    if (!contract) {
+      setRelatedLead(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        let matches: any[] = [];
+        if (contract.customerId) {
+          matches = await leadsAPI.where({ _id: contract.customerId }).toArray();
+        }
+        if (matches.length === 0 && contract.customerNo) {
+          matches = await leadsAPI.where({ customerNo: contract.customerNo }).toArray();
+        }
+        if (matches.length === 0 && contract.customerPhone) {
+          matches = await leadsAPI.where({ phone: contract.customerPhone }).toArray();
+        }
+        if (!cancelled) setRelatedLead(matches[0] || null);
+      } catch {
+        if (!cancelled) setRelatedLead(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contract?.customerId, contract?.customerNo, contract?.customerPhone, contract?.id, (contract as any)?._id]);
 
   useEffect(() => {
     if (canViewFinance || !contract || !id) return;
@@ -203,8 +246,13 @@ export default function ContractDetail() {
     contractKeys.includes(String(task.context?.contractId || '')) &&
     visibleUploadStatuses.includes(task.status)
   );
-  const contractAttachmentList = contract ? [
-    ...normalizeAttachments(contract.attachments),
+  const contractFolderFiles = useMemo(() => {
+    return normalizeAttachments((relatedLead?.files || []).filter((file: any) => isContractFileFolder(file.folderName)))
+      .map((file) => ({ ...file, folderName: (file as any).folderName || '合同资料', source: 'lead-contract-folder' }));
+  }, [relatedLead?.files]);
+  const contractAttachmentList = contract ? mergeAttachmentsByFileId([
+    ...normalizeAttachments(contract.attachments).map((file) => ({ ...file, source: 'contract' })),
+    ...contractFolderFiles,
     ...contractUploadTasks.map(task => ({
       fileID: `uploading:${task.id}`,
       name: task.fileName,
@@ -218,7 +266,7 @@ export default function ContractDetail() {
       uploadTaskId: task.id,
       uploadError: task.error,
     } as any)),
-  ] : [];
+  ]) : [];
 
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -552,7 +600,7 @@ export default function ContractDetail() {
           size: file.size,
           sizeStr: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
           type: file.type || file.name.split('.').pop()?.toLowerCase() || 'file',
-          uploader: 'ERP',
+          uploader: user?.name || 'ERP',
           uploadTime,
         };
         const latestContracts = await contractsAPI.toArray();
@@ -561,12 +609,20 @@ export default function ContractDetail() {
         await saveContractChanges({ ...latestContract, attachments: newAttachments });
 
         let relatedLead: any = null;
-        if (latestContract.customerId) {
-          try {
-            const leads = await leadsAPI.where({ _id: latestContract.customerId }).toArray();
-            const lead = leads[0];
-            relatedLead = lead || null;
-            if (lead) {
+        try {
+          let leads: any[] = [];
+          if (latestContract.customerId) {
+            leads = await leadsAPI.where({ _id: latestContract.customerId }).toArray();
+          }
+          if (leads.length === 0 && latestContract.customerNo) {
+            leads = await leadsAPI.where({ customerNo: latestContract.customerNo }).toArray();
+          }
+          if (leads.length === 0 && latestContract.customerPhone) {
+            leads = await leadsAPI.where({ phone: latestContract.customerPhone }).toArray();
+          }
+          const lead = leads[0];
+          relatedLead = lead || null;
+          if (lead) {
               const fileFolders = Array.from(new Set([...(lead.fileFolders || []), '合同资料']));
               const projectFile = {
                 fileID,
@@ -574,20 +630,26 @@ export default function ContractDetail() {
                 size: file.size,
                 sizeStr: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
                 type: file.type?.startsWith('image/') ? 'image' : file.name.split('.').pop()?.toLowerCase() || 'file',
-                uploader: 'ERP系统同步',
+                uploader: user?.name || 'ERP',
                 uploadTime,
                 folderName: '合同资料',
                 isVisible: false,
               };
+              const leadFiles = lead.files || [];
               await leadsAPI.update(lead._id, {
-                files: [...(lead.files || []), projectFile],
+                files: leadFiles.some((item: any) => item.fileID === fileID) ? leadFiles : [...leadFiles, projectFile],
                 fileFolders,
                 updatedAt: uploadTime,
               });
-            }
-          } catch (syncErr) {
-            console.error('同步至客户项目资料失败', syncErr);
+              setRelatedLead((prev: any) => !prev || prev._id === lead._id ? {
+                ...prev,
+                ...lead,
+                files: leadFiles.some((item: any) => item.fileID === fileID) ? leadFiles : [...leadFiles, projectFile],
+                fileFolders,
+              } : prev);
           }
+        } catch (syncErr) {
+          console.error('同步至客户项目资料失败', syncErr);
         }
         const recipientUserIds = await resolveUserIdsByNames(
           relatedLead?.sales,
@@ -1367,9 +1429,22 @@ export default function ContractDetail() {
                           e.stopPropagation();
                           const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该附件吗？' });
                           if (confirmed) {
+                            const targetFileID = file.fileID;
                             const current = normalizeAttachments(contract.attachments);
-                            const newAttachments = current.filter((_, idx) => idx !== index);
+                            const newAttachments = current.filter((item) => item.fileID !== targetFileID);
                             await saveContractChanges({ ...contract, attachments: newAttachments });
+                            if (relatedLead?._id && targetFileID) {
+                              const freshLeadData = await leadsAPI.doc(relatedLead._id).get();
+                              const freshLead = Array.isArray(freshLeadData) ? freshLeadData[0] : freshLeadData;
+                              await leadsAPI.update(relatedLead._id, {
+                                files: (freshLead?.files || []).filter((item: any) => item.fileID !== targetFileID),
+                                updatedAt: new Date().toISOString(),
+                              });
+                              setRelatedLead((prev: any) => prev ? {
+                                ...prev,
+                                files: (prev.files || []).filter((item: any) => item.fileID !== targetFileID),
+                              } : prev);
+                            }
                           }
                         }}
                         className="text-xs font-medium text-red-500 hover:text-red-600"
