@@ -269,6 +269,7 @@ export default function ProjectBizDetail() {
   const location = useLocation();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
+  const markRelatedAsRead = useNotificationStore((state) => state.markRelatedAsRead);
   const hasProjectActionUnread = (actionKey: string) => notifications.some((item: any) => {
     if (item.isRead || item.relatedTo?.type !== 'project' || item.relatedTo?.id !== id) return false;
     const text = `${item.title || ''} ${item.content || ''} ${item.link || ''}`;
@@ -661,6 +662,11 @@ export default function ProjectBizDetail() {
     if (section && ['logs', 'inspections'].includes(section)) setActiveTab(section);
     if (!section) setActiveTab('site');
   }, [section]);
+
+  useEffect(() => {
+    if (!id) return;
+    void markRelatedAsRead('project', id);
+  }, [id, markRelatedAsRead]);
 
   // 静默轮询（每5秒刷新日志与验收记录）
   useEffect(() => {

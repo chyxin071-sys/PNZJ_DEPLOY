@@ -1,7 +1,8 @@
-import { Download, Eye, Trash2, Clock } from 'lucide-react';
+import { Clock, Download, Paperclip, Trash2 } from 'lucide-react';
 import Modal from './Modal';
-import { normalizeAttachments, downloadAttachment, openAttachment } from '@/utils/financeAttachments';
+import { downloadAttachment, normalizeAttachments } from '@/utils/financeAttachments';
 import { formatDateTime } from '@/utils/format';
+import { hasRole, useAuthStore } from '@/store/authStore';
 import type { AttachmentValue } from '@/types';
 
 interface Props {
@@ -13,76 +14,70 @@ interface Props {
 }
 
 export default function AttachmentViewerModal({ isOpen, onClose, attachments, title = '附件列表', onDelete }: Props) {
+  const { user } = useAuthStore();
+  const isAdmin = hasRole(user?.roles, 'admin', user?.role);
+  const myName = user?.name || '';
+
   if (!isOpen) return null;
   const files = normalizeAttachments(attachments);
 
   return (
     <Modal open={isOpen} onClose={onClose} title={title}>
-      <div className="p-4 space-y-4">
+      <div className="p-4">
         {files.length === 0 ? (
-          <p className="text-center text-gray-500 py-8 text-sm">暂无附件</p>
+          <p className="py-8 text-center text-sm text-gray-500">暂无附件</p>
         ) : (
           <div className="flex flex-col gap-3">
-            {files.map((file, idx) => (
-              <div
-                key={idx}
-                onClick={() => { void openAttachment(file); }}
-                className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 p-3 text-sm text-gray-700 cursor-pointer"
-              >
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void openAttachment(file);
-                  }}
-                  className="flex-1 min-w-0 pr-4 text-left"
-                >
-                  <div className="truncate font-medium text-gray-800" title={file.name}>{file.name}</div>
-                  {file.uploadTime && (
-                    <div className="flex items-center text-[11px] text-gray-400 mt-1">
-                      <Clock size={10} className="mr-1" />
-                      {formatDateTime(file.uploadTime)}
+            {files.map((file, idx) => {
+              const canDelete = Boolean(onDelete && (isAdmin || (file.uploader && file.uploader === myName)));
+              return (
+                <div key={`${file.fileID || file.name}-${idx}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-gray-400">
+                        <Paperclip size={15} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="break-words font-medium text-gray-800" title={file.name}>{file.name}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-400">
+                          {file.uploadTime && (
+                            <span className="inline-flex items-center">
+                              <Clock size={10} className="mr-1" />
+                              {formatDateTime(file.uploadTime)}
+                            </span>
+                          )}
+                          {file.uploader && <span>{file.uploader}</span>}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </button>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void openAttachment(file);
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-gray-600 hover:bg-white transition-colors"
-                  >
-                    <Eye size={14} /> 鎵撳紑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void downloadAttachment(file);
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-blue-600 hover:bg-blue-50 transition-colors"
-                  >
-                    <Download size={14} /> 下载
-                  </button>
-                  {onDelete && (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (window.confirm('确认删除该附件吗？此操作不可撤销。')) {
-                          onDelete(idx);
-                        }
-                      }}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-rose-600 hover:bg-rose-50 transition-colors"
-                    >
-                      <Trash2 size={14} /> 删除
-                    </button>
-                  )}
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void downloadAttachment(file);
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-white px-3 py-2 text-blue-600 transition-colors hover:bg-blue-50"
+                      >
+                        <Download size={14} /> 下载
+                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (window.confirm('确认删除该附件吗？此操作不可撤销。')) onDelete?.(idx);
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-white px-3 py-2 text-rose-600 transition-colors hover:bg-rose-50"
+                        >
+                          <Trash2 size={14} /> 删除
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

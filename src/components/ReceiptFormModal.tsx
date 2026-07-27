@@ -194,7 +194,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         for (const item of pendingUploads) {
           setPendingUploads(prev => prev.map(upload => upload.id === item.id ? { ...upload, status: 'uploading', progress: 30, error: undefined } : upload));
           try {
-            const uploaded = await uploadFinanceAttachments([item.file], `finance/receipts/${selectedContract.id}`, 'ERP');
+            const uploaded = await uploadFinanceAttachments([item.file], `finance/receipts/${selectedContract.id}`, user?.name || 'ERP');
             uploadedAttachments = [...uploadedAttachments, ...uploaded];
             setPendingUploads(prev => prev.map(upload => upload.id === item.id ? { ...upload, status: 'done', progress: 100 } : upload));
           } catch (uploadError: any) {

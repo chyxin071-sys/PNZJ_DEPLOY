@@ -474,6 +474,7 @@ export default function LeadDetail() {
   const location = useLocation();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
+  const markRelatedAsRead = useNotificationStore((state) => state.markRelatedAsRead);
   const hasLeadActionUnread = (actionKey: string) => notifications.some((item: any) => {
     if (item.isRead || item.relatedTo?.type !== 'lead' || item.relatedTo?.id !== id) return false;
     const text = `${item.title || ''} ${item.content || ''} ${item.link || ''}`;
@@ -749,6 +750,11 @@ export default function LeadDetail() {
   useEffect(() => {
     setActiveTab(standaloneSection || 'follow');
   }, [standaloneSection]);
+
+  useEffect(() => {
+    if (!id) return;
+    void markRelatedAsRead('lead', id);
+  }, [id, markRelatedAsRead]);
 
   useEffect(() => {
     const projectId = projectInfo?._id || projectInfo?.id;

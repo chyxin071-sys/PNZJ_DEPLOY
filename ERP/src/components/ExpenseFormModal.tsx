@@ -136,7 +136,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
         for (const item of pendingUploads) {
           setPendingUploads(prev => prev.map(upload => upload.id === item.id ? { ...upload, status: 'uploading', progress: 30, error: undefined } : upload));
           try {
-            const uploaded = await uploadFinanceAttachments([item.file], `finance/expenses/${form.contractId || 'general'}`, 'ERP');
+            const uploaded = await uploadFinanceAttachments([item.file], `finance/expenses/${form.contractId || 'general'}`, user?.name || 'ERP');
             uploadedAttachments = [...uploadedAttachments, ...uploaded];
             setPendingUploads(prev => prev.map(upload => upload.id === item.id ? { ...upload, status: 'done', progress: 100 } : upload));
           } catch (uploadError: any) {

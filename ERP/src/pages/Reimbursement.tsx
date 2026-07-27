@@ -207,7 +207,7 @@ export default function ReimbursementPage() {
           uploadedAttachments = await uploadFinanceAttachments(
             payFiles,
             `finance/reimbursements/pay/${showPayModal.item.id}`,
-            'ERP'
+            myName || 'ERP'
           );
         } catch (uploadError: any) {
           console.error(uploadError);
@@ -253,7 +253,7 @@ export default function ReimbursementPage() {
           uploadedAttachments = await uploadFinanceAttachments(
             files,
             `finance/reimbursements/apply/${generateId()}`,
-            'ERP'
+            myName || 'ERP'
           );
         } catch (uploadError: any) {
           console.error(uploadError);
@@ -517,7 +517,7 @@ export default function ReimbursementPage() {
                     const files = e.target.files;
                     if (!files || files.length === 0) return;
                     try {
-                      const uploaded = await uploadFinanceAttachments(Array.from(files), `finance/reimbursements/append/${showDetail.id}`, 'ERP');
+                      const uploaded = await uploadFinanceAttachments(Array.from(files), `finance/reimbursements/append/${showDetail.id}`, myName || 'ERP');
                       const newAttachments = mergeAttachments(showDetail.attachments, uploaded);
                       await updateReimbursement({ ...showDetail, attachments: newAttachments });
                       setShowDetail({ ...showDetail, attachments: newAttachments });

@@ -211,7 +211,7 @@ export default function Income() {
           uploadedAttachments = await uploadFinanceAttachments(
             attachmentFiles,
             `finance/receipts/${selectedContract.id}`,
-            'ERP'
+            myName || 'ERP'
           );
         } catch (uploadError: any) {
           const shouldContinue = window.confirm(

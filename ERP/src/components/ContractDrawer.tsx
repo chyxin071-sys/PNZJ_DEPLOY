@@ -274,6 +274,10 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
   const hasSelectedCustomer = !!(selectedLeadId || form.customerName || form.houseAddress);
 
   const noSpinner = `[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
+  const contractAmountValue = Number(form.contractAmount) || 0;
+  const stageTotal = form.stages.reduce((sum, stage) => sum + (Number(stage.amount) || 0), 0);
+  const stageDiff = stageTotal - contractAmountValue;
+  const showStageAmountHint = contractAmountValue > 0 || stageTotal > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-start md:justify-end">
@@ -402,6 +406,15 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
               <label className="text-xs text-gray-500 font-medium">收款阶段</label>
               <button type="button" onClick={addStage} className="text-xs text-gold-500 font-medium">+ 添加阶段</button>
             </div>
+            {showStageAmountHint && (
+              <div className={`mb-2 rounded-lg px-3 py-2 text-xs ${
+                Math.abs(stageDiff) < 0.01
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-amber-50 text-amber-700'
+              }`}>
+                阶段合计 {stageTotal.toLocaleString('zh-CN')}，与合同金额相差 {stageDiff.toLocaleString('zh-CN')}
+              </div>
+            )}
             <div className="space-y-2">
               {form.stages.map((stage, idx) => {
                 return (

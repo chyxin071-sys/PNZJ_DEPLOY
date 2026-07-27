@@ -187,7 +187,7 @@ export default function Expense() {
           uploadedAttachments = await uploadFinanceAttachments(
             attachmentFiles,
             `finance/expenses/${selectedContract?.id || 'general'}`,
-            'ERP'
+            myName || 'ERP'
           );
         } catch (uploadError: any) {
           const shouldContinue = window.confirm(

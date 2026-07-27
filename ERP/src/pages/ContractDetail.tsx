@@ -337,6 +337,15 @@ export default function ContractDetail() {
   const handleEditSave = async () => {
     if (!contract || !editForm.contractNo || !editForm.customerName) return;
     const amount = parseFloat(editForm.contractAmount) || 0;
+    if (isHomeContract) {
+      await saveContractChanges({
+        ...contract,
+        contractAmount: amount,
+        signDate: editForm.signDate || contract.signDate,
+      });
+      setShowEditModal(false);
+      return;
+    }
     await saveContractChanges({
       ...contract,
       contractNo: editForm.contractNo,
@@ -433,7 +442,7 @@ export default function ContractDetail() {
         for (const item of pendingInvoiceUploads) {
           setPendingInvoiceUploads(prev => prev.map(upload => upload.id === item.id ? { ...upload, status: 'uploading', progress: 30, error: undefined } : upload));
           try {
-            const uploaded = await uploadFinanceAttachments([item.file], `finance/invoices/${contract.id}`, 'ERP');
+            const uploaded = await uploadFinanceAttachments([item.file], `finance/invoices/${contract.id}`, user?.name || 'ERP');
             uploadedAttachments = [...uploadedAttachments, ...uploaded];
             setPendingInvoiceUploads(prev => prev.map(upload => upload.id === item.id ? { ...upload, status: 'done', progress: 100 } : upload));
           } catch (uploadError: any) {
@@ -485,7 +494,7 @@ export default function ContractDetail() {
           uploadedAttachments = await uploadFinanceAttachments(
             quotationFiles,
             `finance/quotations/${contract?.id || 'general'}`,
-            'ERP'
+            user?.name || 'ERP'
           );
         } catch (uploadError: any) {
           console.error(uploadError);
@@ -740,7 +749,7 @@ export default function ContractDetail() {
         <AttachmentCell 
           attachments={r.attachments} 
           onUploadFiles={async (files) => {
-            const uploaded = await uploadFinanceAttachments(files, `finance/receipts/${r.contractId || r.id}`, 'ERP');
+            const uploaded = await uploadFinanceAttachments(files, `finance/receipts/${r.contractId || r.id}`, user?.name || 'ERP');
             await useFinanceStore.getState().updateReceipt({ ...r, attachments: mergeAttachments(r.attachments, uploaded) });
           }}
           onDelete={async (idx) => {
@@ -800,7 +809,7 @@ export default function ContractDetail() {
           <AttachmentCell
             attachments={r.attachments}
             onUploadFiles={async (files) => {
-              const uploaded = await uploadFinanceAttachments(files, `finance/receipts/${r.contractId || r.id}`, 'ERP');
+              const uploaded = await uploadFinanceAttachments(files, `finance/receipts/${r.contractId || r.id}`, user?.name || 'ERP');
               await useFinanceStore.getState().updateReceipt({ ...r, attachments: mergeAttachments(r.attachments, uploaded) });
             }}
             onDelete={async (idx) => {
@@ -854,7 +863,7 @@ export default function ContractDetail() {
         <AttachmentCell 
           attachments={e.attachments} 
           onUploadFiles={async (files) => {
-            const uploaded = await uploadFinanceAttachments(files, `finance/expenses/${e.contractId || e.id}`, 'ERP');
+            const uploaded = await uploadFinanceAttachments(files, `finance/expenses/${e.contractId || e.id}`, user?.name || 'ERP');
             await useFinanceStore.getState().updateExpense({ ...e, attachments: mergeAttachments(e.attachments, uploaded) });
           }}
           onDelete={async (idx) => {
@@ -917,7 +926,7 @@ export default function ContractDetail() {
           <AttachmentCell
             attachments={e.attachments}
             onUploadFiles={async (files) => {
-              const uploaded = await uploadFinanceAttachments(files, `finance/expenses/${e.contractId || e.id}`, 'ERP');
+              const uploaded = await uploadFinanceAttachments(files, `finance/expenses/${e.contractId || e.id}`, user?.name || 'ERP');
               await useFinanceStore.getState().updateExpense({ ...e, attachments: mergeAttachments(e.attachments, uploaded) });
             }}
             onDelete={async (idx) => {
@@ -953,7 +962,7 @@ export default function ContractDetail() {
         <AttachmentCell
           attachments={i.attachments}
           onUploadFiles={async (files) => {
-            const uploaded = await uploadFinanceAttachments(files, `finance/invoices/${i.contractId || i.id}`, 'ERP');
+            const uploaded = await uploadFinanceAttachments(files, `finance/invoices/${i.contractId || i.id}`, user?.name || 'ERP');
             await updateInvoice({ ...i, attachments: mergeAttachments(i.attachments, uploaded) });
           }}
           onDelete={async (idx) => {
@@ -1606,6 +1615,12 @@ export default function ContractDetail() {
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="编辑合同" size="sm">
         {!editForm ? null : (
           <div onKeyDown={focusNextOnEnter}>
+        {isHomeContract ? (
+        <div className="grid grid-cols-1 gap-4">
+          <div><label className="block text-xs text-gray-500 mb-1">合同金额</label><input type="number" value={editForm.contractAmount} onChange={(e) => setEditForm({ ...editForm, contractAmount: e.target.value })} className="erp-input" /></div>
+          <div><label className="block text-xs text-gray-500 mb-1">签订日期</label><DatePicker mode="single" value={editForm.signDate} onChange={(v) => setEditForm({ ...editForm, signDate: v })} placeholder="选择日期" /></div>
+        </div>
+        ) : (
         <div className="grid grid-cols-1 gap-4">
           <div><label className="block text-xs text-gray-500 mb-1">合同编号</label><input value={editForm.contractNo} onChange={(e) => setEditForm({ ...editForm, contractNo: e.target.value })} className="erp-input" /></div>
           <div><label className="block text-xs text-gray-500 mb-1">{isHomeContract ? '客户 *' : '甲方 *'}</label><input value={editForm.customerName} onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })} className="erp-input" /></div>
@@ -1633,6 +1648,7 @@ export default function ContractDetail() {
           <div><label className="block text-xs text-gray-500 mb-1">项目地址</label><input value={editForm.houseAddress} onChange={(e) => setEditForm({ ...editForm, houseAddress: e.target.value })} className="erp-input" /></div>
           <div><label className="block text-xs text-gray-500 mb-1">备注</label><textarea value={editForm.remark} onChange={(e) => setEditForm({ ...editForm, remark: e.target.value })} rows={3} className="erp-input resize-none" /></div>
         </div>
+        )}
         <div className="mt-5 flex justify-end gap-3">
           <button onClick={() => setShowEditModal(false)} className="erp-btn-secondary">取消</button>
           <button onClick={handleEditSave} className="erp-btn-primary">保存修改</button>
