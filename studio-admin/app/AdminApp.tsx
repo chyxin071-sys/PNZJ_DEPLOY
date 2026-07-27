@@ -101,6 +101,9 @@ type Customer = {
   category: string;
   createdAt: string;
   openid?: string;
+  visitorId?: string;
+  nickname?: string;
+  avatarFileID?: string;
   decorationStatus?: string;
   question?: string;
   sourceCaseName?: string;
@@ -970,14 +973,14 @@ function Analytics({ cases, customers, events, open }: { cases: CaseRecord[]; cu
 
 function Notifications({ events, cases, customers, open }: { events: AnalyticsEvent[]; cases: CaseRecord[]; customers: Customer[]; open: (view: View, item?: CaseRecord) => void }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const list = events.filter((event) => ["favorite_add", "consultation", "share"].includes(event.type));
-  const eventLabel = (type: AnalyticsEvent["type"]) => type === "favorite_add" ? "收藏了案例" : type === "consultation" ? "咨询了案例" : "分享了案例";
-  const eventIcon = (type: AnalyticsEvent["type"]) => type === "favorite_add" ? Heart : type === "consultation" ? Users : Share2;
+  const list = events.filter((event) => ["case_view", "favorite_add", "consultation", "share"].includes(event.type));
+  const eventLabel = (type: AnalyticsEvent["type"]) => type === "case_view" ? "浏览了案例" : type === "favorite_add" ? "收藏了案例" : type === "consultation" ? "咨询了案例" : "分享了案例";
+  const eventIcon = (type: AnalyticsEvent["type"]) => type === "case_view" ? Eye : type === "favorite_add" ? Heart : type === "consultation" ? Users : Share2;
   return <section className="page-section notification-page"><div className="notification-summary"><strong>客户互动</strong><span>{list.length} 条通知</span></div><div className={`notification-list ${list.length ? "" : "is-empty"}`}>{list.length === 0 && <div className="notification-empty"><Bell size={24} /><strong>暂无客户互动</strong><span>客户收藏、分享案例或提交咨询后，通知会显示在这里。</span></div>}{list.map((event, index) => {
     const Icon = eventIcon(event.type);
     const target = cases.find((item) => item.id === event.caseId);
     const customer = customers.find((item) => item.openid && item.openid === event.openid);
-    return <div className="notification-item" key={event._id || `${event.type}-${index}`}><button className="notification-main" onClick={() => target && open("case-preview", target)}><i><Icon size={19} /></i><div><p><strong>{customer?.name || "微信客户"}</strong> {eventLabel(event.type)} <b>{event.caseName || target?.name || "未命名案例"}</b></p><span>{typeof event.createdAt === "string" ? event.createdAt.replace("T", " ").slice(0, 16) : "刚刚"}</span></div><ChevronRight size={18} /></button><div className="notification-customer"><span>{customer?.phone || "未授权手机号"}</span><b>{customer?.community || "未填写小区"}</b>{customer && <button onClick={() => setSelectedCustomer(customer)}>查看客户</button>}</div></div>;
+    return <div className="notification-item" key={event._id || `${event.type}-${index}`}><button className="notification-main" onClick={() => target && open("case-preview", target)}><i><Icon size={19} /></i><div><p><strong>{customer?.name || event.nickname || "匿名访客"}</strong> {eventLabel(event.type)} <b>{event.caseName || target?.name || "未命名案例"}</b></p><span>{typeof event.createdAt === "string" ? event.createdAt.replace("T", " ").slice(0, 16) : "刚刚"}</span></div><ChevronRight size={18} /></button><div className="notification-customer"><span>{customer?.phone || (event.nickname ? `访客编号 ${event.visitorId?.slice(-8) || "-"}` : "未完善个人信息")}</span><b>{customer?.community || (event.nickname ? "尚未提交咨询" : "匿名浏览")}</b>{customer && <button onClick={() => setSelectedCustomer(customer)}>查看客户</button>}</div></div>;
   })}</div>{selectedCustomer && <div className="dialog-layer"><button className="dialog-backdrop" onClick={() => setSelectedCustomer(null)} /><section className="customer-info-dialog consultation-detail-dialog"><header><div><h3>{selectedCustomer.name}</h3><span>{selectedCustomer.id}</span></div><button onClick={() => setSelectedCustomer(null)}><X size={19} /></button></header><dl><div><dt>手机号</dt><dd>{selectedCustomer.phone}</dd></div><div><dt>所在小区</dt><dd>{selectedCustomer.community}</dd></div><div><dt>建筑面积</dt><dd>{selectedCustomer.area}</dd></div><div><dt>装修状态</dt><dd>{selectedCustomer.decorationStatus || "未填写"}</dd></div><div><dt>来源案例</dt><dd>{selectedCustomer.sourceCaseName || "无"}</dd></div><div className="consult-question"><dt>想咨询的问题</dt><dd>{selectedCustomer.question || "未填写"}</dd></div><div><dt>添加时间</dt><dd>{selectedCustomer.createdAt}</dd></div></dl><footer><button className="gold-button" onClick={() => setSelectedCustomer(null)}>完成</button></footer></section></div>}</section>;
 }
 
