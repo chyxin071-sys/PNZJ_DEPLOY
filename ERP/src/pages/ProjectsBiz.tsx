@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -342,6 +342,8 @@ const INIT_FORM = {
   startDate: '', endDate: '', remark: '', leadId: '',
 };
 
+const MOBILE_DELETE_WIDTH = 88;
+
 export default function ProjectsBiz() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -379,6 +381,9 @@ export default function ProjectsBiz() {
   const [pendingAccessByProject, setPendingAccessByProject] = useState<Record<string, number>>({});
   const [leadSearch, setLeadSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [openSwipeProjectId, setOpenSwipeProjectId] = useState<string | null>(null);
+  const projectTouchStartRef = useRef<{ x: number; y: number; id: string } | null>(null);
+  const suppressProjectClickRef = useRef<string | null>(null);
 
   const [templateData, setTemplateData] = useState<any[]>([]);
   const [showTemplateLib, setShowTemplateLib] = useState(false);
@@ -1106,11 +1111,66 @@ export default function ProjectsBiz() {
               const unreadUpdates = projectUnreadCountById[projectId] || 0;
 
               return (
-              <div key={projectId} className="border-b border-gray-50 last:border-b-0 md:overflow-visible">
+              <div key={projectId} className="relative overflow-hidden border-b border-gray-50 last:border-b-0 md:overflow-visible">
                 {/* 卡片主体 */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenSwipeProjectId(null);
+                      void handleDelete(projectId);
+                    }}
+                    className="absolute inset-y-0 right-0 flex w-[88px] flex-col items-center justify-center gap-1 bg-red-500 text-xs font-medium text-white active:bg-red-600 md:hidden"
+                    aria-label="删除工地"
+                  >
+                    <Trash2 size={18} />
+                    删除
+                  </button>
+                )}
                 <div
-                  className="erp-list-row cursor-pointer p-3 md:px-4 md:py-3"
+                  className="erp-list-row cursor-pointer bg-white p-3 transition-transform duration-200 ease-out md:px-4 md:py-3"
+                  style={{ transform: isAdmin && openSwipeProjectId === projectId ? `translateX(-${MOBILE_DELETE_WIDTH}px)` : 'translateX(0)' }}
+                  onTouchStart={(event) => {
+                    if (!isAdmin) return;
+                    const touch = event.touches[0];
+                    projectTouchStartRef.current = { x: touch.clientX, y: touch.clientY, id: projectId };
+                  }}
+                  onTouchMove={(event) => {
+                    if (!isAdmin || projectTouchStartRef.current?.id !== projectId) return;
+                    const touch = event.touches[0];
+                    const dx = touch.clientX - projectTouchStartRef.current.x;
+                    const dy = touch.clientY - projectTouchStartRef.current.y;
+                    if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+                      if (dx < 0) setOpenSwipeProjectId(projectId);
+                      if (dx > 0) setOpenSwipeProjectId(null);
+                    }
+                  }}
+                  onTouchEnd={(event) => {
+                    if (!isAdmin || projectTouchStartRef.current?.id !== projectId) return;
+                    const touch = event.changedTouches[0];
+                    const dx = touch.clientX - projectTouchStartRef.current.x;
+                    const dy = touch.clientY - projectTouchStartRef.current.y;
+                    const swiped = Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.25;
+                    if (swiped) {
+                      suppressProjectClickRef.current = projectId;
+                      window.setTimeout(() => {
+                        if (suppressProjectClickRef.current === projectId) suppressProjectClickRef.current = null;
+                      }, 250);
+                      setOpenSwipeProjectId(dx < 0 ? projectId : null);
+                    }
+                    projectTouchStartRef.current = null;
+                  }}
                   onClick={() => {
+                    if (suppressProjectClickRef.current === projectId) return;
+                    if (openSwipeProjectId && openSwipeProjectId !== projectId) {
+                      setOpenSwipeProjectId(null);
+                      return;
+                    }
+                    if (openSwipeProjectId === projectId) {
+                      setOpenSwipeProjectId(null);
+                      return;
+                    }
                     saveProjectListScroll();
                     navigate(`/projects-biz/${projectId}`);
                   }}
