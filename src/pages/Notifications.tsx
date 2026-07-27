@@ -25,6 +25,15 @@ function notificationSender(item: unknown) {
   return notification.senderName || notification.actorName || '系统';
 }
 
+function cleanNotificationText(value: unknown, fallback: string) {
+  const raw = String(value || '').trim();
+  if (!raw || /^[?\s]+$/.test(raw)) return fallback;
+  return raw
+    .replace(/\?{2,}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function notificationLink(item: {
   link?: string;
   relatedTo?: { type?: string; id?: string };
@@ -142,6 +151,11 @@ export default function Notifications() {
                   item.isRead ? 'bg-white' : 'bg-amber-50/60'
                 }`}
               >
+                {(() => {
+                  const title = cleanNotificationText(item.title, item.relatedTo?.type === 'contract' ? '合同更新' : '系统通知');
+                  const content = cleanNotificationText(item.content, '暂无详细内容');
+                  const sender = cleanNotificationText(notificationSender(item), '系统');
+                  return (
                 <div className="flex items-start gap-3">
                   <span
                     className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
@@ -150,22 +164,24 @@ export default function Notifications() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="truncate text-[13px] font-medium text-gray-900">{title}</p>
                       {item.category && (
-                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">
                           {CATEGORY_LABELS[item.category] || item.category}
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">{item.content}</p>
-                    <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-400">
-                      <span className="truncate">{notificationSender(item)}</span>
+                    <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-gray-500">{content}</p>
+                    <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+                      <span className="truncate">{sender}</span>
                       <span className="shrink-0">
                         {typeof item.createdAt === 'string' ? item.createdAt.slice(0, 10) : ''}
                       </span>
                     </div>
                   </div>
                 </div>
+                  );
+                })()}
               </button>
             ))}
           </div>

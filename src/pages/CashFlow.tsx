@@ -189,6 +189,48 @@ export default function CashFlow() {
     { key: 'summary', title: '说明' },
   ];
 
+  const mobileColumns = [
+    {
+      key: 'date',
+      title: '日期',
+      render: (row: FlowItem) => (
+        <div>
+          <div className="text-[11px] font-medium text-gray-400">{formatDate(row.date)}</div>
+          <div className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900">
+            {row.relatedParty || row.contractNo || '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      title: '金额',
+      render: (row: FlowItem) => {
+        const isIncome = row.type === '收款';
+        return (
+          <div className="shrink-0 text-right">
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${isIncome ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+              {row.type}
+            </span>
+            <div className={`mt-1 text-[15px] font-bold ${isIncome ? 'text-emerald-600' : 'text-red-500'}`}>
+              {isIncome ? '+' : '-'}{formatMoney(row.amount)}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'summary',
+      title: '说明',
+      render: (row: FlowItem) => (
+        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+          <div className="line-clamp-2 text-xs leading-5 text-gray-500">{row.summary || '-'}</div>
+          {row.contractNo && <div className="mt-1 text-[11px] font-mono text-gray-400">{row.contractNo}</div>}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="erp-page-spaced">
       {/* 页头 */}
@@ -280,7 +322,7 @@ export default function CashFlow() {
             onSort={handleSort}
             rowKey={(row) => row.id}
             emptyText="暂无流水记录"
-            mobileCardColumns={4}
+            mobileCardColumns={mobileColumns}
         />
         {hasMoreFlows && (
           <div className="flex justify-center border-t border-gray-50 px-4 py-4">

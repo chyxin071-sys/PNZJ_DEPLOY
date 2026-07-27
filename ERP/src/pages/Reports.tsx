@@ -39,8 +39,9 @@ export default function ReportsPage() {
 
   const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
   const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
-  const filteredInvoices = useMemo(() => invoices.filter(i => i.bizType === currentBizType), [invoices, currentBizType]);
-  const includeGeneralLedger = currentBizType === '家装';
+  const supportsInvoices = currentBizType === '工装';
+  const includeGeneralLedger = false;
+  const filteredInvoices = useMemo(() => supportsInvoices ? invoices.filter(i => i.bizType === currentBizType) : [], [invoices, currentBizType, supportsInvoices]);
   const scopedGeneralIncomes = includeGeneralLedger ? generalIncomes : [];
   const scopedGeneralExpenses = includeGeneralLedger ? generalExpenses : [];
 
@@ -168,7 +169,56 @@ export default function ReportsPage() {
 
   const reportScopeNote = (
     <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs leading-5 text-amber-700">
-      当前口径：{currentBizType}项目收款按收款日期统计，项目支出按支出日期统计，开票按开票日期统计，欠款 = 开票金额 - 项目实收款。{includeGeneralLedger ? '家装报表包含总店收入/支出，但欠款不拿总店收入抵扣。' : '工装报表不混入家装或总店收入/支出。'}
+      当前口径：{currentBizType}项目收款按收款日期统计，项目支出按支出日期统计。家装报表只统计家装合同关联的收支，不再混入总店收入/支出、开票、应收或应付数据。
+    </div>
+  );
+
+  const MobileMonthList = ({ mode }: { mode: 'profit' | 'cash' | 'overview' }) => (
+    <div className="md:hidden divide-y divide-gray-50">
+      {monthlyData.map((d, i) => {
+        const inc = d.projIncome + d.genIncome;
+        const exp = d.projExpense + d.genExpense;
+        const net = inc - exp;
+        const prevInc = prevYearData[i].projIncome + prevYearData[i].genIncome;
+        const prevExp = prevYearData[i].projExpense + prevYearData[i].genExpense;
+        const prevNet = prevInc - prevExp;
+        return (
+          <div key={`${mode}-${d.month}`} className="px-4 py-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-900">{d.month}</span>
+              <span className={`text-sm font-bold ${net >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatMoney(net)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg bg-emerald-50 px-3 py-2">
+                <div className="text-emerald-600/70">收入合计</div>
+                <div className="mt-0.5 font-semibold text-emerald-700">{formatMoney(inc)}</div>
+              </div>
+              <div className="rounded-lg bg-red-50 px-3 py-2">
+                <div className="text-red-500/70">支出合计</div>
+                <div className="mt-0.5 font-semibold text-red-600">{formatMoney(exp)}</div>
+              </div>
+              {mode === 'profit' && (
+                <div className="col-span-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                  <span className="text-gray-500">去年同期利润</span>
+                  <span className="font-semibold text-gray-500">{formatMoney(prevNet)}</span>
+                </div>
+              )}
+              {mode === 'overview' && (
+                <>
+                  <div className="rounded-lg bg-gray-50 px-3 py-2">
+                    <div className="text-gray-500">项目收入</div>
+                    <div className="mt-0.5 font-semibold text-gray-900">{formatMoney(d.projIncome)}</div>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 px-3 py-2">
+                    <div className="text-gray-500">项目支出</div>
+                    <div className="mt-0.5 font-semibold text-gray-900">{formatMoney(d.projExpense)}</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 
@@ -215,12 +265,14 @@ export default function ReportsPage() {
             <StatCard title="总支出" value={formatMoney(totalExpense)} icon={ArrowDownRight} accent="red" sub={`同比 ${statYoy(totalExpense, prevTotalExpense)}`} />
             <StatCard title="净利润" value={formatMoney(totalProfit)} icon={Wallet} accent={totalProfit >= 0 ? 'gold' : 'red'} sub={`同比 ${statYoy(totalProfit, prevTotalProfit)}`} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard title="开票金额" value={formatMoney(totalInvoiceAmount)} icon={ArrowUpRight} accent="blue" />
-            <StatCard title="项目实收款" value={formatMoney(totalProjIncome)} icon={ArrowUpRight} accent="emerald" />
-            <StatCard title="开票欠款" value={formatMoney(totalInvoiceDebt)} icon={Wallet} accent={totalInvoiceDebt > 0 ? 'red' : 'gold'} />
-            <StatCard title="开票回款率" value={totalInvoiceAmount > 0 ? `${Math.min(totalProjIncome / totalInvoiceAmount * 100, 999).toFixed(1)}%` : '0.0%'} icon={Wallet} accent="gold" />
-          </div>
+          {supportsInvoices && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <StatCard title="开票金额" value={formatMoney(totalInvoiceAmount)} icon={ArrowUpRight} accent="blue" />
+              <StatCard title="项目实收款" value={formatMoney(totalProjIncome)} icon={ArrowUpRight} accent="emerald" />
+              <StatCard title="开票欠款" value={formatMoney(totalInvoiceDebt)} icon={Wallet} accent={totalInvoiceDebt > 0 ? 'red' : 'gold'} />
+              <StatCard title="开票回款率" value={totalInvoiceAmount > 0 ? `${Math.min(totalProjIncome / totalInvoiceAmount * 100, 999).toFixed(1)}%` : '0.0%'} icon={Wallet} accent="gold" />
+            </div>
+          )}
 
           <div>
             <div className="bg-white rounded-lg border border-gray-100 p-6">
@@ -231,7 +283,8 @@ export default function ReportsPage() {
           <div><div className="bg-white rounded-lg border border-gray-100 px-6 py-4"><h3 className="text-sm font-semibold text-gray-700 mb-3">{year}年 月度利润明细</h3></div></div>
           <div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-visible"><div className="overflow-visible -mx-4 md:-mx-6 px-4 md:px-6">
-              <table className="w-full text-sm">
+              <MobileMonthList mode="profit" />
+              <table className="hidden md:table w-full text-sm">
                 <thead><tr className="border-b border-gray-100 bg-gray-50/50">
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">月份</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">收入合计</th>
@@ -280,11 +333,13 @@ export default function ReportsPage() {
           {header('利润表 & 现金流量表分析')}{tabBar}
           {reportScopeNote}
           <StatRow labels={['现金流入', '现金流出', '现金净额']} values={[formatMoney(totalIncome), formatMoney(totalExpense), formatMoney(totalIncome - totalExpense)]} accents={['emerald', 'red', (totalIncome - totalExpense) >= 0 ? 'gold' : 'red']} />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard title="本年开票" value={formatMoney(totalInvoiceAmount)} icon={ArrowUpRight} accent="blue" />
-            <StatCard title="开票记录付款" value={formatMoney(totalInvoicePaid)} icon={ArrowUpRight} accent="emerald" />
-            <StatCard title="按开票口径欠款" value={formatMoney(totalInvoiceDebt)} icon={Wallet} accent={totalInvoiceDebt > 0 ? 'red' : 'gold'} />
-          </div>
+          {supportsInvoices && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard title="本年开票" value={formatMoney(totalInvoiceAmount)} icon={ArrowUpRight} accent="blue" />
+              <StatCard title="开票记录付款" value={formatMoney(totalInvoicePaid)} icon={ArrowUpRight} accent="emerald" />
+              <StatCard title="按开票口径欠款" value={formatMoney(totalInvoiceDebt)} icon={Wallet} accent={totalInvoiceDebt > 0 ? 'red' : 'gold'} />
+            </div>
+          )}
           <div>
             <div className="bg-white rounded-lg border border-gray-100 p-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">{year}年 月度现金流量</h3>
@@ -294,14 +349,15 @@ export default function ReportsPage() {
           <div><div className="bg-white rounded-lg border border-gray-100 px-6 py-4"><h3 className="text-sm font-semibold text-gray-700 mb-3">{year}年 月度现金流量明细</h3></div></div>
           <div className="px-8 pb-8">
             <div className="bg-white rounded-lg border border-gray-100 overflow-visible"><div className="overflow-visible">
-              <table className="w-full text-sm">
+              <MobileMonthList mode="cash" />
+              <table className="hidden md:table w-full text-sm">
                 <thead><tr className="border-b border-gray-100 bg-gray-50/50">
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">月份</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">现金流入</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">现金流出</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">净流量</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">开票</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">欠款</th>
+                  {supportsInvoices && <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">开票</th>}
+                  {supportsInvoices && <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">欠款</th>}
                 </tr></thead>
                 <tbody>
                   {monthlyData.map(d => {
@@ -314,8 +370,8 @@ export default function ReportsPage() {
                         <td className="py-3 px-4 text-emerald-600 text-right">{formatMoney(inc)}</td>
                         <td className="py-3 px-4 text-red-500 text-right">{formatMoney(exp)}</td>
                         <td className={`py-3 px-4 text-right font-bold ${nf >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatMoney(nf)}</td>
-                        <td className="py-3 px-4 text-blue-600 text-right">{formatMoney(d.invoiceAmount)}</td>
-                        <td className={`py-3 px-4 text-right ${(d.invoiceAmount - d.projIncome) > 0 ? 'text-red-500' : 'text-gray-400'}`}>{formatMoney(d.invoiceAmount - d.projIncome)}</td>
+                        {supportsInvoices && <td className="py-3 px-4 text-blue-600 text-right">{formatMoney(d.invoiceAmount)}</td>}
+                        {supportsInvoices && <td className={`py-3 px-4 text-right ${(d.invoiceAmount - d.projIncome) > 0 ? 'text-red-500' : 'text-gray-400'}`}>{formatMoney(d.invoiceAmount - d.projIncome)}</td>}
                       </tr>
                     );
                   })}
@@ -324,8 +380,8 @@ export default function ReportsPage() {
                     <td className="py-3 px-4 text-emerald-600 text-right">{formatMoney(totalIncome)}</td>
                     <td className="py-3 px-4 text-red-500 text-right">{formatMoney(totalExpense)}</td>
                     <td className={`py-3 px-4 text-right ${(totalIncome - totalExpense) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatMoney(totalIncome - totalExpense)}</td>
-                    <td className="py-3 px-4 text-blue-600 text-right">{formatMoney(totalInvoiceAmount)}</td>
-                    <td className={`py-3 px-4 text-right ${totalInvoiceDebt > 0 ? 'text-red-500' : 'text-gray-400'}`}>{formatMoney(totalInvoiceDebt)}</td>
+                    {supportsInvoices && <td className="py-3 px-4 text-blue-600 text-right">{formatMoney(totalInvoiceAmount)}</td>}
+                    {supportsInvoices && <td className={`py-3 px-4 text-right ${totalInvoiceDebt > 0 ? 'text-red-500' : 'text-gray-400'}`}>{formatMoney(totalInvoiceDebt)}</td>}
                   </tr>
                 </tbody>
               </table>
@@ -341,14 +397,15 @@ export default function ReportsPage() {
           <StatRow labels={['总收入', '总支出', '净利润']} values={[formatMoney(totalIncome), formatMoney(totalExpense), formatMoney(totalProfit)]} accents={['blue', 'red', totalProfit >= 0 ? 'gold' : 'red']} />
           <div>
             <div className="bg-white rounded-lg border border-gray-100 p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">近6个月收入/支出构成（含总店）</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">近6个月收入/支出构成</h3>
               <ReactEChartsCore echarts={echarts} option={overviewBarOption} style={{ height: 380 }} />
             </div>
           </div>
           <div><div className="bg-white rounded-lg border border-gray-100 px-6 py-4"><h3 className="text-sm font-semibold text-gray-700 mb-3">经营总览明细</h3></div></div>
           <div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-visible"><div className="overflow-visible">
-              <table className="w-full text-sm">
+              <MobileMonthList mode="overview" />
+              <table className="hidden md:table w-full text-sm">
                 <thead><tr className="border-b border-gray-100 bg-gray-50/50">
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">月份</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">项目收入</th>

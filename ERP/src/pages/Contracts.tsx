@@ -314,6 +314,40 @@ export default function Contracts() {
     { key: 'signDate', title: '签订日期', render: (row: Contract) => row.signDate ? formatDate(row.signDate) : '-' },
   ];
 
+  const homeMobileColumns = [
+    {
+      key: 'houseAddress',
+      title: '项目地址',
+      render: (row: Contract) => (
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-gray-400">项目地址</div>
+          <div className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900">
+            {row.houseAddress || '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'customerName',
+      title: '客户',
+      render: (row: Contract) => (
+        <div className="shrink-0 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
+          {row.customerName || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'contractAmountMobile',
+      title: '合同金额',
+      render: (row: Contract) => (
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-xs font-medium text-gray-400">合同金额</span>
+          <span className="text-[15px] font-bold text-gray-900">{formatMoney(row.contractAmount || 0)}</span>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="erp-page-spaced">
       <>
@@ -359,7 +393,7 @@ export default function Contracts() {
               emptyText={pageLoading ? '正在加载合同...' : '暂无合同数据'}
               rowKey={(row) => String(row.id)}
               onRowClick={(row) => navigate(`/contracts/${(row as Contract).id}`)}
-              mobileCardColumns={4}
+              mobileCardColumns={isCommercial ? 4 : homeMobileColumns}
             />
             {totalCount > PAGE_SIZE && (
               <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">

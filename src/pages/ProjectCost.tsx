@@ -163,6 +163,50 @@ export default function ProjectCost() {
     }
   ];
 
+  const mobileColumns = [
+    {
+      key: 'houseAddress',
+      title: '项目地址',
+      render: (row: any) => (
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-gray-400">项目地址</div>
+          <div className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900">
+            {row.houseAddress || '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'customerName',
+      title: '客户',
+      render: (row: any) => (
+        <div className="shrink-0 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
+          {row.customerName || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'contractAmount',
+      title: '合同金额',
+      render: (row: any) => (
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-xs font-medium text-gray-400">合同金额</span>
+          <span className="text-[15px] font-bold text-gray-900">{formatMoney(row.contractAmount || 0)}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'totalCost',
+      title: '总成本',
+      render: (row: any) => (
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <span className="text-xs font-medium text-gray-400">总成本</span>
+          <span className="text-[15px] font-bold text-red-500">{formatMoney(row.totalCost || 0)}</span>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="erp-page-spaced">
       {/* 页头 */}
@@ -192,6 +236,7 @@ export default function ProjectCost() {
               const r = row as unknown as ProjectProfit;
               navigate(`/projects/${r.id}`);
             }}
+            mobileCardColumns={mobileColumns}
         />
       </div>
     </div>
