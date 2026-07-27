@@ -31,7 +31,7 @@ import {
   ArrowLeft, Phone, MapPin, Edit3, Plus, Trash2, X, Calendar, Clock,
   ChevronDown, ChevronRight, ChevronUp, FileText, Building, UserCheck, Tag,
   Eye, EyeOff, FolderPlus, Image as ImageIcon, Video, File, Upload,
-  Folder, ArrowRightLeft, Lock, Camera, MoreHorizontal,
+  Folder, Lock, Camera, MoreHorizontal,
   CheckCircle2, Circle, AlertCircle, Play, PlusCircle,
   HardHat, ExternalLink, Download, DollarSign, Receipt, BarChart3, Link, Share2,
 } from 'lucide-react';
@@ -2310,17 +2310,19 @@ export default function LeadDetail() {
               </span>
             </div>
           </div>
-          {canEdit && !file.isReadOnly && !file.isUploading && (
+          {canEdit && !file.isUploading && (
             <div className="flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
-              <button onClick={() => toggleFileVisibility(file.fileID)} className="p-1.5 text-gray-400 hover:text-gold-500 rounded-lg hover:bg-gold-50">
-                {file.isVisible !== false ? <EyeOff size={14} /> : <Eye size={14} />}
+              <button onClick={() => { void openManagedFile(file); }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-50" title="查看">
+                <Eye size={14} />
               </button>
-              <button onClick={() => { setMoveFileId(file.fileID); setMoveTargetFolder(file.folderName || selectedFolder); setShowMoveFileModal(true); }} className="p-1.5 text-gray-400 hover:text-blue-500 rounded-lg hover:bg-blue-50">
-                <ArrowRightLeft size={14} />
+              <button onClick={() => { void downloadManagedFile(file); }} className="p-1.5 text-gray-400 hover:text-emerald-500 rounded-lg hover:bg-emerald-50" title="下载">
+                <Download size={14} />
               </button>
-              <button onClick={() => deleteFile(file.fileID)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50">
-                <Trash2 size={14} />
-              </button>
+              {!file.isReadOnly && (
+                <button onClick={() => deleteFile(file.fileID)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50" title="删除">
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -3543,8 +3545,8 @@ export default function LeadDetail() {
                                      const fThumb = !file.isUploading && fType === 'image' ? fileImgUrls[file.fileID] : null;
                                      return (
                                        <div key={file.fileID}
-                                         className="relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group cursor-pointer"
-                                         onClick={() => { if (!file.isUploading) void openManagedFile(file); }}>
+                                         className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
+                                         onClick={() => { if (isMobile && !file.isUploading) void openManagedFile(file); }}>
                                          <div className="w-full aspect-[4/3] rounded-lg bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
                                            {fThumb ? (
                                              <img src={fThumb} alt={file.name} className="w-full h-full object-cover" />
@@ -3561,21 +3563,19 @@ export default function LeadDetail() {
                                          </div>
                                          <div className="text-[11px] text-gray-400 mt-1.5">{file.uploader || '-'}</div>
                                          {canEdit && !file.isUploading && (
-                                           <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-gray-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                                           <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-gray-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                             {isMobile && (
+                                               <button onClick={(e) => { e.stopPropagation(); void openManagedFile(file); }}
+                                                 className="p-1 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-50" title="查看">
+                                                 <Eye size={13} />
+                                               </button>
+                                             )}
                                              <button onClick={(e) => { e.stopPropagation(); void downloadManagedFile(file); }}
                                                className="p-1 text-gray-400 hover:text-emerald-500 rounded hover:bg-emerald-50" title="下载">
                                                <Download size={13} />
                                              </button>
                                              {!file.isReadOnly && (
                                                <>
-                                                 <button onClick={(e) => { e.stopPropagation(); toggleFileVisibility(file.fileID); }}
-                                                   className="p-1 text-gray-400 hover:text-gold-500 rounded hover:bg-gold-50" title={file.isVisible !== false ? '设为仅内部' : '设为公开'}>
-                                                   {file.isVisible !== false ? <EyeOff size={13} /> : <Eye size={13} />}
-                                                 </button>
-                                                 <button onClick={(e) => { e.stopPropagation(); setMoveFileId(file.fileID); setMoveTargetFolder(showAllFiles ? file.folderName : selectedFolder); setShowMoveFileModal(true); }}
-                                                   className="p-1 text-gray-400 hover:text-blue-500 rounded hover:bg-blue-50" title="移动到其他文件夹">
-                                                   <ArrowRightLeft size={13} />
-                                                 </button>
                                                  <button onClick={(e) => { e.stopPropagation(); deleteFile(file.fileID); }}
                                                    className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="删除">
                                                    <Trash2 size={13} />
@@ -3604,8 +3604,8 @@ export default function LeadDetail() {
                             const sThumb = !file.isUploading && sType === 'image' ? fileImgUrls[file.fileID] : null;
                             return (
                               <div key={file.fileID}
-                                className="relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group cursor-pointer"
-                                onClick={() => { if (!file.isUploading) void openManagedFile(file); }}>
+                                className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={() => { if (isMobile && !file.isUploading) void openManagedFile(file); }}>
                                 <div className="w-full aspect-[4/3] rounded-lg bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
                                   {sThumb ? (
                                     <img src={sThumb} alt={file.name} className="w-full h-full object-cover" />
@@ -3622,21 +3622,19 @@ export default function LeadDetail() {
                                 </div>
                                 <div className="text-[11px] text-gray-400 mt-1.5">{file.uploader || '-'}</div>
                                 {canEdit && !file.isUploading && (
-                                  <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-gray-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-gray-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    {isMobile && (
+                                      <button onClick={(e) => { e.stopPropagation(); void openManagedFile(file); }}
+                                        className="p-1 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-50" title="查看">
+                                        <Eye size={13} />
+                                      </button>
+                                    )}
                                     <button onClick={(e) => { e.stopPropagation(); void downloadManagedFile(file); }}
                                       className="p-1 text-gray-400 hover:text-emerald-500 rounded hover:bg-emerald-50" title="下载">
                                       <Download size={13} />
                                     </button>
                                     {!file.isReadOnly && (
                                       <>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleFileVisibility(file.fileID); }}
-                                          className="p-1 text-gray-400 hover:text-gold-500 rounded hover:bg-gold-50" title={file.isVisible !== false ? '设为仅内部' : '设为公开'}>
-                                          {file.isVisible !== false ? <EyeOff size={13} /> : <Eye size={13} />}
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setMoveFileId(file.fileID); setMoveTargetFolder(selectedFolder); setShowMoveFileModal(true); }}
-                                          className="p-1 text-gray-400 hover:text-blue-500 rounded hover:bg-blue-50" title="移动到其他文件夹">
-                                          <ArrowRightLeft size={13} />
-                                        </button>
                                         <button onClick={(e) => { e.stopPropagation(); deleteFile(file.fileID); }}
                                           className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="删除">
                                           <Trash2 size={13} />

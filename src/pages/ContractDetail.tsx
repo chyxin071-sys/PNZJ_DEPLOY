@@ -1412,6 +1412,19 @@ export default function ContractDetail() {
                     </div>
                   ) : (
                     <div className="flex shrink-0 items-center gap-3">
+                      {isMobile && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const { openAttachment } = await import('@/utils/financeAttachments');
+                            void openAttachment(file);
+                          }}
+                          className="text-xs font-medium text-gray-600 hover:text-gray-800"
+                        >
+                          查看
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={async (e) => {
