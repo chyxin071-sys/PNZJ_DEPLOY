@@ -21,6 +21,7 @@ import { canViewFinancialData, hasRole, useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useBizStore } from '@/store/bizStore';
 import { useUploadQueueStore } from '@/store/uploadQueueStore';
+import { useDialogStore } from '@/store/dialogStore';
 import {
   CraftTemplate, getTemplates, buildNodesFromTemplate, makeId,
   DEFAULT_NODE_TYPE, normalizeNodeType, TYPE_OPTIONS,
@@ -268,6 +269,7 @@ export default function ProjectBizDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
+  const { showConfirm } = useDialogStore();
   const notifications = useNotificationStore((state) => state.notifications);
   const markRelatedAsRead = useNotificationStore((state) => state.markRelatedAsRead);
   const hasProjectActionUnread = (actionKey: string) => notifications.some((item: any) => {
@@ -288,6 +290,14 @@ export default function ProjectBizDetail() {
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
   const canViewFinance = canViewFinancialData(user?.roles, user?.role);
   const { currentBizType } = useBizStore();
+  const confirmUser = useCallback((message: string, options?: { title?: string; confirmText?: string; cancelText?: string; confirmStyle?: 'primary' | 'danger' }) => {
+    return showConfirm(message, {
+      title: options?.title || '请确认',
+      confirmText: options?.confirmText || '确定',
+      cancelText: options?.cancelText || '取消',
+      confirmStyle: options?.confirmStyle || 'primary',
+    });
+  }, [showConfirm]);
 
   const tabs = [
     { key: 'site', label: '施工进度' },
@@ -935,7 +945,7 @@ export default function ProjectBizDetail() {
       alert('请先设置完整的计划时间');
       return;
     }
-    if (confirm('确认开始该施工阶段吗？开始后计划时间将无法修改。')) {
+    if (await confirmUser('开始后计划时间将无法修改。', { title: '确认开始该施工阶段吗？' })) {
       setPendingAction(actionKey);
       const dateStr = new Date().toISOString().slice(0, 10);
       section.status = 'current';
@@ -996,7 +1006,7 @@ export default function ProjectBizDetail() {
     const node = newNodesData.find((n: any) => n._id === nodeId);
     if (!node) return;
     const section = node.sections[secIdx];
-    if (confirm('完工提交后将记录为已完成状态，请确认无误后提交！')) {
+    if (await confirmUser('完工提交后将记录为已完成状态，请确认无误后提交！', { title: '确认完工提交吗？' })) {
       setPendingAction(actionKey);
       const now = new Date();
       const pad = (n: number) => n < 10 ? '0' + n : n;
@@ -1556,7 +1566,10 @@ export default function ProjectBizDetail() {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
     }
-    if (!window.confirm('此操作将拉取最新模板，覆盖当前所有的【排期结构和工艺标准】。已完工的验收数据可能丢失，建议仅在未开工时使用。确定要继续吗？')) return;
+    if (!await confirmUser(
+      '此操作将拉取最新模板，覆盖当前所有的【排期结构和工艺标准】。已完工的验收数据可能丢失，建议仅在未开工时使用。',
+      { title: '确定要继续吗？', confirmStyle: 'danger' },
+    )) return;
     
     try {
       const res = await cloudDB.collection('system_configs').doc('default_project_template').get();
@@ -1680,7 +1693,7 @@ export default function ProjectBizDetail() {
   };
 
   const handleDeleteLog = async (log: ProjectLog) => {
-    if (!window.confirm('确认删除这条施工日志吗？删除后无法恢复。')) return;
+    if (!await confirmUser('删除后无法恢复。', { title: '确认删除这条施工日志吗？', confirmStyle: 'danger', confirmText: '删除' })) return;
     try {
       await projectLogsAPI.delete(log.id);
       void createNotificationEventSafely({
@@ -1839,7 +1852,7 @@ export default function ProjectBizDetail() {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
     }
-    if (!window.confirm('确认该整改已合格？')) return;
+    if (!await confirmUser('确认后该整改将标记为已合格。', { title: '确认该整改已合格？' })) return;
     try {
       await projectInspectionsAPI.update(inspection.id || inspection._id, {
         status: '整改通过',
@@ -1943,7 +1956,7 @@ export default function ProjectBizDetail() {
 
   const handleReopenProject = async () => {
     if (!project || pendingAction) return;
-    const confirmed = window.confirm('确认恢复为施工中？恢复后将重新开放施工进度、日志和巡检编辑入口。');
+    const confirmed = await confirmUser('恢复后将重新开放施工进度、日志和巡检编辑入口。', { title: '确认恢复为施工中？' });
     if (!confirmed) return;
     const projectDocId = getProjectDocId(project);
     if (!projectDocId) return;
@@ -2040,7 +2053,7 @@ export default function ProjectBizDetail() {
         if (relatedContract) {
           navigate(`/reimbursement?action=create&contractId=${relatedContract.id || relatedContract._id}&from=${encodeURIComponent(location.pathname)}`);
         } else {
-          const confirmed = window.confirm('项目报销需要先关联合同。是否前往新建合同？');
+          const confirmed = await confirmUser('项目报销需要先关联合同。', { title: '是否前往新建合同？' });
           if (confirmed) {
             setContractDrawerOpen(true);
           }
@@ -2052,12 +2065,12 @@ export default function ProjectBizDetail() {
       label: '新增收款',
       icon: DollarSign,
       tone: 'bg-emerald-50 text-emerald-600',
-      onClick: () => {
+      onClick: async () => {
         if (relatedContract) {
           const contractId = relatedContract.id || relatedContract._id;
           navigate(canViewFinance ? `/income?action=create&contractId=${contractId}&from=${encodeURIComponent(location.pathname)}` : `/contracts/${contractId}`);
         } else {
-          const confirmed = window.confirm('新增收款需要先关联合同。是否前往新建合同？');
+          const confirmed = await confirmUser('新增收款需要先关联合同。', { title: '是否前往新建合同？' });
           if (confirmed) {
             setContractDrawerOpen(true);
           }
@@ -2070,11 +2083,11 @@ export default function ProjectBizDetail() {
       icon: BarChart3,
       tone: 'bg-gray-100 text-gray-700',
       enabled: canViewFinance,
-      onClick: () => {
+      onClick: async () => {
         if (relatedContract) {
           navigate(`/projects/${relatedContract.id || relatedContract._id}`);
         } else {
-          const confirmed = window.confirm('查看项目成本需要先关联合同。是否前往新建合同？');
+          const confirmed = await confirmUser('查看项目成本需要先关联合同。', { title: '是否前往新建合同？' });
           if (confirmed) {
             setContractDrawerOpen(true);
           }
@@ -2702,7 +2715,7 @@ export default function ProjectBizDetail() {
                   <div key={node._id || `m-node-${index}`} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <button onClick={(e) => { e.stopPropagation(); if(confirm('确定删除该节点？')) { const n = [...project.nodesData]; n.splice(index, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={14} /></button>
+                        <button onClick={async (e) => { e.stopPropagation(); if(await confirmUser('删除后无法恢复。', { title: '确定删除该节点？', confirmStyle: 'danger', confirmText: '删除' })) { const n = [...project.nodesData]; n.splice(index, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={14} /></button>
                         <input value={node.name} onChange={(e) => { const n = [...project.nodesData]; n[index].name = e.target.value; setProject({ ...project, nodesData: n }); }} onBlur={() => syncToDB(project.nodesData)} className="min-w-0 flex-1 text-sm font-medium bg-transparent border border-transparent focus:border-gold-400 rounded px-2 py-1 outline-none" />
                         <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-500">工艺{node.craftsmanship?.length || 0}</span>
                       </div>
@@ -2755,7 +2768,7 @@ export default function ProjectBizDetail() {
                           <div key={secIdx} className="rounded-lg border border-gray-100 bg-white overflow-hidden">
                             <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60 border-b border-gray-100">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <button onClick={(e) => { e.stopPropagation(); if(confirm('确定删除该阶段？')) { const n = [...project.nodesData]; n[index].sections.splice(secIdx, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={12} /></button>
+                                <button onClick={async (e) => { e.stopPropagation(); if(await confirmUser('删除后无法恢复。', { title: '确定删除该阶段？', confirmStyle: 'danger', confirmText: '删除' })) { const n = [...project.nodesData]; n[index].sections.splice(secIdx, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={12} /></button>
                                 <input value={sec.name} onChange={(e) => { const n = [...project.nodesData]; n[index].sections[secIdx].name = e.target.value; setProject({ ...project, nodesData: n }); }} onBlur={() => syncToDB(project.nodesData)} className="min-w-0 flex-1 text-xs font-medium bg-transparent border border-transparent focus:border-gold-400 rounded px-2 py-1 outline-none" />
                               </div>
                               <div className="flex items-center gap-1">
@@ -2769,7 +2782,7 @@ export default function ProjectBizDetail() {
                                 {sec.subNodes?.map((sn: any, subIdx: number) => (
                                   <div key={sn._id || subIdx} className="flex items-start gap-2 p-1.5 hover:bg-gray-50 rounded group">
                                     <textarea value={sn.name} onChange={(e) => { const n = [...project.nodesData]; n[index].sections[secIdx].subNodes[subIdx].name = e.target.value; setProject({ ...project, nodesData: n }); }} onBlur={() => syncToDB(project.nodesData)} className="text-xs text-gray-700 bg-transparent border border-transparent focus:border-gold-400 rounded px-2 py-1 outline-none flex-1 resize-none overflow-hidden" rows={Math.max(2, Math.ceil((sn.name || '').length / 16))} onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }} />
-                                    <button onClick={() => { if(confirm('确定删除？')) { const n = [...project.nodesData]; n[index].sections[secIdx].subNodes.splice(subIdx, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 size={13} /></button>
+                                    <button onClick={async () => { if(await confirmUser('删除后无法恢复。', { title: '确定删除？', confirmStyle: 'danger', confirmText: '删除' })) { const n = [...project.nodesData]; n[index].sections[secIdx].subNodes.splice(subIdx, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 size={13} /></button>
                                   </div>
                                 ))}
                                 <button onClick={() => addBlankSubNode(node._id, secIdx)} className="text-[10px] text-gray-500 flex items-center gap-1 p-2 w-full justify-center border border-dashed border-gray-200 rounded mt-1"><Plus size={13} /> 添加检查项</button>
@@ -3188,9 +3201,9 @@ export default function ProjectBizDetail() {
                     <div className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <button 
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if(confirm('确定删除该大节点及其包含的所有内容吗？')) {
+                            if(await confirmUser('该大节点及其包含的所有内容都会被删除。', { title: '确定删除该大节点吗？', confirmStyle: 'danger', confirmText: '删除' })) {
                               const newNodes = [...project.nodesData];
                               newNodes.splice(index, 1);
                               syncToDB(newNodes);
@@ -3319,9 +3332,9 @@ export default function ProjectBizDetail() {
                             <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60 border-b border-gray-100">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if(confirm('确定删除该阶段吗？')) {
+                                  onClick={async (e) => {
+                            e.stopPropagation();
+                            if(await confirmUser('删除后无法恢复。', { title: '确定删除该阶段吗？', confirmStyle: 'danger', confirmText: '删除' })) {
                                       const newNodes = [...project.nodesData];
                                       newNodes[index].sections.splice(secIdx, 1);
                                       syncToDB(newNodes);
@@ -3375,8 +3388,8 @@ export default function ProjectBizDetail() {
                                       <button onClick={() => moveSubNode(index, secIdx, subIdx, -1)} disabled={subIdx === 0} className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed">上移</button>
                                       <button onClick={() => moveSubNode(index, secIdx, subIdx, 1)} disabled={subIdx === (sec.subNodes?.length || 0) - 1} className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed">下移</button>
                                       <button
-                                        onClick={() => {
-                                          if(confirm('确定删除该检查项吗？')) {
+                                        onClick={async () => {
+                                          if(await confirmUser('删除后无法恢复。', { title: '确定删除该检查项吗？', confirmStyle: 'danger', confirmText: '删除' })) {
                                             const newNodes = [...project.nodesData];
                                             newNodes[index].sections[secIdx].subNodes.splice(subIdx, 1);
                                             syncToDB(newNodes);
