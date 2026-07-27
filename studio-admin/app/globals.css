@@ -7387,3 +7387,398 @@ html body {
   .case-detail-brand-end .brand-end-qr,
   .public-detail-brand-end .public-brand-end-qr { width: 70px; height: 70px; }
 }
+
+/* 2026 public brand, about and case-detail refresh */
+.public-about-redesign {
+  min-height: 880px;
+  background: #171715;
+}
+.public-about-redesign .public-about-image {
+  position: relative;
+  min-height: 880px;
+}
+.public-about-redesign .public-about-image::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,.66));
+}
+.public-about-image-index {
+  position: absolute;
+  z-index: 1;
+  top: 42px;
+  left: 48px;
+  color: #fff;
+  font: 400 clamp(54px, 7vw, 104px)/1 Georgia, serif;
+}
+.public-about-redesign .public-about-image > p {
+  position: absolute;
+  z-index: 1;
+  right: 42px;
+  bottom: 38px;
+  margin: 0;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: .25em;
+  text-align: right;
+}
+.public-about-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.public-about-content .public-about-lead {
+  max-width: 560px;
+  margin: 16px 0 32px;
+  color: #f4f1ea;
+  font: 400 clamp(20px, 2vw, 30px)/1.7 "Songti SC", SimSun, serif;
+}
+.public-about-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 38px 0 46px;
+  background: rgba(255,255,255,.16);
+}
+.public-about-values article {
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
+  padding: 20px;
+  background: #171715;
+}
+.public-about-values b {
+  color: #d7b37b;
+  font-size: 10px;
+  letter-spacing: .15em;
+}
+.public-about-values strong {
+  margin: auto 0 8px;
+  color: #fff;
+  font-size: 18px;
+}
+.public-about-values span {
+  color: rgba(255,255,255,.52) !important;
+  font-size: 11px !important;
+  line-height: 1.6;
+}
+
+.public-detail-redesign {
+  --public-ink: #171715;
+  --public-paper: #f4f2ed;
+  --public-muted: #77736b;
+  --public-line: rgba(23,23,21,.16);
+  color: var(--public-ink);
+  background: var(--public-paper);
+}
+.public-detail-redesign .public-header {
+  height: 84px;
+  padding: 0 clamp(22px,4vw,72px);
+  background: rgba(244,242,237,.94);
+  backdrop-filter: blur(18px);
+}
+.public-detail-redesign .public-detail-back,
+.public-project-cover,
+.public-project-narrative,
+.public-project-spaces,
+.public-detail-redesign .public-detail-brand-end,
+.public-detail-redesign .public-detail-cta {
+  width: min(1500px, calc(100% - 64px));
+  margin-right: auto;
+  margin-left: auto;
+}
+.public-detail-redesign .public-detail-back {
+  padding: 32px 0;
+}
+.public-project-cover {
+  display: grid;
+  grid-template-columns: minmax(0,1.65fr) minmax(360px,.65fr);
+  min-height: min(760px, calc(100vh - 180px));
+  background: #1a1a18;
+}
+.public-project-cover > button {
+  position: relative;
+  min-height: 640px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #222;
+}
+.public-project-cover > button::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(0deg,rgba(0,0,0,.22),transparent 36%);
+}
+.public-project-cover > button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .65s ease;
+}
+.public-project-cover > button:hover img { transform: scale(1.015); }
+.public-project-cover > button span {
+  position: absolute;
+  z-index: 1;
+  right: 24px;
+  bottom: 22px;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: .12em;
+}
+.public-project-cover > aside {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(38px,5vw,78px);
+  color: #fff;
+}
+.public-project-cover aside > p {
+  margin: 0;
+  color: #cba263;
+  font-size: 10px;
+  letter-spacing: .23em;
+}
+.public-project-cover h1 {
+  margin: 36px 0 60px;
+  font: 500 clamp(38px,4vw,68px)/1.12 "Songti SC", SimSun, serif;
+  letter-spacing: -.04em;
+}
+.public-project-cover aside > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid rgba(255,255,255,.18);
+}
+.public-project-cover aside > div span {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.48);
+  font-size: 11px;
+}
+.public-project-cover aside strong {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+}
+.public-project-cover aside em {
+  margin-top: auto;
+  padding-top: 60px;
+  color: #d7b37b;
+  font: normal 16px "Songti SC", SimSun, serif;
+  letter-spacing: .12em;
+}
+.public-project-narrative {
+  padding: clamp(100px,12vw,170px) 0;
+}
+.public-project-narrative > header {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 40px;
+  padding-bottom: 60px;
+  border-bottom: 1px solid var(--public-line);
+}
+.public-project-narrative > header span,
+.public-project-spaces > header span {
+  color: #a87838;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .22em;
+}
+.public-project-narrative > header h2,
+.public-project-spaces > header h2 {
+  margin: 0;
+  font-size: clamp(42px,5vw,76px);
+  font-weight: 500;
+  line-height: 1.13;
+  letter-spacing: -.045em;
+}
+.public-project-narrative > div {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+}
+.public-project-narrative article {
+  min-height: 320px;
+  padding: 38px 34px 50px 0;
+  border-right: 1px solid var(--public-line);
+}
+.public-project-narrative article + article { padding-left: 34px; }
+.public-project-narrative article:last-child { border: 0; }
+.public-project-narrative article b {
+  color: #b8894d;
+  font-size: 12px;
+}
+.public-project-narrative article h3 {
+  margin: 70px 0 22px;
+  font-size: 25px;
+  font-weight: 500;
+}
+.public-project-narrative article p {
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 15px;
+  line-height: 2;
+  white-space: pre-wrap;
+}
+.public-project-spaces { padding-bottom: 120px; }
+.public-project-spaces > header {
+  display: grid;
+  grid-template-columns: .7fr 1.1fr 1fr;
+  align-items: end;
+  gap: 30px;
+  padding-bottom: 56px;
+  border-bottom: 1px solid var(--public-line);
+}
+.public-project-spaces > header p {
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.public-space-section { padding: 72px 0 110px; border-bottom: 1px solid var(--public-line); }
+.public-space-section > header {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: end;
+  margin-bottom: 30px;
+}
+.public-space-section > header span,
+.public-space-section > header p {
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+.public-space-section h3 {
+  margin: 0;
+  font-size: clamp(30px,3.4vw,52px);
+  font-weight: 500;
+}
+.public-space-section > div {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 18px;
+}
+.public-space-section button {
+  position: relative;
+  aspect-ratio: 16/10;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #ddd;
+}
+.public-space-section button.public-space-image-featured:nth-last-child(n+3) {
+  grid-column: 1/-1;
+  aspect-ratio: 16/8.6;
+}
+.public-space-section button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .65s cubic-bezier(.2,.7,.2,1);
+}
+.public-space-section button:hover img { transform: scale(1.018); }
+.public-space-section button span {
+  position: absolute;
+  right: 15px;
+  bottom: 14px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #fff;
+  background: rgba(0,0,0,.58);
+  font-size: 10px;
+}
+.public-detail-redesign .public-detail-brand-redesign {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  align-items: center;
+  margin-bottom: 70px;
+  padding: 70px;
+  border: 0;
+  border-radius: 0;
+  color: #fff;
+  background: #1a1a18;
+}
+.public-detail-brand-redesign > div {
+  display: flex !important;
+  flex-direction: column;
+  gap: 16px !important;
+  margin: 0 !important;
+}
+.public-detail-brand-redesign > div > span {
+  color: #cba263 !important;
+  font-size: 10px !important;
+  letter-spacing: .22em;
+}
+.public-detail-brand-redesign strong {
+  font: 500 clamp(34px,4vw,62px)/1.2 "Songti SC", SimSun, serif;
+}
+.public-detail-brand-redesign p { margin: 0; color: rgba(255,255,255,.58); }
+.public-detail-redesign .public-brand-end-qr {
+  width: 120px !important;
+  height: 120px !important;
+  padding: 8px;
+  background: #fff;
+}
+.public-detail-redesign .public-detail-cta { margin-bottom: 100px; }
+
+@media (max-width: 900px) {
+  .public-about-redesign { min-height: auto; }
+  .public-about-redesign .public-about-image { min-height: 70vw; }
+  .public-about-values { grid-template-columns: 1fr; }
+  .public-about-values article { min-height: 110px; }
+  .public-project-cover { grid-template-columns: 1fr; }
+  .public-project-cover > button { min-height: 54vw; aspect-ratio: 16/9; }
+  .public-project-cover > aside { min-height: 520px; }
+  .public-project-narrative > header,
+  .public-project-spaces > header { grid-template-columns: 1fr; }
+  .public-project-narrative > div { grid-template-columns: 1fr; }
+  .public-project-narrative article,
+  .public-project-narrative article + article {
+    min-height: 0;
+    padding: 32px 0 44px;
+    border-right: 0;
+    border-bottom: 1px solid var(--public-line);
+  }
+  .public-project-narrative article h3 { margin-top: 34px; }
+}
+
+@media (max-width: 600px) {
+  .public-detail-redesign .public-header { height: 70px; }
+  .public-detail-redesign .public-detail-back,
+  .public-project-cover,
+  .public-project-narrative,
+  .public-project-spaces,
+  .public-detail-redesign .public-detail-brand-end,
+  .public-detail-redesign .public-detail-cta {
+    width: calc(100% - 32px);
+  }
+  .public-project-cover > button { min-height: 0; }
+  .public-project-cover > aside { min-height: 430px; padding: 30px 24px; }
+  .public-project-cover h1 { margin: 28px 0 40px; font-size: 38px; }
+  .public-project-narrative { padding: 88px 0; }
+  .public-project-spaces { padding-bottom: 72px; }
+  .public-space-section { padding: 52px 0 70px; }
+  .public-space-section > header { grid-template-columns: 42px 1fr auto; }
+  .public-space-section > div { grid-template-columns: 1fr; }
+  .public-space-section button,
+  .public-space-section button.public-space-image-featured:nth-last-child(n+3) {
+    grid-column: auto;
+    aspect-ratio: 16/10;
+  }
+  .public-detail-redesign .public-detail-brand-redesign {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    padding: 42px 28px;
+  }
+  .public-detail-redesign .public-detail-cta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 22px;
+  }
+}
