@@ -25,6 +25,7 @@ import {
   resolveUserIdsByNames,
   stableOperationId,
 } from '@/services/notificationService';
+import { syncLeadRelations } from '@/utils/syncLeadRelations';
 import {
   ArrowLeft, Phone, MapPin, Edit3, Plus, Trash2, X, Calendar, Clock,
   ChevronDown, ChevronRight, ChevronUp, FileText, Building, UserCheck, Tag,
@@ -542,7 +543,6 @@ export default function LeadDetail() {
   const isRelated = isAdmin || includesPerson(lead?.sales, myName) || includesPerson(lead?.designer, myName) || includesPerson(lead?.manager, myName) || lead?.creatorName === myName || lead?.signer === myName;
   const showFullInfo = isRelated || lead?.status === '已签单' || lead?.status === '已流失';
   const canEdit = isRelated;
-  const canSeeDoorPassword = isAdmin || includesPerson(lead?.sales, myName) || includesPerson(lead?.designer, myName) || includesPerson(lead?.manager, myName) || lead?.creatorName === myName;
   const displayName = showFullInfo ? (lead?.name || '') : (lead?.name ? lead.name.charAt(0) + '**' : '');
   const displayAddress = showFullInfo ? (lead?.address || '') : (lead?.address ? '***' : '');
   const titleString = displayName + (displayAddress ? ` - ${displayAddress}` : '');
@@ -958,32 +958,10 @@ export default function LeadDetail() {
     setShowEditModal(false);
     const updatedAt = new Date().toISOString();
     await leadsAPI.update(id, { ...editForm, updatedAt });
-    const syncFields: Record<string, any> = {};
-    if (editForm.name !== undefined) syncFields.customer = editForm.name;
-    if (editForm.phone !== undefined) syncFields.phone = editForm.phone;
-    if (editForm.address !== undefined) syncFields.address = editForm.address;
-    if (editForm.sales !== undefined) syncFields.sales = editForm.sales;
-    if (editForm.designer !== undefined) syncFields.designer = editForm.designer;
-    if (editForm.manager !== undefined) syncFields.manager = editForm.manager;
-    if (editForm.area !== undefined) syncFields.area = editForm.area;
-    if (editForm.budget !== undefined) syncFields.budget = editForm.budget;
-    if (editForm.requirementType !== undefined) syncFields.requirementType = editForm.requirementType;
-    if (Object.keys(syncFields).length > 0) {
-      try {
-        const [relatedProjects, allContracts] = await Promise.all([
-          projectsAPI.where({ leadId: id }).toArray(),
-          contractsAPI.toArray(),
-        ]);
-        const contractSyncFields: Record<string, any> = {};
-        if (editForm.name !== undefined) contractSyncFields.customerName = editForm.name;
-        if (editForm.phone !== undefined) contractSyncFields.customerPhone = editForm.phone;
-        if (editForm.address !== undefined) contractSyncFields.houseAddress = editForm.address;
-        const relatedContracts = allContracts.filter((c: any) => c.customerName === lead?.name && c.customerPhone === lead?.phone);
-        await Promise.all([
-          ...relatedProjects.map((p: any) => projectsAPI.update(p._id, syncFields)),
-          ...relatedContracts.map((c: any) => contractsAPI.put({ ...c, ...contractSyncFields })),
-        ]);
-      } catch (e) { console.error(e); }
+    try {
+      await syncLeadRelations(id, { ...lead, ...editForm, updatedAt }, lead);
+    } catch (e) {
+      console.error('同步关联数据失败:', e);
     }
     const recipientUserIds = await resolveUserIdsByNames(editForm.sales, editForm.designer, editForm.manager);
     void createNotificationEventSafely({
@@ -1011,6 +989,8 @@ export default function LeadDetail() {
     if (!id || !personnelModal) return;
     const { field } = personnelModal;
     const nextValues = personnelForm;
+    const previousValues = toPersonArray(lead?.[field]);
+    const newlyAssignedNames = nextValues.filter(name => !previousValues.includes(name));
     setLead((prev: any) => prev ? { ...prev, [field]: nextValues } : prev);
     setPersonnelModal(null);
 
@@ -1018,30 +998,13 @@ export default function LeadDetail() {
       const updatedAt = new Date().toISOString();
       await leadsAPI.update(id, { [field]: nextValues, updatedAt });
 
-      const [relatedProjects, allContracts] = await Promise.all([
-        projectsAPI.where({ leadId: id }).toArray(),
-        contractsAPI.toArray(),
-      ]);
-      const relatedContracts = allContracts.filter((c: any) =>
-        (c.customerId && c.customerId === id) ||
-        (!c.customerId && c.customerName === lead?.name && c.customerPhone === lead?.phone)
-      );
-      const projectSyncFields = { [field]: nextValues };
-      const contractSyncFields: Record<string, any> = {};
-      if (field === 'sales') contractSyncFields.sales = nextValues.join('、');
-      if (field === 'designer') contractSyncFields.designer = nextValues.join('、');
-      if (field === 'manager') contractSyncFields.projectManager = nextValues.join('、');
-
-      await Promise.all([
-        ...relatedProjects.map((p: any) => projectsAPI.update(p._id, projectSyncFields)),
-        ...relatedContracts.map((c: any) => contractsAPI.put({ ...c, ...contractSyncFields })),
-      ]);
+      await syncLeadRelations(id, { ...lead, [field]: nextValues, updatedAt }, lead);
       const recipientUserIds = await resolveUserIdsByNames(
         field === 'sales' ? nextValues : lead?.sales,
         field === 'designer' ? nextValues : lead?.designer,
         field === 'manager' ? nextValues : lead?.manager,
       );
-      void createNotificationEventSafely({
+      await createNotificationEventSafely({
         operationId: stableOperationId('lead-personnel-edited', id, field, updatedAt),
         eventType: 'LEAD_PERSONNEL_EDITED',
         actorUserId: myId,
@@ -1054,6 +1017,24 @@ export default function LeadDetail() {
         relatedTo: { type: 'lead', id, name: lead?.name || '客户' },
         channels: ['station', 'wechat'],
       });
+
+      // A personnel edit is also a direct assignment for every newly added owner.
+      // Keep this as a distinct event so the assignee always receives an actionable reminder.
+      if (newlyAssignedNames.length > 0) {
+        const assignedUserIds = await resolveUserIdsByNames(newlyAssignedNames);
+        await createNotificationEventSafely({
+          operationId: stableOperationId('lead-assigned-from-detail', id, field, updatedAt),
+          eventType: 'LEAD_ASSIGNED',
+          actorUserId: myId,
+          recipientUserIds: assignedUserIds,
+          category: 'lead',
+          title: '客户已分配给你',
+          content: `${myName}将客户“${lead?.name || '客户'}”分配给你负责`,
+          link: `/leads/${id}`,
+          relatedTo: { type: 'lead', id, name: lead?.name || '客户' },
+          channels: ['station', 'wechat'],
+        });
+      }
     } catch (e) {
       console.error(e);
       await showAlert('人员分配保存失败，请重试');
@@ -2084,7 +2065,6 @@ export default function LeadDetail() {
     { label: '房屋面积', value: lead.area ? `${lead.area}㎡` : '' },
     { label: '装修预算', value: lead.budget && lead.budget !== '暂无' ? lead.budget : '' },
     { label: '客户来源', value: sourceText },
-    ...(canSeeDoorPassword ? [{ label: '入户密码', value: lead.doorPassword }] : []),
     ...(lead.status === '已签单' ? [
       { label: '签单人', value: lead.signer },
       { label: '签单日期', value: lead.signDate },
@@ -2468,8 +2448,6 @@ export default function LeadDetail() {
               <InfoBlock label="面积" value={lead.area ? `${lead.area}㎡` : ''} />
               <InfoBlock label="预算" value={lead.budget && lead.budget !== '暂无' ? lead.budget : ''} />
               <InfoBlock label="来源" value={sourceText} secondary className="sm:col-span-2 md:col-span-2" />
-              
-              {canSeeDoorPassword && <InfoBlock label="入户密码" value={lead.doorPassword} secondary />}
               
               {/* 签单/流失信息融入上方栅格 */}
               {lead.status === '已签单' && (
@@ -3652,10 +3630,7 @@ export default function LeadDetail() {
                 <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">客户姓名</label><input value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                 <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">联系电话</label><input value={editForm.phone || ''} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋地址</label><input value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">入户密码</label><input value={editForm.doorPassword || ''} onChange={e => setEditForm({ ...editForm, doorPassword: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              </div>
+              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋地址</label><input value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋面积(㎡)</label><input value={editForm.area || ''} onChange={e => setEditForm({ ...editForm, area: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                 <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">装修预算</label><input value={editForm.budget || ''} onChange={e => setEditForm({ ...editForm, budget: e.target.value })} placeholder="例：15万" className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
@@ -4621,6 +4596,8 @@ export default function LeadDetail() {
           customerPhone: lead?.phone,
           houseAddress: lead?.address,
           projectManager: Array.isArray(lead?.manager) ? lead.manager.join('、') : (lead?.manager || ''),
+          sales: Array.isArray(lead?.sales) ? lead.sales.join('、') : (lead?.sales || ''),
+          designer: Array.isArray(lead?.designer) ? lead.designer.join('、') : (lead?.designer || ''),
           customerNo: lead?.customerNo,
         }}
         onSaved={async () => {

@@ -313,14 +313,14 @@ export default function DatePicker({
         </div>
       )}
 
-      {/* Mobile: full-screen modal */}
+      {/* Mobile: bottom drawer */}
       {open && isMobile && createPortal(
         <div
-          className="fixed inset-0 z-[140] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[140] flex items-end"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative bg-white rounded-2xl w-full max-w-sm max-h-[85vh] overflow-auto shadow-2xl border border-gray-100">
+          <div className="relative w-full max-h-[86vh] overflow-auto rounded-t-2xl border border-gray-100 bg-white shadow-2xl">
             {/* Mobile drag handle */}
             <div className="md:hidden flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-300" />

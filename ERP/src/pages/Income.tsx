@@ -248,6 +248,9 @@ export default function Income() {
         remark: '',
         attachments: [],
       });
+      if (!editingId && receiptData.contractId) {
+        navigate(`/contracts/${receiptData.contractId}`);
+      }
     } catch (error: any) {
       console.error('收款保存失败', error);
       alert(error?.message || '收款保存失败，请重试');
@@ -347,7 +350,7 @@ export default function Income() {
             rowKey={(row) => row.id as string}
             onRowClick={(row) => {
               if (row.contractId) {
-                navigate(`/projects/${row.contractId}`);
+                navigate(`/contracts/${row.contractId}`);
               }
             }}
         />
@@ -427,7 +430,7 @@ export default function Income() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段</label>
               <Select value={form.stage} onChange={(v) => {
@@ -447,7 +450,7 @@ export default function Income() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方式</label>
               <Select value={form.paymentMethod} onChange={(v) => setForm({ ...form, paymentMethod: v })} options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))} />

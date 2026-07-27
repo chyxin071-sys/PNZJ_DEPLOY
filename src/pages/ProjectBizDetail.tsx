@@ -4918,6 +4918,8 @@ export default function ProjectBizDetail() {
           customerPhone: project?.phone || lead?.phone || '',
           houseAddress: project?.address || lead?.address || '',
           projectManager: Array.isArray(project?.manager) ? project.manager.join('、') : (project?.manager || ''),
+          sales: Array.isArray(lead?.sales) ? lead.sales.join('、') : (lead?.sales || ''),
+          designer: Array.isArray(lead?.designer) ? lead.designer.join('、') : (lead?.designer || ''),
           customerNo: lead?.customerNo || '',
         }}
       />

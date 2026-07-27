@@ -18,6 +18,8 @@ interface ContractDrawerProps {
     customerPhone?: string;
     houseAddress?: string;
     projectManager?: string;
+    sales?: string;
+    designer?: string;
     customerNo?: string;
   };
   onSaved?: (contractId: string) => void;
@@ -26,6 +28,18 @@ interface ContractDrawerProps {
 type StageForm = { name: string; amount: number; ratio: number };
 
 const emptyStage = (): StageForm => ({ name: '', amount: 0, ratio: 0 });
+const homeDefaultStages = (): StageForm[] => [
+  { name: '定金', amount: 0, ratio: 0 },
+  { name: '开工款', amount: 0, ratio: 0 },
+  { name: '水电验收款', amount: 0, ratio: 0 },
+  { name: '泥木验收款', amount: 0, ratio: 0 },
+  { name: '竣工尾款', amount: 0, ratio: 0 },
+];
+const commercialDefaultStages = (): StageForm[] => [
+  { name: '回款', amount: 0, ratio: 0 },
+  { name: '质保金', amount: 0, ratio: 0 },
+];
+const today = () => new Date().toISOString().slice(0, 10);
 
 /** 自适应高度 textarea ref 回调 */
 function autoResize(el: HTMLTextAreaElement | null) {
@@ -44,18 +58,13 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
     customerPhone: prefill?.customerPhone || '',
     houseAddress: prefill?.houseAddress || '',
     contractAmount: '',
-    signDate: '',
+    signDate: today(),
     expectedEndDate: '',
     projectManager: prefill?.projectManager || '',
-    sales: '',
-    designer: '',
+    sales: prefill?.sales || '',
+    designer: prefill?.designer || '',
     remark: '',
-    stages: [
-      { name: '预付款', amount: 0, ratio: 0 },
-      { name: '中期款', amount: 0, ratio: 0 },
-      { name: '竣工款', amount: 0, ratio: 0 },
-      { name: '质保金', amount: 0, ratio: 0 },
-    ] as StageForm[],
+    stages: (currentBizType === '工装' ? commercialDefaultStages() : homeDefaultStages()) as StageForm[],
   });
   const [saving, setSaving] = useState(false);
   const [signedLeads, setSignedLeads] = useState<any[]>([]);
@@ -79,8 +88,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
     if (!open) return;
     let initialNo = getNextContractNo();
     if (prefill?.customerNo) {
-      const numPart = prefill.customerNo.replace(/^[A-Z]/, '');
-      if (/^\d+$/.test(numPart)) initialNo = numPart;
+      initialNo = prefill.customerNo;
     }
     setForm({
       contractNo: initialNo,
@@ -88,18 +96,13 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
       customerPhone: prefill?.customerPhone || '',
       houseAddress: prefill?.houseAddress || '',
       contractAmount: '',
-      signDate: '',
+      signDate: today(),
       expectedEndDate: '',
       projectManager: prefill?.projectManager || '',
-      sales: '',
-      designer: '',
+      sales: prefill?.sales || '',
+      designer: prefill?.designer || '',
       remark: '',
-      stages: [
-        { name: '预付款', amount: 0, ratio: 0 },
-        { name: '中期款', amount: 0, ratio: 0 },
-        { name: '竣工款', amount: 0, ratio: 0 },
-        { name: '质保金', amount: 0, ratio: 0 },
-      ],
+      stages: currentBizType === '工装' ? commercialDefaultStages() : homeDefaultStages(),
     });
     setSelectedLeadId(prefill?.customerId || '');
     setShowLeadPicker(false);
@@ -128,6 +131,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
     const managerArr = Array.isArray(l.manager) ? l.manager : (l.manager ? [l.manager] : []);
     setForm(prev => ({
       ...prev,
+      contractNo: currentBizType === '家装' && l.customerNo ? l.customerNo : prev.contractNo,
       customerName: l.name || '',
       customerPhone: l.phone || '',
       houseAddress: l.address || '',
@@ -141,15 +145,11 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
 
   const update = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
 
-  const updateStage = (idx: number, field: keyof StageForm | 'pct', value: string | number) => {
+  const updateStage = (idx: number, field: keyof StageForm, value: string | number) => {
     const contractTotal = parseFloat(form.contractAmount) || 0;
     setForm(prev => {
       const stages = prev.stages.map((s, i) => {
         if (i !== idx) return s;
-        if (field === 'pct' && contractTotal > 0) {
-          const pct = Number(value) || 0;
-          return { ...s, amount: Math.round(contractTotal * pct / 100), ratio: pct / 100 };
-        }
         if (field === 'amount' && contractTotal > 0) {
           const amt = Number(value) || 0;
           return { ...s, amount: amt, ratio: amt / contractTotal };
@@ -181,6 +181,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         id: newId,
         contractNo: form.contractNo,
         customerId: selectedLeadId,
+        customerNo: currentBizType === '家装' ? (prefill?.customerNo || form.contractNo) : undefined,
         bizType: currentBizType,
         customerName: form.customerName,
         customerPhone: form.customerPhone,
@@ -303,7 +304,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
           )}
 
           {/* 表单 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1">合同编号（自动生成）</label>
               <input value={form.contractNo} readOnly className="erp-input bg-gray-50 cursor-not-allowed text-xs" />
@@ -320,22 +321,6 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
                 </div>
               </>
             )}
-            {currentBizType === '家装' && hasSelectedCustomer && (
-              <>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">销售</label>
-                  <input value={form.sales || '-'} readOnly className="erp-input bg-gray-50 cursor-not-allowed text-xs" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">设计</label>
-                  <input value={form.designer || '-'} readOnly className="erp-input bg-gray-50 cursor-not-allowed text-xs" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">项目经理</label>
-                  <input value={form.projectManager || '-'} readOnly className="erp-input bg-gray-50 cursor-not-allowed text-xs" />
-                </div>
-              </>
-            )}
             <div>
               <label className="block text-xs text-gray-500 mb-1">合同金额（待定可留空）</label>
               <input type="number" value={form.contractAmount} onChange={e => update('contractAmount', e.target.value)}
@@ -347,7 +332,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
                   <label className="block text-xs text-gray-500 mb-1">项目经理</label>
                   <input value={form.projectManager} onChange={e => update('projectManager', e.target.value)} className="erp-input text-xs" />
                 </div>
-                <div className="col-span-2">
+                <div>
                   <label className="block text-xs text-gray-500 mb-1">项目地址</label>
                   <input value={form.houseAddress} onChange={e => update('houseAddress', e.target.value)} className="erp-input text-xs" placeholder="例如：翡翠湾 1-101" />
                 </div>
@@ -358,10 +343,6 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
               <DatePicker mode="single" value={form.signDate} onChange={v => update('signDate', v)} placeholder="选择日期" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">预计完工（待定）</label>
-              <DatePicker mode="single" value={form.expectedEndDate} onChange={v => update('expectedEndDate', v)} placeholder="待定可留空" />
-            </div>
-            <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-1">备注</label>
               <textarea
                 value={form.remark}
@@ -382,17 +363,13 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
             </div>
             <div className="space-y-2">
               {form.stages.map((stage, idx) => {
-                const contractTotal = parseFloat(form.contractAmount) || 0;
-                const pct = contractTotal > 0 ? ((stage.amount || 0) / contractTotal * 100) : 0;
                 return (
-                  <div key={idx} className="flex items-center gap-1.5 md:gap-2">
+                  <div key={idx} className="grid grid-cols-[18px_minmax(0,1fr)_minmax(108px,140px)_28px] items-center gap-2">
                     <span className="text-xs text-gray-400 w-4 shrink-0">{idx + 1}.</span>
                     <input value={stage.name} onChange={e => updateStage(idx, 'name', e.target.value)}
                       placeholder="阶段名称" className="erp-input flex-1 min-w-0 text-xs" />
                     <input type="number" value={stage.amount || ''} onChange={e => updateStage(idx, 'amount', e.target.value)}
-                      placeholder="金额" className={`erp-input w-[72px] md:w-24 text-xs ${noSpinner}`} />
-                    <input type="number" value={pct > 0 ? Math.round(pct) : ''} onChange={e => updateStage(idx, 'pct', e.target.value)}
-                      placeholder="%" className={`erp-input w-10 md:w-14 text-xs text-center ${noSpinner}`} />
+                      placeholder="金额" className={`erp-input w-full text-xs ${noSpinner}`} />
                     <button
                       type="button"
                       onClick={() => removeStage(idx)}

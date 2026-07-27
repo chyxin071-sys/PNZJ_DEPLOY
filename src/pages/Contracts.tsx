@@ -10,6 +10,7 @@ import type { Contract, PaymentStage } from '@/types';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import DatePicker from '@/components/DatePicker';
+import ContractDrawer from '@/components/ContractDrawer';
 
 const PAGE_SIZE = 20;
 
@@ -17,13 +18,6 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const commercialStages = (): PaymentStage[] => [
   { name: '回款', amount: 0, ratio: 0 },
-  { name: '质保金', amount: 0, ratio: 0 },
-];
-
-const homeStages = (): PaymentStage[] => [
-  { name: '预付款', amount: 0, ratio: 0 },
-  { name: '中期款', amount: 0, ratio: 0 },
-  { name: '竣工款', amount: 0, ratio: 0 },
   { name: '质保金', amount: 0, ratio: 0 },
 ];
 
@@ -71,6 +65,7 @@ export default function Contracts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [homeDrawerOpen, setHomeDrawerOpen] = useState(false);
 
   const isCommercial = currentBizType === '工装';
   const canSeeAllFinancial = user?.role === 'admin' || user?.role === 'finance';
@@ -79,6 +74,11 @@ export default function Contracts() {
   useEffect(() => {
     const action = searchParams.get('action');
     if (action !== 'new') return;
+    if (currentBizType === '家装') {
+      setHomeDrawerOpen(true);
+      setSearchParams(new URLSearchParams());
+      return;
+    }
     setEditingId(null);
     setForm({
       ...emptyForm(),
@@ -87,7 +87,7 @@ export default function Contracts() {
     });
     setModalOpen(true);
     setSearchParams(new URLSearchParams());
-  }, [searchParams, setSearchParams]);
+  }, [currentBizType, searchParams, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +171,10 @@ export default function Contracts() {
   }, [filtered, receipts, totalCount]);
 
   const openAdd = () => {
+    if (currentBizType === '家装') {
+      setHomeDrawerOpen(true);
+      return;
+    }
     setEditingId(null);
     setSaving(false);
     setForm(emptyForm());
@@ -245,7 +249,7 @@ export default function Contracts() {
           partyC: form.partyC.trim(),
           houseAddress: normalizeAddress(form.houseAddress),
           contractAmount: amount,
-          paymentStages: isCommercial ? commercialStages() : homeStages(),
+          paymentStages: commercialStages(),
           status: '进行中',
           signDate: form.signDate || today(),
           expectedEndDate: '',
@@ -273,9 +277,9 @@ export default function Contracts() {
   };
 
   const columns = [
-    { key: 'customerName', title: '甲方', width: '180px', truncate: true },
-    { key: 'partyB', title: '乙方', width: '160px', truncate: true, render: (row: Contract) => row.partyB || row.customerPhone || '-' },
-    { key: 'partyC', title: '丙方', width: '140px', truncate: true, render: (row: Contract) => row.partyC || '-' },
+    { key: 'customerName', title: isCommercial ? '甲方' : '客户', width: '180px', truncate: true },
+    { key: 'partyB', title: isCommercial ? '乙方' : '联系电话', width: '160px', truncate: true, render: (row: Contract) => isCommercial ? (row.partyB || row.customerPhone || '-') : (row.customerPhone || '-') },
+    ...(isCommercial ? [{ key: 'partyC', title: '丙方', width: '140px', truncate: true, render: (row: Contract) => row.partyC || '-' }] : []),
     {
       key: 'contractAmount',
       title: '合同金额',
@@ -316,7 +320,7 @@ export default function Contracts() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-base font-bold text-gray-900 md:text-lg">合同管理</h1>
-              <p className="text-xs text-gold-500 md:text-sm">{isCommercial ? '工装合同与财务记录' : '合同与回款管理'}</p>
+              <p className="text-xs text-gold-500 md:text-sm">{isCommercial ? '工装合同与财务记录' : '家装合同与回款管理'}</p>
             </div>
             <button onClick={openAdd} className="erp-btn-primary">
               <Plus size={16} /> 新建合同
@@ -342,7 +346,7 @@ export default function Contracts() {
               <div className="erp-search-field">
                 <Search size={14} className="erp-search-icon" />
                 <input
-                  placeholder="搜索合同编号 / 甲方 / 乙方 / 丙方 / 项目地址"
+                  placeholder={isCommercial ? '搜索合同编号 / 甲方 / 乙方 / 丙方 / 项目地址' : '搜索合同编号 / 客户 / 电话 / 项目地址'}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="erp-search-input"
@@ -395,7 +399,7 @@ export default function Contracts() {
                 <textarea value={form.remark} onChange={(e) => update('remark', e.target.value)} rows={3} className="erp-input resize-none" />
               </FormField>
               <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                首款阶段默认包含：回款、质保金；比例后续不再填写，可在合同详情里编辑阶段名称和金额。
+                工装收款阶段默认包含回款、质保金；阶段名称和金额可在合同详情中继续编辑。
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button onClick={() => setModalOpen(false)} className="erp-btn-secondary" disabled={saving}>取消</button>
@@ -405,6 +409,14 @@ export default function Contracts() {
               </div>
             </div>
           </Modal>
+          <ContractDrawer
+            open={homeDrawerOpen}
+            onClose={() => setHomeDrawerOpen(false)}
+            onSaved={(contractId) => {
+              setHomeDrawerOpen(false);
+              navigate(`/contracts/${contractId}`);
+            }}
+          />
       </>
     </div>
   );

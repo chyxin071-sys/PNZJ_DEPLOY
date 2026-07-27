@@ -30,6 +30,7 @@ export interface Contract {
   _id?: string;
   id: string;
   customerId?: string; // 关联的客户ID
+  customerNo?: string; // 客户编号，家装合同编号默认沿用该编号
   contractNo: string;
   bizType: BizType;
   houseAddress: string;     // 项目地址（小区名称+楼号房号）

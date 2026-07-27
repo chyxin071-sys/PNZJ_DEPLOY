@@ -1389,11 +1389,12 @@ export default function ProjectBizDetail() {
       for (const item of previewSources) {
         const p = item.photo;
         let finalUrl = item.source;
+        const isVideoSource = p.type === 'video' || /\.(mp4|mov|avi)(\?|$)/i.test(item.rawUrl);
         if (finalUrl.startsWith('cloud://')) {
           finalUrl = tempUrlMap[finalUrl] || finalUrl.replace(/^cloud:\/\/[^.]+\.([^/]+)\//, 'https://$1.tcb.qcloud.la/');
         }
         
-        const isVideo = p.type === 'video' || !!finalUrl.match(/\.(mp4|mov|avi)$/i) || !!item.rawUrl.match(/\.(mp4|mov|avi)$/i);
+        const isVideo = isVideoSource || !!finalUrl.match(/\.(mp4|mov|avi)$/i);
         images.push({
           url: finalUrl,
           isVideo,
@@ -3802,8 +3803,10 @@ export default function ProjectBizDetail() {
                   <p className="text-sm">暂无施工日志</p>
                 </div>
               ) : (
-                logs.map(log => (
-                  <div key={log.id} className="relative overflow-hidden rounded-xl">
+                logs.map((log, index) => {
+                  const logKey = String((log as any)._id || log.id || `log-${index}`);
+                  return (
+                  <div key={logKey} className="relative overflow-hidden rounded-xl">
                     {canEditSite && (
                       <div className="absolute inset-y-0 right-0 flex md:hidden">
                         <button onClick={() => openEditLogModal(log)} className="w-16 bg-amber-500 text-xs font-semibold text-white">编辑</button>
@@ -3811,14 +3814,14 @@ export default function ProjectBizDetail() {
                       </div>
                     )}
                   <div
-                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === log.id ? '-translate-x-32' : 'translate-x-0'} md:!translate-x-0`}
+                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === logKey ? '-translate-x-32' : 'translate-x-0'} md:!translate-x-0`}
                     onTouchStart={(event) => { logSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
                     onTouchEnd={(event) => {
                       const startX = logSwipeStartX.current;
                       logSwipeStartX.current = null;
                       if (startX === null || !canEditSite) return;
                       const delta = (event.changedTouches[0]?.clientX ?? startX) - startX;
-                      if (delta < -44) setSwipedLogId(log.id);
+                      if (delta < -44) setSwipedLogId(logKey);
                       if (delta > 24) setSwipedLogId(null);
                     }}
                   >
@@ -3879,7 +3882,8 @@ export default function ProjectBizDetail() {
                         )}
                   </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -4914,6 +4918,8 @@ export default function ProjectBizDetail() {
           customerPhone: project?.phone || lead?.phone || '',
           houseAddress: project?.address || lead?.address || '',
           projectManager: Array.isArray(project?.manager) ? project.manager.join('、') : (project?.manager || ''),
+          sales: Array.isArray(lead?.sales) ? lead.sales.join('、') : (lead?.sales || ''),
+          designer: Array.isArray(lead?.designer) ? lead.designer.join('、') : (lead?.designer || ''),
           customerNo: lead?.customerNo || '',
         }}
       />

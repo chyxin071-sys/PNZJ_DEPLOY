@@ -66,13 +66,14 @@ export default function Expense() {
     if (searchParams.get('action') === 'create') {
       const contractId = searchParams.get('contractId');
       if (contractId) {
-        setForm(f => ({ ...f, contractId }));
+        const contract = filteredContracts.find((c) => c.id === contractId || c._id === contractId);
+        setForm(f => ({ ...f, contractId, supplier: currentBizType === '家装' && contract ? contract.customerName : f.supplier }));
       }
       setShowModal(true);
       // clear search params so it doesn't reopen on refresh
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, filteredContracts, currentBizType]);
 
   const filtered = useMemo(() => {
     let list = [...expenses.filter(e => e.bizType === currentBizType)];
@@ -228,6 +229,9 @@ export default function Expense() {
         remark: '',
         attachments: [],
       });
+      if (!editingId && payload.contractId) {
+        navigate(`/contracts/${payload.contractId}`);
+      }
     } catch (error: any) {
       console.error('支出保存失败', error);
       alert(error?.message || '支出保存失败，请重试');
@@ -392,7 +396,7 @@ export default function Expense() {
             rowKey={(row) => row.id as string}
             onRowClick={(row) => {
               if (row.contractId) {
-                navigate(`/projects/${row.contractId}`);
+                navigate(`/contracts/${row.contractId}`);
               }
             }}
         />
@@ -405,7 +409,10 @@ export default function Expense() {
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">选择合同</label>
             <Select
               value={form.contractId}
-              onChange={(v) => setForm({ ...form, contractId: v })}
+              onChange={(v) => {
+                const contract = filteredContracts.find((c) => c.id === v);
+                setForm({ ...form, contractId: v, supplier: currentBizType === '家装' && contract ? contract.customerName : form.supplier });
+              }}
               options={[
                 { value: '', label: '请选择合同（可选）' },
                 ...filteredContracts.map((c) => ({ value: c.id, label: `${c.contractNo} - ${c.customerName}` })),
@@ -436,8 +443,9 @@ export default function Expense() {
               type="text"
               value={form.supplier}
               onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-              placeholder="请输入收款方名称"
-              className="erp-input"
+              readOnly={currentBizType === '家装' && !!selectedContract}
+              placeholder={selectedContract?.customerName || '请输入收款方名称'}
+              className={`erp-input ${currentBizType === '家装' && selectedContract ? 'bg-gray-50 text-gray-500' : ''}`}
             />
           </div>
           <div>

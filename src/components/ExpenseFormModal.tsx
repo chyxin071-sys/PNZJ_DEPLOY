@@ -85,7 +85,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
     const c = contracts.find(ct => ct.id === contractId);
     if (!c) return;
     setContractSearch(`${c.contractNo} - ${c.customerName}`);
-    setForm(prev => ({ ...prev, contractId }));
+    setForm(prev => ({ ...prev, contractId, supplier: currentBizType === '家装' ? (c.customerName || prev.supplier) : prev.supplier }));
   };
 
   useEffect(() => {
@@ -112,7 +112,12 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
       setContractSearch(c ? `${c.contractNo} - ${c.customerName}` : editingExpense.contractId === '__none__' ? '非项目支出' : '');
       return;
     }
-    setForm(blankForm());
+    const base = blankForm();
+    if (defaultContractId) {
+      const c = contracts.find(ct => ct.id === defaultContractId || ct._id === defaultContractId);
+      if (c && currentBizType === '家装') base.supplier = c.customerName || '';
+    }
+    setForm(base);
     setContractSearch('');
     if (defaultContractId) {
       window.setTimeout(() => handleSelectContract(defaultContractId), 0);
@@ -260,7 +265,14 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方 *</label>
-          <input type="text" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="请输入收款方名称" className="erp-input" />
+          <input
+            type="text"
+            value={form.supplier}
+            onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+            readOnly={currentBizType === '家装' && !!selectedContract}
+            placeholder={selectedContract?.customerName || '请输入收款方名称'}
+            className={`erp-input ${currentBizType === '家装' && selectedContract ? 'bg-gray-50 text-gray-500' : ''}`}
+          />
         </div>
         <div className="grid grid-cols-1 gap-4">
           <div>

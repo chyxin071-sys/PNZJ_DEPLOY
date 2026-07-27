@@ -22,6 +22,7 @@ import {
   resolveUserIdsByNames,
   stableOperationId,
 } from '@/services/notificationService';
+import { syncLeadRelations } from '@/utils/syncLeadRelations';
 
 const STATUS_COLORS: Record<string, string> = {
   '跟进中': 'bg-blue-50 text-blue-600',
@@ -994,39 +995,10 @@ export default function Leads() {
     const updateData = { ...rest, updatedAt: new Date().toISOString() };
     await leadsAPI.update(_id, updateData);
 
-    const syncFields: Record<string, any> = {};
-    if (rest.name !== undefined) { syncFields.customer = rest.name; }
-    if (rest.phone !== undefined) { syncFields.phone = rest.phone; }
-    if (rest.address !== undefined) { syncFields.address = rest.address; }
-    if (rest.sales !== undefined) { syncFields.sales = rest.sales; }
-    if (rest.designer !== undefined) { syncFields.designer = rest.designer; }
-    if (rest.manager !== undefined) { syncFields.manager = rest.manager; }
-    if (rest.area !== undefined) { syncFields.area = rest.area; }
-    if (rest.budget !== undefined) { syncFields.budget = rest.budget; }
-    if (rest.requirementType !== undefined) { syncFields.requirementType = rest.requirementType; }
-
-    if (Object.keys(syncFields).length > 0) {
-      try {
-        const [relatedProjects, relatedQuotes, allContracts] = await Promise.all([
-          projectsAPI.where({ leadId: _id }).toArray(),
-          quotesAPI.where({ leadId: _id }).toArray(),
-          contractsAPI.toArray(),
-        ]);
-        const contractSyncFields: Record<string, any> = {};
-        if (rest.name !== undefined) contractSyncFields.customerName = rest.name;
-        if (rest.phone !== undefined) contractSyncFields.customerPhone = rest.phone;
-        if (rest.address !== undefined) contractSyncFields.houseAddress = rest.address;
-        const relatedContracts = allContracts.filter((c: any) =>
-          c.customerName === originalLead?.name && c.customerPhone === originalLead?.phone
-        );
-        await Promise.all([
-          ...relatedProjects.map(p => projectsAPI.update(p._id, syncFields)),
-          ...relatedQuotes.map(q => quotesAPI.update(q._id, syncFields)),
-          ...relatedContracts.map((c: any) => contractsAPI.put({ ...c, ...contractSyncFields })),
-        ]);
-      } catch (e) {
-        console.error('同步关联数据失败:', e);
-      }
+    try {
+      await syncLeadRelations(_id, { ...originalLead, ...updateData }, originalLead);
+    } catch (e) {
+      console.error('同步关联数据失败:', e);
     }
 
     setShowEdit(null);
@@ -1200,17 +1172,11 @@ export default function Leads() {
     if (saving) return;
     setSaving(true);
     try {
-      await leadsAPI.update(leadId, { [role]: persons, updatedAt: new Date().toISOString() });
-      // 同步更新关联工地的对应人员
+      const originalLead = allLeads.find((lead: any) => lead._id === leadId);
+      const updatedAt = new Date().toISOString();
+      await leadsAPI.update(leadId, { [role]: persons, updatedAt });
       try {
-        const [relatedProjects, relatedQuotes] = await Promise.all([
-          projectsAPI.where({ leadId }).toArray(),
-          quotesAPI.where({ leadId }).toArray(),
-        ]);
-        await Promise.all([
-          ...relatedProjects.map(p => projectsAPI.update(p._id, { [role]: persons })),
-          ...relatedQuotes.map(q => quotesAPI.update(q._id, { [role]: persons })),
-        ]);
+        await syncLeadRelations(leadId, { ...originalLead, [role]: persons, updatedAt }, originalLead);
       } catch (e) {
         console.error('同步跟进人员到关联数据失败:', e);
       }
@@ -1870,10 +1836,7 @@ export default function Leads() {
                 <div><label className="text-xs text-gray-500 mb-1 block">联系电话 *</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
               <div><label className="text-xs text-gray-500 mb-1 block">小区地址</label><input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">入户密码</label><input value={form.doorPassword} onChange={e => setForm({ ...form, doorPassword: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              </div>
+              <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">装修预算</label>
@@ -1982,10 +1945,7 @@ export default function Leads() {
                 <div><label className="text-xs text-gray-500 mb-1 block">联系电话</label><input value={showEdit.phone || ''} onChange={e => setShowEdit({ ...showEdit, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
               <div><label className="text-xs text-gray-500 mb-1 block">小区地址</label><input value={showEdit.address || ''} onChange={e => setShowEdit({ ...showEdit, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">入户密码</label><input value={showEdit.doorPassword || ''} onChange={e => setShowEdit({ ...showEdit, doorPassword: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={showEdit.area || ''} onChange={e => setShowEdit({ ...showEdit, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              </div>
+              <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={showEdit.area || ''} onChange={e => setShowEdit({ ...showEdit, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">装修预算</label>

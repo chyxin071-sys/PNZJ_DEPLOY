@@ -38,10 +38,18 @@ const defaultCommercialStages = (): PaymentStage[] => [
   { name: '回款', amount: 0, ratio: 0 },
   { name: '质保金', amount: 0, ratio: 0 },
 ];
+const defaultHomeStages = (): PaymentStage[] => [
+  { name: '定金', amount: 0, ratio: 0 },
+  { name: '开工款', amount: 0, ratio: 0 },
+  { name: '水电验收款', amount: 0, ratio: 0 },
+  { name: '泥木验收款', amount: 0, ratio: 0 },
+  { name: '竣工尾款', amount: 0, ratio: 0 },
+];
 
-function normalizeCommercialStages(contract?: Contract | null): PaymentStage[] {
+function normalizePaymentStages(contract?: Contract | null): PaymentStage[] {
   const stages = contract?.paymentStages || [];
-  if (!contract || contract.bizType !== '工装') return stages.length > 0 ? stages : defaultCommercialStages();
+  if (!contract) return defaultHomeStages();
+  if (contract.bizType !== '工装') return stages.length > 0 ? stages : defaultHomeStages();
   const hasHomeDefault = stages.some((stage) => ['预付款', '中期款', '竣工款'].includes(stage.name));
   if (!hasHomeDefault) return stages.length > 0 ? stages : defaultCommercialStages();
   const warranty = stages.find((stage) => stage.name === '质保金');
@@ -178,7 +186,9 @@ export default function ContractDetail() {
   const totalInvoicePaid = contractInvoices.reduce((s, i) => s + i.paymentAmount, 0);
   const invoiceDebt = totalInvoiced - totalReceived;
   const pendingBalance = (contract?.contractAmount || 0) - totalReceived;
-  const effectivePaymentStages = useMemo(() => normalizeCommercialStages(contract), [contract]);
+  const isHomeContract = contract?.bizType === '家装';
+  const showInvoiceFeature = !isHomeContract;
+  const effectivePaymentStages = useMemo(() => normalizePaymentStages(contract), [contract]);
   const visibleUploadStatuses = ['queued', 'uploading', 'error'];
   const contractUploadTasks = uploadTasks.filter(task =>
     task.context?.scope === 'contract-attachments' &&
@@ -298,7 +308,7 @@ export default function ContractDetail() {
       .map((stage) => ({ ...stage, name: stage.name.trim(), amount: Number(stage.amount) || 0, ratio: amount > 0 ? (Number(stage.amount) || 0) / amount : 0 }));
     await saveContractChanges({
       ...contract,
-      paymentStages: stages.length > 0 ? stages : defaultCommercialStages(),
+      paymentStages: stages.length > 0 ? stages : (contract.bizType === '工装' ? defaultCommercialStages() : defaultHomeStages()),
     });
     setShowStageModal(false);
   };
@@ -701,7 +711,7 @@ export default function ContractDetail() {
 
   const receiptColumns = [
     { key: 'receiptDate', title: '收款日期', render: (r: Receipt) => formatDate(r.receiptDate) },
-    { key: 'stage', title: '付款阶段' },
+    { key: 'stage', title: '收款阶段' },
     {
       key: 'amount',
       title: '收款金额',
@@ -744,6 +754,56 @@ export default function ContractDetail() {
             const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该收款记录吗？' });
             if (confirmed) await deleteReceipt(r.id);
           }} className="text-xs text-red-500 hover:text-red-600">删除</button>
+        </div>
+      ),
+    },
+  ];
+
+  const receiptMobileColumns = [
+    {
+      key: 'receiptSummary',
+      title: '收款记录',
+      render: (r: Receipt) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900">{formatDate(r.receiptDate)}</span>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">{r.stage || '未分阶段'}</span>
+          </div>
+          <div className="mt-1 text-xs text-gray-400">{r.paymentMethod || '-'}{r.remark ? ` · ${r.remark}` : ''}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'receiptAmount',
+      title: '金额',
+      render: (r: Receipt) => (
+        <div className="text-right text-base font-semibold text-emerald-600">{formatMoney(r.amount)}</div>
+      ),
+    },
+    {
+      key: 'receiptMobileActions',
+      title: '操作',
+      render: (r: Receipt) => (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+          <AttachmentCell
+            attachments={r.attachments}
+            onUploadFiles={async (files) => {
+              const uploaded = await uploadFinanceAttachments(files, `finance/receipts/${r.contractId || r.id}`, 'ERP');
+              await useFinanceStore.getState().updateReceipt({ ...r, attachments: mergeAttachments(r.attachments, uploaded) });
+            }}
+            onDelete={async (idx) => {
+              const newAttachments = [...(r.attachments || [])];
+              newAttachments.splice(idx, 1);
+              await useFinanceStore.getState().updateReceipt({ ...r, attachments: newAttachments });
+            }}
+          />
+          <div className="flex items-center gap-3">
+            <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            <button onClick={async () => {
+              const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该收款记录吗？' });
+              if (confirmed) await deleteReceipt(r.id);
+            }} className="text-xs font-medium text-red-500 hover:text-red-600">删除</button>
+          </div>
         </div>
       ),
     },
@@ -808,6 +868,59 @@ export default function ContractDetail() {
             const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该支出记录吗？' });
             if (confirmed) await deleteExpense(e.id);
           }} className="text-xs text-red-500 hover:text-red-600">删除</button>
+        </div>
+      ),
+    },
+  ];
+
+  const expenseMobileColumns = [
+    {
+      key: 'expenseSummary',
+      title: '支出记录',
+      render: (e: Expense) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900">{formatDate(e.expenseDate)}</span>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{e.category}</span>
+          </div>
+          <div className="mt-1 text-xs text-gray-400">收款方：{e.supplier || '-'}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'expenseAmount',
+      title: '金额',
+      render: (e: Expense) => (
+        <div className="text-right">
+          <div className="text-base font-semibold text-red-500">{formatMoney(e.amount)}</div>
+          <div className={`mt-1 text-xs ${e.status === '已付' ? 'text-emerald-600' : 'text-amber-600'}`}>{e.status}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'expenseMobileActions',
+      title: '操作',
+      render: (e: Expense) => (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2" onClick={(event) => event.stopPropagation()}>
+          <AttachmentCell
+            attachments={e.attachments}
+            onUploadFiles={async (files) => {
+              const uploaded = await uploadFinanceAttachments(files, `finance/expenses/${e.contractId || e.id}`, 'ERP');
+              await useFinanceStore.getState().updateExpense({ ...e, attachments: mergeAttachments(e.attachments, uploaded) });
+            }}
+            onDelete={async (idx) => {
+              const newAttachments = [...(e.attachments || [])];
+              newAttachments.splice(idx, 1);
+              await useFinanceStore.getState().updateExpense({ ...e, attachments: newAttachments });
+            }}
+          />
+          <div className="flex items-center gap-3">
+            <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            <button onClick={async () => {
+              const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该支出记录吗？' });
+              if (confirmed) await deleteExpense(e.id);
+            }} className="text-xs font-medium text-red-500 hover:text-red-600">删除</button>
+          </div>
         </div>
       ),
     },
@@ -956,8 +1069,8 @@ export default function ContractDetail() {
   return (
     <div className="erp-page-spaced max-w-7xl mx-auto">
       {/* 页头 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-start gap-3 md:flex-1 md:items-center">
           <button
             onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors shrink-0"
@@ -965,8 +1078,8 @@ export default function ContractDetail() {
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-base font-bold text-gray-900 flex items-center gap-2 truncate">
-              {contract.customerName || '未填写甲方'}
+            <h1 className="flex min-w-0 flex-wrap items-center gap-2 text-base font-bold text-gray-900 md:flex-nowrap">
+              <span className="min-w-0 max-w-full truncate">{contract.customerName || (isHomeContract ? '未关联客户' : '未填写甲方')}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
                 contract.status === '进行中' ? 'bg-blue-50 text-blue-600' :
                 contract.status === '已结算' ? 'bg-emerald-50 text-emerald-600' :
@@ -980,21 +1093,19 @@ export default function ContractDetail() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 ml-3">
-          <button onClick={handleOpenEdit} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+        <div className="grid w-full grid-cols-2 gap-2 md:ml-3 md:flex md:w-auto md:shrink-0 md:flex-wrap md:items-center md:justify-end">
+          <button onClick={handleOpenEdit} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:px-4">
             编辑资料
           </button>
-          {isAdmin && (
-            <button onClick={handleDeleteContract} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-red-500 transition-colors hover:bg-red-50">
-              删除
-            </button>
-          )}
+          <button onClick={() => isAdmin ? handleDeleteContract() : showAlert('只有管理员有权限')} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 md:px-4">
+            删除
+          </button>
           {canViewFinance && (
-            <button onClick={handleExportContract} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+            <button onClick={handleExportContract} className="hidden h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
               导出明细
             </button>
           )}
-          <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+          <label className="hidden h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
             导入
             <input type="file" className="hidden" accept=".xlsx,.xls,.csv" />
           </label>
@@ -1002,7 +1113,7 @@ export default function ContractDetail() {
       </div>
 
       {/* StatCard区 */}
-      <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-5'} gap-4`}>
+      <div className={`grid ${isMobile ? 'grid-cols-2' : showInvoiceFeature ? 'grid-cols-5' : 'grid-cols-4'} gap-3 md:gap-4`}>
         <StatCard
           title="合同金额"
           value={formatMoney(contract.contractAmount)}
@@ -1028,7 +1139,7 @@ export default function ContractDetail() {
         {!isMobile && (
           <StatCard title="累计支出" value={formatMoney(totalExpenses)} icon={Wallet} accent="red" />
         )}
-        {!isMobile && (
+        {showInvoiceFeature && !isMobile && (
           <StatCard title="开票欠款" value={formatMoney(invoiceDebt)} icon={FileText} accent="gold" />
         )}
       </div>
@@ -1052,9 +1163,21 @@ export default function ContractDetail() {
                 <InfoItem label="项目地址" value={contract.houseAddress || '-'} />
                 <InfoItem label="状态" value={<ContractStatusBadge status={contract.status} />} />
                 <InfoItem label="签订日期" value={formatDate(contract.signDate)} />
-                <InfoItem label="甲方" value={contract.customerName || '-'} />
-                <InfoItem label="乙方" value={contract.partyB || contract.customerPhone || '-'} />
-                <InfoItem label="丙方" value={contract.partyC || '-'} />
+                {isHomeContract ? (
+                  <>
+                    <InfoItem label="客户" value={contract.customerName || '-'} />
+                    <InfoItem label="联系电话" value={contract.customerPhone || '-'} />
+                    <InfoItem label="销售" value={contract.sales || '-'} />
+                    <InfoItem label="设计" value={contract.designer || '-'} />
+                    <InfoItem label="项目经理" value={contract.projectManager || '-'} />
+                  </>
+                ) : (
+                  <>
+                    <InfoItem label="甲方" value={contract.customerName || '-'} />
+                    <InfoItem label="乙方" value={contract.partyB || contract.customerPhone || '-'} />
+                    <InfoItem label="丙方" value={contract.partyC || '-'} />
+                  </>
+                )}
                 <InfoItem label="合同金额" value={formatMoney(contract.contractAmount || 0)} />
                 <InfoItem label="备注" value={contract.remark || '-'} />
               </div>
@@ -1067,9 +1190,21 @@ export default function ContractDetail() {
                   <InfoItem label="签订日期" value={formatDate(contract.signDate)} />
                 </div>
                 <div className="space-y-4">
-                  <InfoItem label="甲方" value={contract.customerName || '-'} />
-                  <InfoItem label="乙方" value={contract.partyB || contract.customerPhone || '-'} />
-                  <InfoItem label="丙方" value={contract.partyC || '-'} />
+                  {isHomeContract ? (
+                    <>
+                      <InfoItem label="客户" value={contract.customerName || '-'} />
+                      <InfoItem label="联系电话" value={contract.customerPhone || '-'} />
+                      <InfoItem label="销售" value={contract.sales || '-'} />
+                      <InfoItem label="设计" value={contract.designer || '-'} />
+                      <InfoItem label="项目经理" value={contract.projectManager || '-'} />
+                    </>
+                  ) : (
+                    <>
+                      <InfoItem label="甲方" value={contract.customerName || '-'} />
+                      <InfoItem label="乙方" value={contract.partyB || contract.customerPhone || '-'} />
+                      <InfoItem label="丙方" value={contract.partyC || '-'} />
+                    </>
+                  )}
                   <InfoItem label="合同金额" value={formatMoney(contract.contractAmount || 0)} />
                 </div>
                 <div className="md:col-span-2 pt-1">
@@ -1080,11 +1215,11 @@ export default function ContractDetail() {
           )}
         </div>
 
-        {/* 右：付款阶段 */}
+        {/* 右：收款阶段 */}
         <div className="bg-white rounded-lg border border-gray-100 p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-900">付款阶段</h3>
-            <button onClick={handleOpenStageModal} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑付款阶段</button>
+            <h3 className="text-sm font-semibold text-gray-900">收款阶段</h3>
+            <button onClick={handleOpenStageModal} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑阶段</button>
           </div>
           <div className="space-y-2.5">
             {effectivePaymentStages.map((stage, idx) => {
@@ -1230,6 +1365,7 @@ export default function ContractDetail() {
       </div>
 
       {/* 开票记录 */}
+      {showInvoiceFeature && (
       <div>
         <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
           <div className="px-5 pt-4 pb-3 flex items-center justify-between">
@@ -1255,6 +1391,7 @@ export default function ContractDetail() {
           />
         </div>
       </div>
+      )}
 
       <ReceiptFormModal
         open={showReceiptModal}
@@ -1304,6 +1441,7 @@ export default function ContractDetail() {
             data={contractExpenses}
             emptyText="暂无支出记录"
             rowKey={(e) => String(e.id)}
+            mobileCardColumns={expenseMobileColumns}
             compactEmpty
           />
         </div>
@@ -1329,6 +1467,7 @@ export default function ContractDetail() {
             data={contractReceipts}
             emptyText="暂无收款记录"
             rowKey={(r) => String(r.id)}
+            mobileCardColumns={receiptMobileColumns}
             compactEmpty
           />
         </div>
@@ -1359,11 +1498,12 @@ export default function ContractDetail() {
       </div>
 
       {/* 开票记录 Modal */}
+      {showInvoiceFeature && (
       <Modal open={showInvoiceModal} onClose={() => { if (!invoiceSubmitting) { setShowInvoiceModal(false); setEditingInvoice(null); setPendingInvoiceUploads([]); } }} title={editingInvoice ? '编辑开票记录' : '新增开票记录'} size="sm">
         <div className="space-y-4" onKeyDown={focusNextOnEnter}>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">开票单位 *</label>
-            <input value={invoiceForm.invoiceUnit} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceUnit: e.target.value })} className="erp-input" placeholder="默认甲方，可删除后自定义" />
+            <input value={invoiceForm.invoiceUnit} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceUnit: e.target.value })} className="erp-input" placeholder={isHomeContract ? '默认客户，可删除后自定义' : '默认甲方，可删除后自定义'} />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">开票日期 *</label>
@@ -1412,10 +1552,11 @@ export default function ContractDetail() {
           </div>
         </div>
       </Modal>
+      )}
 
 
-      {/* 编辑付款阶段 Modal */}
-      <Modal open={showStageModal} onClose={() => setShowStageModal(false)} title="编辑付款阶段" size="sm">
+      {/* 编辑收款阶段 Modal */}
+      <Modal open={showStageModal} onClose={() => setShowStageModal(false)} title="编辑收款阶段" size="sm">
         <div className="space-y-4" onKeyDown={focusNextOnEnter}>
           <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
             阶段金额可以不等于合同金额；系统只提示差额，不阻止保存。
@@ -1455,9 +1596,20 @@ export default function ContractDetail() {
           <div onKeyDown={focusNextOnEnter}>
         <div className="grid grid-cols-1 gap-4">
           <div><label className="block text-xs text-gray-500 mb-1">合同编号</label><input value={editForm.contractNo} onChange={(e) => setEditForm({ ...editForm, contractNo: e.target.value })} className="erp-input" /></div>
-          <div><label className="block text-xs text-gray-500 mb-1">甲方 *</label><input value={editForm.customerName} onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })} className="erp-input" /></div>
-          <div><label className="block text-xs text-gray-500 mb-1">乙方</label><input value={editForm.partyB || ''} onChange={(e) => setEditForm({ ...editForm, partyB: e.target.value })} className="erp-input" /></div>
-          <div><label className="block text-xs text-gray-500 mb-1">丙方</label><input value={editForm.partyC || ''} onChange={(e) => setEditForm({ ...editForm, partyC: e.target.value })} className="erp-input" /></div>
+          <div><label className="block text-xs text-gray-500 mb-1">{isHomeContract ? '客户 *' : '甲方 *'}</label><input value={editForm.customerName} onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })} className="erp-input" /></div>
+          {isHomeContract ? (
+            <>
+              <div><label className="block text-xs text-gray-500 mb-1">联系电话</label><input value={editForm.partyB || ''} onChange={(e) => setEditForm({ ...editForm, partyB: e.target.value })} className="erp-input" /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">销售</label><input value={editForm.sales || ''} onChange={(e) => setEditForm({ ...editForm, sales: e.target.value })} className="erp-input" /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">设计</label><input value={editForm.designer || ''} onChange={(e) => setEditForm({ ...editForm, designer: e.target.value })} className="erp-input" /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">项目经理</label><input value={editForm.projectManager || ''} onChange={(e) => setEditForm({ ...editForm, projectManager: e.target.value })} className="erp-input" /></div>
+            </>
+          ) : (
+            <>
+              <div><label className="block text-xs text-gray-500 mb-1">乙方</label><input value={editForm.partyB || ''} onChange={(e) => setEditForm({ ...editForm, partyB: e.target.value })} className="erp-input" /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">丙方</label><input value={editForm.partyC || ''} onChange={(e) => setEditForm({ ...editForm, partyC: e.target.value })} className="erp-input" /></div>
+            </>
+          )}
           <div><label className="block text-xs text-gray-500 mb-1">合同金额</label><input type="number" value={editForm.contractAmount} onChange={(e) => setEditForm({ ...editForm, contractAmount: e.target.value })} className="erp-input" /></div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">状态</label>
@@ -1507,11 +1659,11 @@ function ContractStatusBadge({ status }: { status: Contract['status'] }) {
 
 function MiniSummary({ items }: { items: Array<{ label: string; value: string; cls?: string }> }) {
   return (
-    <div className="grid grid-cols-3 gap-2 border-y border-gray-100 bg-gray-50/50 px-5 py-3">
+    <div className="grid grid-cols-1 gap-2 border-y border-gray-100 bg-gray-50/50 px-5 py-3 sm:grid-cols-3">
       {items.map((item) => (
-        <div key={item.label}>
-          <div className="text-xs font-medium text-gray-500">{item.label}</div>
-          <div className={`mt-1 text-base font-semibold ${item.cls || 'text-gray-800'}`}>{item.value}</div>
+        <div key={item.label} className="flex items-baseline justify-between gap-3 sm:block">
+          <div className="shrink-0 text-xs font-medium text-gray-500">{item.label}</div>
+          <div className={`min-w-0 text-right text-sm font-semibold sm:mt-1 sm:text-left sm:text-base ${item.cls || 'text-gray-800'}`}>{item.value}</div>
         </div>
       ))}
     </div>
