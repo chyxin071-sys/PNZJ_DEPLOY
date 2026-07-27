@@ -4731,6 +4731,7 @@ html body {
   margin-bottom: 60px;
 }
 .public-detail-section h3 {
+  text-align: center;
   margin: 0 0 20px;
   font-size: 20px;
   font-weight: 600;
