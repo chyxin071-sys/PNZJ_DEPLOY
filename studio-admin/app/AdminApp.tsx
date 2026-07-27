@@ -3025,7 +3025,7 @@ function Customers({
           <span>状态</span>
           <SmartSelect
             value={status}
-            options={["全部", "跟进中", "已签单", "已流失"]}
+            options={["全部", "浏览中", "跟进中", "已签单", "已流失"]}
             onChange={setStatus}
           />
         </label>
