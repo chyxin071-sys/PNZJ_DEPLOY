@@ -47,6 +47,19 @@ const ROLE_DEPT: Record<string, string> = {
 };
 const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
 const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
+const LEAD_LIST_FIELDS: Record<string, boolean> = {
+  _id: true, customerNo: true, name: true, phone: true, address: true,
+  doorPassword: true, area: true, budget: true, requirementType: true,
+  rating: true, source: true, sourceCustom: true, sales: true, designer: true,
+  manager: true, signer: true, signDate: true, status: true, remark: true,
+  lostReason: true, creatorName: true, createdAt: true, updatedAt: true,
+  lastFollowAt: true, lastFollowBy: true,
+};
+const SIGNED_PROJECT_FIELDS = { _id: true, id: true, leadId: true, relatedCustomerId: true, nodes: true };
+const SIGNED_QUOTE_FIELDS = { _id: true, id: true, leadId: true };
+const RELATED_PROJECT_FIELDS = { _id: true, id: true, leadId: true, relatedCustomerId: true, customerNo: true };
+const RELATED_QUOTE_FIELDS = { _id: true, id: true, leadId: true, customerNo: true };
+const RELATED_FOLLOW_UP_FIELDS = { _id: true, id: true, leadId: true };
 
 type StatFilter = 'all' | 'followUp' | 'signed' | 'lost';
 
@@ -389,7 +402,7 @@ function sortEmployeesForFilter(list: any[]) {
 
 async function generateCustomerNo(): Promise<string> {
   const year = new Date().getFullYear();
-  const allLeads = await leadsAPI.toArray();
+  const allLeads = await leadsAPI.toArray(LEAD_LIST_FIELDS);
   const prefix = `P${year}`;
   let maxSeq = 0;
   allLeads.forEach((l: any) => {
@@ -502,9 +515,9 @@ export default function Leads() {
     if (!silent) setSignedLoading(true);
     try {
       const [allLeads, allProjects, allQuotes, allContracts, allReceipts, allExpenses] = await Promise.all([
-        leadsAPI.toArray(),
-        projectsAPI.toArray(),
-        quotesAPI.toArray(),
+        leadsAPI.toArray(LEAD_LIST_FIELDS),
+        projectsAPI.toArray(SIGNED_PROJECT_FIELDS),
+        quotesAPI.toArray(SIGNED_QUOTE_FIELDS),
         contractsAPI.toArray(),
         receiptsAPI.toArray(),
         canViewFinance ? expensesAPI.toArray() : Promise.resolve([]),
@@ -605,17 +618,25 @@ export default function Leads() {
     }
   }, [isDesktopSignedView, fetchSignedData]);
 
-  // 签单数据定时刷新
+  // Refresh when the page becomes active. Mutations invalidate the shared query
+  // cache, so fixed-interval polling only wastes bandwidth in the WebView.
   useEffect(() => {
     if (!isDesktopSignedView) return;
-    const t = setInterval(() => fetchSignedData(true), 10000);
-    return () => clearInterval(t);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchSignedData(true);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [isDesktopSignedView, fetchSignedData]);
 
   const fetchLeads = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await leadsAPI.toArray();
+      const data = await leadsAPI.toArray(LEAD_LIST_FIELDS);
       // 静默清理脏数据：删除 manager 字段中的 "1"（遗留的测试账号Bug）
       if (!silent && isAdmin) {
         let hasDirty = false;
@@ -648,8 +669,17 @@ export default function Leads() {
   }, []);
 
   useEffect(() => { fetchLeads(); fetchEmployees(); }, [fetchLeads, fetchEmployees]);
-  // 每 5 秒静默刷新数据
-  useEffect(() => { const t = setInterval(() => fetchLeads(true), 5000); return () => clearInterval(t); }, [fetchLeads]);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchLeads(true);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [fetchLeads]);
 
   // 从「常用功能/快捷入口」携带 ?action=new 进入时，自动弹出新建客户弹窗
   useEffect(() => {
@@ -1058,10 +1088,10 @@ export default function Leads() {
     const customerPhone = lead?.phone || '';
     try {
       const [allProjects, allQuotes, allContracts, allFollowUps] = await Promise.all([
-        projectsAPI.toArray(),
-        quotesAPI.toArray(),
+        projectsAPI.toArray(RELATED_PROJECT_FIELDS),
+        quotesAPI.toArray(RELATED_QUOTE_FIELDS),
         contractsAPI.toArray(),
-        followUpsAPI.toArray(),
+        followUpsAPI.toArray(RELATED_FOLLOW_UP_FIELDS),
       ]);
       const relatedProjects = allProjects.filter((p: any) =>
         p.leadId === id || p.relatedCustomerId === id || p.customerNo === customerNo

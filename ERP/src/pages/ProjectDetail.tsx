@@ -69,9 +69,9 @@ export default function ProjectDetail() {
   useEffect(() => {
     if (contract || !id) return;
     let cancelled = false;
-    contractsAPI.toArray()
-      .then((all: any[]) => {
-        const found = all.find((c: any) => c.id === id || c._id === id);
+    Promise.all([contractsAPI.doc(id).get(), contractsAPI.where({ id }).toArray()])
+      .then(([direct, byLegacyId]) => {
+        const found = direct || byLegacyId[0];
         if (!cancelled) setDirectContract(found || null);
       })
       .catch(() => { if (!cancelled) setDirectContract(null); });

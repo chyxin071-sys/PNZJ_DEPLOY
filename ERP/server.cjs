@@ -3,6 +3,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
+const { Readable } = require('stream');
 
 const cloudbase = require('@cloudbase/node-sdk');
 const express = require('express');
@@ -508,13 +509,28 @@ app.get('/api/files/:fileID', async (req, res, next) => {
     const result = await getCloudApp().getTempFileURL({ fileList: [fileID] });
     const item = (result.fileList || [])[0];
     if (!item || !item.tempFileURL) return res.status(404).send('File not found');
-    res.redirect(item.tempFileURL);
+    const upstream = await fetch(item.tempFileURL);
+    if (!upstream.ok || !upstream.body) return res.status(upstream.status || 502).send('File fetch failed');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    if (upstream.headers.get('content-type')) res.setHeader('Content-Type', upstream.headers.get('content-type'));
+    if (upstream.headers.get('content-length')) res.setHeader('Content-Length', upstream.headers.get('content-length'));
+    Readable.fromWeb(upstream.body).pipe(res);
   } catch (err) {
     next(err);
   }
 });
 
-app.use('/erp', express.static(erpDist));
+app.use('/erp', express.static(erpDist, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('index.html') || filePath.endsWith('sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+      return;
+    }
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
 app.get('/erp', (_req, res) => res.redirect('/erp/'));
 app.get(/^\/erp\/.*/, (_req, res) => res.sendFile(path.join(erpDist, 'index.html')));
 

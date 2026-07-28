@@ -520,7 +520,17 @@ app.get('/api/files/:fileID', async (req, res, next) => {
   }
 });
 
-app.use('/erp', express.static(erpDist));
+app.use('/erp', express.static(erpDist, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('index.html') || filePath.endsWith('sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+      return;
+    }
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
 app.get('/erp', (_req, res) => res.redirect('/erp/'));
 app.get(/^\/erp\/.*/, (_req, res) => res.sendFile(path.join(erpDist, 'index.html')));
 

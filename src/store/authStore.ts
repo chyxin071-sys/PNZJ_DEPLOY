@@ -3,6 +3,7 @@ import { usersAPI } from '@/db/api';
 import { cloudDB } from '@/db/cloudbase';
 import type { UserRecord } from '@/db/index';
 import { notifyMiniProgramAuthState, returnToMiniProgramAfterLogout } from '@/utils/miniProgramPreview';
+import { clearQueryCache } from '@/db/queryCache';
 
 export type Role = 'admin' | 'finance' | 'sales' | 'designer' | 'manager' | 'employee';
 const LOGIN_TIMEOUT_MS = 10000;
@@ -237,7 +238,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     persistSession(null);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('token');
+      window.localStorage.removeItem('pnzj:cloud-temp-urls:v1');
     }
+    void clearQueryCache();
     set({ user: null, isLoggedIn: false });
     returnToMiniProgramAfterLogout();
   },

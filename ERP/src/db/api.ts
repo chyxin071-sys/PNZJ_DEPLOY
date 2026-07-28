@@ -48,6 +48,26 @@ export const contractsAPI = {
       return 0;
     }
   },
+  where: (conditions: Record<string, unknown>) => ({
+    toArray: async (): Promise<Contract[]> => {
+      try {
+        const { data } = await cloudDB.collection(COLLECTIONS.contracts).where(conditions).limit(1000).get();
+        return (data || []) as Contract[];
+      } catch {
+        return [];
+      }
+    },
+  }),
+  doc: (id: string) => ({
+    get: async (): Promise<Contract | null> => {
+      try {
+        const { data } = await cloudDB.collection(COLLECTIONS.contracts).doc(id).get();
+        return (Array.isArray(data) ? data[0] : data) as Contract | null;
+      } catch {
+        return null;
+      }
+    },
+  }),
   add: async (c: Contract): Promise<Contract> => {
     const res = await cloudDB.collection(COLLECTIONS.contracts).add(sanitize(c));
     return withDocId(c, addedIdOf(res, '合同'));
@@ -354,9 +374,11 @@ export const usersAPI = {
       return 0;
     }
   },
-  toArray: async (): Promise<UserRecord[]> => {
+  toArray: async (fields?: Record<string, boolean>): Promise<UserRecord[]> => {
     try {
-      const { data } = await cloudDB.collection(COLLECTIONS.users).limit(1000).get();
+      let query: any = cloudDB.collection(COLLECTIONS.users);
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(1000).get();
       return (data || []) as UserRecord[];
     } catch {
       return [];
@@ -417,8 +439,13 @@ export const notificationsAPI = {
 
 // ============ 客户线索 ============
 export const leadsAPI = {
-  toArray: async (): Promise<any[]> => {
-    try { const { data } = await cloudDB.collection(COLLECTIONS.leads).limit(1000).get(); return (data || []) as any[]; }
+  toArray: async (fields?: Record<string, boolean>): Promise<any[]> => {
+    try {
+      let query: any = cloudDB.collection(COLLECTIONS.leads);
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(1000).get();
+      return (data || []) as any[];
+    }
     catch { return []; }
   },
   count: async (): Promise<number> => {
@@ -543,6 +570,14 @@ export const systemConfigsAPI = {
 
 // ============ 项目日志 ============
 export const projectLogsAPI = {
+  recent: async (limit: number, fields?: Record<string, boolean>): Promise<any[]> => {
+    try {
+      let query: any = cloudDB.collection(COLLECTIONS.projectLogs).orderBy('createdAt', 'desc');
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(limit).get();
+      return (data || []) as any[];
+    } catch { return []; }
+  },
   where: (conditions: Record<string, unknown>) => ({
     orderBy: (field: string, direction: 'asc' | 'desc') => ({
       toArray: async (): Promise<any[]> => {
@@ -662,8 +697,13 @@ export const projectsAPI = {
 
 // ============ 待办事项 ============
 export const todosAPI = {
-  toArray: async (): Promise<any[]> => {
-    try { const { data } = await cloudDB.collection(COLLECTIONS.todos).limit(1000).get(); return (data || []) as any[]; }
+  toArray: async (fields?: Record<string, boolean>): Promise<any[]> => {
+    try {
+      let query: any = cloudDB.collection(COLLECTIONS.todos);
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(1000).get();
+      return (data || []) as any[];
+    }
     catch { return []; }
   },
   count: async (): Promise<number> => {
@@ -723,9 +763,22 @@ export const todosAPI = {
 
 // ============ 跟进记录 ============
 export const followUpsAPI = {
-  toArray: async (): Promise<any[]> => {
-    try { const { data } = await cloudDB.collection(COLLECTIONS.followUps).limit(1000).get(); return (data || []) as any[]; }
+  toArray: async (fields?: Record<string, boolean>): Promise<any[]> => {
+    try {
+      let query: any = cloudDB.collection(COLLECTIONS.followUps);
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(1000).get();
+      return (data || []) as any[];
+    }
     catch { return []; }
+  },
+  recent: async (limit: number, fields?: Record<string, boolean>): Promise<any[]> => {
+    try {
+      let query: any = cloudDB.collection(COLLECTIONS.followUps).orderBy('createdAt', 'desc');
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(limit).get();
+      return (data || []) as any[];
+    } catch { return []; }
   },
   add: async (f: any): Promise<void> => {
     await cloudDB.collection(COLLECTIONS.followUps).add({ _id: f._id, ...f } as any);
@@ -771,8 +824,13 @@ export const followUpsAPI = {
 
 // ============ 报价单 ============
 export const quotesAPI = {
-  toArray: async (): Promise<any[]> => {
-    try { const { data } = await cloudDB.collection(COLLECTIONS.quotes).limit(1000).get(); return (data || []) as any[]; }
+  toArray: async (fields?: Record<string, boolean>): Promise<any[]> => {
+    try {
+      let query: any = cloudDB.collection(COLLECTIONS.quotes);
+      if (fields) query = query.field(fields);
+      const { data } = await query.limit(1000).get();
+      return (data || []) as any[];
+    }
     catch { return []; }
   },
   count: async (): Promise<number> => {

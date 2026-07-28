@@ -1,6 +1,32 @@
 import { cloudApp, initCloudBase } from '@/db/cloudbase';
 import { isMiniProgramWebView } from './miniProgramPreview';
 
+const TEMP_URL_CACHE_KEY = 'pnzj:cloud-temp-urls:v1';
+const TEMP_URL_TTL_MS = 30 * 60_000;
+const pendingTempUrlRequests = new Map<string, Promise<Record<string, string>>>();
+
+type TempUrlCacheItem = { url: string; expiresAt: number };
+
+function readTempUrlCache(): Record<string, TempUrlCacheItem> {
+  try {
+    return JSON.parse(window.localStorage.getItem(TEMP_URL_CACHE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeTempUrlCache(cache: Record<string, TempUrlCacheItem>) {
+  try {
+    const entries = Object.entries(cache)
+      .filter(([, value]) => value.expiresAt > Date.now())
+      .sort((a, b) => b[1].expiresAt - a[1].expiresAt)
+      .slice(0, 300);
+    window.localStorage.setItem(TEMP_URL_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // Restricted WebViews can disable storage; in-memory request dedupe still applies.
+  }
+}
+
 function sanitizeFilename(name: string): string {
   return name.replace(/[^\w.\-]/g, '_');
 }
@@ -107,19 +133,41 @@ export async function getTempFileURL(fileIDs: string[]): Promise<Record<string, 
     ]));
   }
 
-  await initCloudBase();
-
-  const result = await cloudApp.getTempFileURL({ fileList: fileIDs }) as any;
+  const uniqueIDs = Array.from(new Set(fileIDs.filter(Boolean)));
+  const cache = readTempUrlCache();
   const urlMap: Record<string, string> = {};
-  const fileList = result?.fileList || [];
-  for (const f of fileList) {
-    const fileID = f.fileID || f.fileid;
-    const tempFileURL = f.tempFileURL || f.download_url;
-    if (fileID && tempFileURL) {
-      urlMap[fileID] = tempFileURL;
+  const missing = uniqueIDs.filter((fileID) => {
+    const cached = cache[fileID];
+    if (cached?.url && cached.expiresAt > Date.now()) {
+      urlMap[fileID] = cached.url;
+      return false;
     }
+    return true;
+  });
+  if (missing.length === 0) return urlMap;
+
+  const requestKey = missing.slice().sort().join('|');
+  let request = pendingTempUrlRequests.get(requestKey);
+  if (!request) {
+    request = (async () => {
+      await initCloudBase();
+      const result = await cloudApp.getTempFileURL({ fileList: missing }) as any;
+      const resolved: Record<string, string> = {};
+      for (const file of result?.fileList || []) {
+        const fileID = file.fileID || file.fileid;
+        const tempFileURL = file.tempFileURL || file.download_url;
+        if (fileID && tempFileURL) resolved[fileID] = tempFileURL;
+      }
+      return resolved;
+    })().finally(() => pendingTempUrlRequests.delete(requestKey));
+    pendingTempUrlRequests.set(requestKey, request);
   }
-  return urlMap;
+
+  const resolved = await request;
+  const expiresAt = Date.now() + TEMP_URL_TTL_MS;
+  for (const [fileID, url] of Object.entries(resolved)) cache[fileID] = { url, expiresAt };
+  writeTempUrlCache(cache);
+  return { ...urlMap, ...resolved };
 }
 
 const fileDataURLCache = new Map<string, string>();

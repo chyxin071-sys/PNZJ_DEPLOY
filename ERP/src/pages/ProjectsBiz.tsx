@@ -62,6 +62,14 @@ const PROJECT_LIST_FIELDS: Record<string, boolean> = {
   updatedAt: true,
   progressSummary: true,
 };
+const PROJECT_LEAD_FIELDS: Record<string, boolean> = {
+  _id: true, customerNo: true, name: true, phone: true, address: true,
+  status: true, sales: true, designer: true, manager: true, creatorName: true,
+};
+const PROJECT_USER_FIELDS: Record<string, boolean> = {
+  _id: true, id: true, name: true, role: true, roles: true,
+  department: true, status: true, disabled: true, isDisabled: true, enabled: true,
+};
 const ROLE_DEPT: Record<string, string> = {
   admin: '管理组', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
@@ -417,23 +425,13 @@ export default function ProjectsBiz() {
     try {
       const [projData, userData, leadData] = await Promise.all([
         projectsAPI.toArray(PROJECT_LIST_FIELDS),
-        usersAPI.toArray(),
-        leadsAPI.toArray(),
+        usersAPI.toArray(PROJECT_USER_FIELDS),
+        leadsAPI.toArray(PROJECT_LEAD_FIELDS),
       ]);
-      const projectsWithSummary = await Promise.all((projData || []).map(async (project: any) => {
-        if (project.progressSummary?.nodesCount) return project;
-        const id = project._id || project.id;
-        if (!id) return project;
-        try {
-          const fullProject = await projectsAPI.doc(id).get();
-          const progressSummary = buildProjectProgressSummary(fullProject?.nodesData || []);
-          projectsAPI.update(id, { progressSummary }).catch(() => {});
-          return { ...project, progressSummary };
-        } catch {
-          return project;
-        }
-      }));
-      setProjects(projectsWithSummary);
+      // List rendering only consumes the compact progressSummary. Older records
+      // without a summary are repaired when their detail is opened or edited,
+      // avoiding one full project request for every row on each list visit.
+      setProjects(projData || []);
       setEmployees(userData);
       setLeads(leadData);
       cloudDB.collection('shareAccess')

@@ -60,8 +60,13 @@ export function buildWechatRebindMessage(result: WechatBindingResult) {
 
 function captureBridgeSessionFromUrl() {
   if (typeof window === 'undefined') return '';
-  const sessionId = new URLSearchParams(window.location.search).get('wxBridgeSession') || '';
-  if (sessionId) window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  const url = new URL(window.location.href);
+  const sessionId = url.searchParams.get('wxBridgeSession') || '';
+  if (sessionId) {
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+    url.searchParams.delete('wxBridgeSession');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
   return sessionId || window.sessionStorage.getItem(SESSION_STORAGE_KEY) || '';
 }
 

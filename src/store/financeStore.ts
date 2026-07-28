@@ -6,6 +6,9 @@ import { contractsAPI, receiptsAPI, expensesAPI, reimbursementsAPI,
 import { ensureCollections } from '@/db/cloudbase';
 import type { Contract, Receipt, Expense, Reimbursement, GeneralIncome, GeneralExpense, ProjectProfit, Quotation, InvoiceRecord } from '@/types';
 
+export type FinanceDataset = 'contracts' | 'receipts' | 'expenses' | 'invoices' | 'reimbursements' | 'generalIncomes' | 'generalExpenses' | 'quotations';
+const ALL_FINANCE_DATASETS: FinanceDataset[] = ['contracts', 'receipts', 'expenses', 'invoices', 'reimbursements', 'generalIncomes', 'generalExpenses', 'quotations'];
+
 type FinanceDoc = { id: string; _id?: string };
 
 const sameDoc = (a: FinanceDoc, b: FinanceDoc) => {
@@ -36,10 +39,12 @@ interface FinanceState {
   generalExpenses: GeneralExpense[];
   quotations: Quotation[];
   loading: boolean;
+  loadedDatasets: FinanceDataset[];
 
-  init: () => Promise<void>;
+  init: (datasets?: FinanceDataset[]) => Promise<void>;
   refreshAll: () => Promise<void>;
-  _refreshSilent: () => Promise<void>;
+  _refreshSilent: (datasets?: FinanceDataset[]) => Promise<void>;
+  reset: () => void;
 
   addContract: (c: Contract) => Promise<void>;
   updateContract: (c: Contract) => Promise<void>;
@@ -84,18 +89,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   generalExpenses: [],
   quotations: [],
   loading: false,
+  loadedDatasets: [],
 
-  init: async () => {
+  init: async (datasets = ALL_FINANCE_DATASETS) => {
     try {
-      await ensureCollections();
-      await seedDatabase();
-      await get()._refreshSilent();
+      if (import.meta.env.DEV) {
+        await ensureCollections();
+        await seedDatabase();
+      }
+      await get()._refreshSilent(datasets);
       set({ initialized: true });
     } catch (err: any) {
       console.error('初始化失败:', err.message || err);
       // 尝试直接读取数据（可能 seed 失败但已有数据）
       try {
-        await get()._refreshSilent();
+        await get()._refreshSilent(datasets);
         set({ initialized: true });
       } catch {
         // 完全失败，抛出给上层
@@ -106,29 +114,40 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   refreshAll: async () => {
     set({ loading: true });
-    await get()._refreshSilent();
+    await get()._refreshSilent(ALL_FINANCE_DATASETS);
     set({ loading: false });
   },
 
-  _refreshSilent: async () => {
+  _refreshSilent: async (datasets = ALL_FINANCE_DATASETS) => {
     try {
-      const [contracts, receipts, expenses] = await Promise.all([
-        contractsAPI.toArray(),
-        receiptsAPI.toArray(),
-        expensesAPI.toArray(),
-      ]);
-      const [invoices, reimbursements, generalIncomes, generalExpenses, quotations] = await Promise.all([
-        invoicesAPI.toArray(),
-        reimbursementsAPI.toArray(),
-        generalIncomesAPI.toArray(),
-        generalExpensesAPI.toArray(),
-        quotationsAPI.toArray(),
-      ]);
-      set({ contracts, receipts, expenses, invoices, reimbursements, generalIncomes, generalExpenses, quotations });
+      const requested = Array.from(new Set(datasets));
+      const missing = requested.filter((dataset) => !get().loadedDatasets.includes(dataset));
+      if (missing.length === 0) return;
+      const loaders: Record<FinanceDataset, () => Promise<any[]>> = {
+        contracts: contractsAPI.toArray,
+        receipts: receiptsAPI.toArray,
+        expenses: expensesAPI.toArray,
+        invoices: invoicesAPI.toArray,
+        reimbursements: reimbursementsAPI.toArray,
+        generalIncomes: generalIncomesAPI.toArray,
+        generalExpenses: generalExpensesAPI.toArray,
+        quotations: quotationsAPI.toArray,
+      };
+      const entries = await Promise.all(missing.map(async (dataset) => [dataset, await loaders[dataset]()] as const));
+      set((state) => ({
+        ...Object.fromEntries(entries),
+        loadedDatasets: Array.from(new Set([...state.loadedDatasets, ...missing])),
+      }));
     } catch (e) {
       console.error('静默刷新失败:', e);
     }
   },
+
+  reset: () => set({
+    initialized: false,
+    contracts: [], receipts: [], expenses: [], invoices: [], reimbursements: [],
+    generalIncomes: [], generalExpenses: [], quotations: [], loadedDatasets: [], loading: false,
+  }),
 
   addContract: async (c) => { 
     const created = await contractsAPI.add(c); 

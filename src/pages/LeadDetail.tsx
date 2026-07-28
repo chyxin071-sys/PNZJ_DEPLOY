@@ -821,10 +821,10 @@ export default function LeadDetail() {
         })
         .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setFollowUps(fuRes);
-      const [projRes, userData, allContracts] = await Promise.all([
+      const [projRes, userData, directContracts] = await Promise.all([
         projectsAPI.where({ leadId: id }).toArray(),
         usersAPI.toArray(),
-        contractsAPI.toArray(),
+        contractsAPI.where({ customerId: id }).toArray(),
       ]);
       const primaryProject = projRes.find((project: any) => toPersonArray(project?.manager).length > 0) || projRes[0] || null;
       const leadManagers = toPersonArray(leadObj?.manager);
@@ -840,10 +840,11 @@ export default function LeadDetail() {
       setHasProject(projRes.length > 0);
       setProjectInfo(primaryProject);
       
-      const relatedContracts = allContracts.filter((c: any) => 
-        (c.customerId && c.customerId === id) || 
-        (!c.customerId && c.customerName === leadObj?.name && c.customerPhone === leadObj?.phone)
-      );
+      let relatedContracts = directContracts;
+      if (relatedContracts.length === 0 && leadObj?.name) {
+        relatedContracts = (await contractsAPI.where({ customerName: leadObj.name }).toArray())
+          .filter((contract: any) => !leadObj.phone || contract.customerPhone === leadObj.phone);
+      }
       setHasContract(relatedContracts.length > 0);
       setContractInfo(relatedContracts.length > 0 ? relatedContracts[0] : null);
       
@@ -2217,11 +2218,11 @@ export default function LeadDetail() {
   // 刷新关联合同
   const refreshRelatedContract = async () => {
     try {
-      const allContracts = await contractsAPI.toArray();
-      const relatedContracts = allContracts.filter((c: any) =>
-        (c.customerId && c.customerId === id) ||
-        (!c.customerId && c.customerName === lead?.name && c.customerPhone === lead?.phone)
-      );
+      let relatedContracts = await contractsAPI.where({ customerId: id }).toArray();
+      if (relatedContracts.length === 0 && lead?.name) {
+        relatedContracts = (await contractsAPI.where({ customerName: lead.name }).toArray())
+          .filter((contract: any) => !lead.phone || contract.customerPhone === lead.phone);
+      }
       setHasContract(relatedContracts.length > 0);
       setContractInfo(relatedContracts.length > 0 ? relatedContracts[0] : null);
     } catch (e) {

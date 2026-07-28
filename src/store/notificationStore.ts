@@ -36,12 +36,37 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   currentUserId: '',
 
   loadNotifications: async (userId: string) => {
-    const [legacy, unifiedResult] = await Promise.all([
-      notificationsAPI.orderBy('createdAt', 'desc').toArray(),
-      cloudDB.collection('notifications').orderBy('createdAt', 'desc').limit(500).get().catch(() => ({ data: [] })),
+    const command = cloudDB.command;
+    const [legacyResult, unifiedRecipientResult, unifiedTargetResult] = await Promise.all([
+      cloudDB.collection('erp_notifications')
+        .where({ targetUserId: userId })
+        .orderBy('createdAt', 'desc')
+        .limit(300)
+        .get()
+        .catch(() => ({ data: [] })),
+      cloudDB.collection('notifications')
+        .where({ recipientUserIds: command.in([userId]) })
+        .orderBy('createdAt', 'desc')
+        .limit(300)
+        .get()
+        .catch(() => ({ data: [] })),
+      cloudDB.collection('notifications')
+        .where({ targetUserId: userId })
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .get()
+        .catch(() => ({ data: [] })),
     ]);
-    const unified = ((unifiedResult as { data?: any[] }).data || [])
-      .filter((n) => n.targetUserId === userId || (Array.isArray(n.recipientUserIds) && n.recipientUserIds.includes(userId)))
+    const unifiedById = new Map<string, any>();
+    const unifiedRecords = [
+      ...(((unifiedRecipientResult as { data?: any[] }).data) || []),
+      ...(((unifiedTargetResult as { data?: any[] }).data) || []),
+    ];
+    unifiedRecords.forEach((notification) => {
+      const id = String(notification._id || notification.id || '');
+      if (id) unifiedById.set(id, notification);
+    });
+    const unified = Array.from(unifiedById.values())
       .map((n) => ({
         ...n,
         id: n._id || n.id,
@@ -51,8 +76,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       }));
     const list = [
       ...unified,
-      ...legacy
-        .filter((n) => n.targetUserId === userId)
+      ...(((legacyResult as { data?: Notification[] }).data) || [])
         .map((n) => ({ ...n, _notificationSource: 'legacy' })),
     ].sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     set({ notifications: list, unreadCount: list.filter((n) => !n.isRead).length, currentUserId: userId });

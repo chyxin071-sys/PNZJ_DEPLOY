@@ -28,6 +28,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 const currentYear = new Date().getFullYear();
 const MONTHS_12 = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
+const DASHBOARD_LEAD_FIELDS = { _id: true, name: true, status: true, source: true, createdAt: true, updatedAt: true, sales: true, designer: true, manager: true, creatorName: true };
+const DASHBOARD_TODO_FIELDS = { _id: true, status: true, dueDate: true, createdAt: true, assignees: true, creatorName: true };
+const DASHBOARD_PROJECT_FIELDS = { _id: true, status: true, lifecycleStatus: true, createdAt: true, manager: true, creatorName: true, progressSummary: true, startDate: true, plannedCompletionDate: true, actualCompletionDate: true, address: true, customerName: true, leadId: true };
+const DASHBOARD_USER_FIELDS = { _id: true, id: true, name: true, role: true, roles: true, status: true, disabled: true, isDisabled: true, enabled: true, department: true };
+const DASHBOARD_FOLLOW_UP_FIELDS = { _id: true, leadId: true, leadName: true, content: true, createdAt: true, creatorName: true, relatedPerson: true };
 
 function getDateRange(year: number, monthFrom: number, monthTo: number) {
   return {
@@ -81,20 +86,35 @@ export default function Dashboard() {
   const [showTimeFilter, setShowTimeFilter] = useState(false);
   const [showAllFunctions, setShowAllFunctions] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const [leadsRes, todosRes, projectsRes, employeesRes, followUpsRes, logsRes, recentFollowUpsRes] = await Promise.all([
-        leadsAPI.toArray(), todosAPI.toArray(), projectsAPI.toArray(),
-        usersAPI.toArray(), followUpsAPI.toArray(), projectLogsAPI.where({}).toArray(),
-        // 单独按创建时间倒序取最新跟进，避免 toArray 默认按 _id 返回早期数据
-        followUpsAPI.where({}).orderBy('createdAt', 'desc').toArray(),
+      const [leadsRes, todosRes, projectsRes, employeesRes] = await Promise.all([
+        leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
+        todosAPI.toArray(DASHBOARD_TODO_FIELDS),
+        projectsAPI.toArray(DASHBOARD_PROJECT_FIELDS),
+        usersAPI.toArray(DASHBOARD_USER_FIELDS),
       ]);
       setLeads(leadsRes); setTodos(todosRes); setProjects(projectsRes);
-      setEmployees(employeesRes); setFollowUps(followUpsRes); setProjectLogs(logsRes);
-      setRecentFollowUpsData(recentFollowUpsRes);
+      setEmployees(employeesRes);
+
+      const loadSecondary = async () => {
+        const [followUpsRes, logsRes, recentFollowUpsRes] = await Promise.all([
+          followUpsAPI.toArray(DASHBOARD_FOLLOW_UP_FIELDS),
+          projectLogsAPI.recent(500, { _id: true, createdAt: true, creatorName: true, projectId: true }),
+          followUpsAPI.recent(30, DASHBOARD_FOLLOW_UP_FIELDS),
+        ]);
+        setFollowUps(followUpsRes);
+        setProjectLogs(logsRes);
+        setRecentFollowUpsData(recentFollowUpsRes);
+      };
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => { void loadSecondary(); }, { timeout: 1200 });
+      } else {
+        setTimeout(() => { void loadSecondary(); }, 80);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -103,7 +123,7 @@ export default function Dashboard() {
   // 窗口重新聚焦 / 标签页切回时自动刷新最新数据
   useEffect(() => {
     const handleFocus = () => {
-      if (document.visibilityState === 'visible') fetchData();
+      if (document.visibilityState === 'visible') fetchData(true);
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
@@ -301,6 +321,10 @@ export default function Dashboard() {
     // 已完成子节点数
     let completedSubNodes = 0;
     myProjects.forEach(p => {
+      if (!Array.isArray(p.nodesData) && p.progressSummary?.completedSubNodes) {
+        completedSubNodes += Number(p.progressSummary.completedSubNodes) || 0;
+        return;
+      }
       (p.nodesData || []).forEach((node: any) => {
         (node.sections || []).forEach((sec: any) => {
           (sec.subNodes || []).forEach((sn: any) => {

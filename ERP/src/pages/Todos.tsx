@@ -32,6 +32,9 @@ const ROLE_DEPT: Record<string, string> = {
 const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
 const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
 const RELATED_TYPE_MAP: Record<string, string> = { none: '无', lead: '客户', project: '工地' };
+const TODO_USER_FIELDS = { _id: true, id: true, name: true, role: true, roles: true, department: true, status: true };
+const TODO_LEAD_FIELDS = { _id: true, name: true };
+const TODO_PROJECT_FIELDS = { _id: true, address: true, customer: true };
 
 type StatFilter = 'all' | 'pending' | 'completed' | 'overdue';
 
@@ -667,7 +670,7 @@ export default function Todos() {
     if (!silent) setLoading(true);
     try {
       const [todoData, userData, leadData, projData] = await Promise.all([
-        todosAPI.toArray(), usersAPI.toArray(), leadsAPI.toArray(), projectsAPI.toArray(),
+        todosAPI.toArray(), usersAPI.toArray(TODO_USER_FIELDS), leadsAPI.toArray(TODO_LEAD_FIELDS), projectsAPI.toArray(TODO_PROJECT_FIELDS),
       ]);
       setTodos(todoData);
       setEmployees(userData.filter((u: any) => u.status !== 'inactive'));
@@ -682,11 +685,15 @@ export default function Todos() {
 
   useEffect(() => { 
     fetchData(); 
-    // 开启静默轮询（每10秒刷新一次数据）
-    const timer = setInterval(() => {
-      fetchData(true);
-    }, 10000);
-    return () => clearInterval(timer);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchData(true);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [fetchData]);
 
   const baseFiltered = todos.filter(t => {

@@ -14,6 +14,10 @@ import BottomDrawer from '@/components/BottomDrawer';
 import Select from '@/components/Select';
 import DatePicker from '@/components/DatePicker';
 
+const SIGNED_LEAD_FIELDS = { _id: true, name: true, phone: true, address: true, status: true, sales: true, designer: true, manager: true, signer: true, signDate: true, updatedAt: true };
+const SIGNED_PROJECT_FIELDS = { _id: true, leadId: true, relatedCustomerId: true, status: true, nodesData: true };
+const SIGNED_QUOTE_FIELDS = { _id: true, id: true, leadId: true };
+
 const toPersonArray = (val: string | string[] | undefined | null): string[] => {
   if (Array.isArray(val)) return val.flatMap(v => typeof v === 'string' ? v.split(/[,，、\s]+/).filter(Boolean) : []);
   if (val && val !== '未分配' && val !== '') return val.split(/[,，、\s]+/).filter(Boolean);
@@ -84,9 +88,9 @@ export default function SignedContracts() {
     if (!silent) setLoading(true);
     try {
       const [allLeads, allProjects, allQuotes, allContracts, allReceipts, allExpenses] = await Promise.all([
-        leadsAPI.toArray(),
-        projectsAPI.toArray(),
-        quotesAPI.toArray(),
+        leadsAPI.toArray(SIGNED_LEAD_FIELDS),
+        projectsAPI.toArray(SIGNED_PROJECT_FIELDS),
+        quotesAPI.toArray(SIGNED_QUOTE_FIELDS),
         contractsAPI.toArray(),
         receiptsAPI.toArray(),
         canViewFinance ? expensesAPI.toArray() : Promise.resolve([]),
@@ -182,7 +186,17 @@ export default function SignedContracts() {
   }, [canViewFinance]);
 
   useEffect(() => { fetchAll(); fetchEmployees(); }, [fetchAll, fetchEmployees]);
-  useEffect(() => { const t = setInterval(() => fetchAll(true), 10000); return () => clearInterval(t); }, [fetchAll]);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchAll(true);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [fetchAll]);
 
   // 保存滚动位置
   const scrollPosKey = 'signed_contracts_scroll';

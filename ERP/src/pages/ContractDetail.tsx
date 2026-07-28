@@ -160,8 +160,8 @@ export default function ContractDetail() {
     setDirectLoading(true);
     (async () => {
       try {
-        const all = await contractsAPI.toArray();
-        const found = all.find((c: any) => c.id === id || c._id === id);
+        const direct = await contractsAPI.doc(id).get();
+        const found = direct || (await contractsAPI.where({ id }).toArray())[0];
         if (found && !cancelled) {
           setDirectContract(found as Contract);
           const contractKey = found.id || found._id;
@@ -607,8 +607,9 @@ export default function ContractDetail() {
           uploader: user?.name || 'ERP',
           uploadTime,
         };
-        const latestContracts = await contractsAPI.toArray();
-        const latestContract = latestContracts.find((c: any) => c.id === contractKey || c._id === contractKey) || contract;
+        const latestContract = await contractsAPI.doc(contractKey).get()
+          || (await contractsAPI.where({ id: contractKey }).toArray())[0]
+          || contract;
         const newAttachments = [...normalizeAttachments(latestContract.attachments), uploaded];
         await saveContractChanges({ ...latestContract, attachments: newAttachments });
 

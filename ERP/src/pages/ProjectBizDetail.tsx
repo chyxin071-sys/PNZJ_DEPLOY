@@ -95,7 +95,7 @@ const normalizeVideoPoster = (poster?: string) => {
 
 function CloudVideo({ src, className, poster }: { src: string, className?: string, poster?: string }) {
   const validPoster = normalizeVideoPoster(poster);
-  if (validPoster) return <img src={validPoster} className={className} alt="视频缩略图" />;
+  if (validPoster) return <img src={validPoster} className={className} alt="视频缩略图" loading="lazy" decoding="async" />;
   return <div className={`flex items-center justify-center bg-gray-100 text-gray-400 ${className}`}><ImageIcon className="h-4 w-4" /></div>;
 }
 
@@ -156,7 +156,7 @@ function CloudImage({ src, className, alt }: { src: string, className?: string, 
     setLoading(false);
     setLoadingFallback(true);
     try {
-      const dataUrl = await getFileDataURL(normalizeCloudMediaSource(src), 'original');
+      const dataUrl = await getFileDataURL(normalizeCloudMediaSource(src), 'thumbnail');
       setUrl(dataUrl);
       CACHED_URLS.set(src, dataUrl);
       setFailed(false);
@@ -190,7 +190,7 @@ function CloudImage({ src, className, alt }: { src: string, className?: string, 
     );
   }
 
-  return <img src={url} className={className} alt={alt} onError={() => { CACHED_URLS.delete(src); void loadThroughCloudFunction(); }} />;
+  return <img src={url} className={className} alt={alt} loading="lazy" decoding="async" onError={() => { CACHED_URLS.delete(src); void loadThroughCloudFunction(); }} />;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -463,33 +463,34 @@ export default function ProjectBizDetail() {
       const linkedLead = Array.isArray(linkedLeadData) ? linkedLeadData[0] : linkedLeadData;
       if (linkedLead) return linkedLead;
     }
-    const allLeads = await leadsAPI.toArray();
     const normalize = (v?: string) => (v || '').trim();
     const pPhone = normalize(sourceProject.phone);
     const pCustomer = normalize(sourceProject.customer);
     const pAddress = normalize(sourceProject.address);
-    return allLeads.find((l: any) => {
-      const lPhone = normalize(l.phone);
-      const lName = normalize(l.name);
-      const lAddress = normalize(l.address);
-      return (pPhone && lPhone && pPhone === lPhone) || (pCustomer && lName && pCustomer === lName) || (pAddress && lAddress && pAddress === lAddress);
-    }) || null;
+    const candidates = await Promise.all([
+      pPhone ? leadsAPI.where({ phone: pPhone }).toArray() : Promise.resolve([]),
+      pCustomer ? leadsAPI.where({ name: pCustomer }).toArray() : Promise.resolve([]),
+      pAddress ? leadsAPI.where({ address: pAddress }).toArray() : Promise.resolve([]),
+    ]);
+    return candidates.flat()[0] || null;
   }, []);
 
   const findRelatedContracts = useCallback(async (sourceProject: any, sourceLead: any) => {
     try {
-      const allContracts = await contractsAPI.toArray();
       const normalize = (v?: string) => (v || '').trim();
       const pPhone = normalize(sourceProject?.phone) || normalize(sourceLead?.phone);
       const pCustomer = normalize(sourceProject?.customer) || normalize(sourceLead?.name);
       const pAddress = normalize(sourceProject?.address) || normalize(sourceLead?.address);
       const leadId = sourceProject?.leadId || sourceLead?._id;
-      return allContracts.filter((c: any) => {
-        const cPhone = normalize(c.customerPhone);
-        const cName = normalize(c.customerName);
-        const cAddress = normalize(c.houseAddress);
-        return (leadId && c.customerId === leadId) || (pPhone && cPhone && pPhone === cPhone) || (pCustomer && cName && pCustomer === cName) || (pAddress && cAddress && pAddress === cAddress);
-      });
+      const matches = await Promise.all([
+        leadId ? contractsAPI.where({ customerId: leadId }).toArray() : Promise.resolve([]),
+        pPhone ? contractsAPI.where({ customerPhone: pPhone }).toArray() : Promise.resolve([]),
+        pCustomer ? contractsAPI.where({ customerName: pCustomer }).toArray() : Promise.resolve([]),
+        pAddress ? contractsAPI.where({ houseAddress: pAddress }).toArray() : Promise.resolve([]),
+      ]);
+      const unique = new Map<string, any>();
+      matches.flat().forEach((contract: any) => unique.set(contract._id || contract.id, contract));
+      return Array.from(unique.values());
     } catch { return []; }
   }, []);
 
@@ -586,7 +587,7 @@ export default function ProjectBizDetail() {
         .catch(() => setPendingAccessCount(0));
 
       // 一次性迁移：统一同步姓名 + 清理"1"脏数据
-      if (!(window as any)._fixManager1) {
+      if (false && !(window as any)._fixManager1) {
         (window as any)._fixManager1 = true;
         import('@/db/sync').then(({ syncEmployeeName }) => {
           syncEmployeeName('张小琴', '张晓琴').then(() => {
@@ -681,14 +682,19 @@ export default function ProjectBizDetail() {
     void markRelatedAsRead('project', id);
   }, [id, markRelatedAsRead]);
 
-  // 静默轮询（每5秒刷新日志与验收记录）
+  // Refresh collaborative records only when returning to the page.
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (id && id !== 'new') {
-        loadLogsAndInspections();
+    const refresh = () => {
+      if (document.visibilityState === 'visible' && id && id !== 'new') {
+        void loadLogsAndInspections();
       }
-    }, 5000);
-    return () => clearInterval(timer);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [id, loadLogsAndInspections]);
 
   const syncToDB = async (newNodesData: any[]) => {

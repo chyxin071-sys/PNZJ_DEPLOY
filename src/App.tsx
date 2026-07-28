@@ -1,42 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFinanceStore } from '@/store/financeStore';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useFinanceStore, type FinanceDataset } from '@/store/financeStore';
 import { useAuthStore, menuPermissions, canViewFinancialData } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { cloudDB, initCloudBase } from '@/db/cloudbase';
+import { initCloudBase } from '@/db/cloudbase';
 import { installNativeImageUploadBridge } from '@/utils/nativeImageUploadBridge';
 import logoUrl from '@/assets/logo.png';
 import Layout from '@/components/Layout';
-import LoginPage from '@/pages/Login';
-import Dashboard from '@/pages/Dashboard';
-import Contracts from '@/pages/Contracts';
-import ContractDetail from '@/pages/ContractDetail';
-import Income from '@/pages/Income';
-import Expense from '@/pages/Expense';
-import Receivable from '@/pages/Receivable';
-import Payable from '@/pages/Payable';
-import ProjectCost from '@/pages/ProjectCost';
-import ProjectDetail from '@/pages/ProjectDetail';
-import CashFlow from '@/pages/CashFlow';
-import Reimbursement from '@/pages/Reimbursement';
-import Reports from '@/pages/Reports';
-import Leads from '@/pages/Leads';
-import LeadDetail from '@/pages/LeadDetail';
-import SignedContracts from '@/pages/SignedContracts';
-import Todos from '@/pages/Todos';
-import ProjectsBiz from '@/pages/ProjectsBiz';
-import ProjectBizDetail from '@/pages/ProjectBizDetail';
-import ProjectShareAccess from '@/pages/ProjectShareAccess';
-import TemplateLibrary from '@/pages/TemplateLibrary';
-import QuotesBiz from '@/pages/QuotesBiz';
-import QuoteBizDetail from '@/pages/QuoteBizDetail';
-import QuotationBuilder from '@/pages/QuotationBuilder';
-import Notifications from '@/pages/Notifications';
-import EmployeeManagement from '@/pages/EmployeeManagement';
-import Materials from '@/pages/Materials';
-import MaterialDetail from '@/pages/MaterialDetail';
-import InventoryRecords from '@/pages/InventoryRecords';
-import Profile from '@/pages/Profile';
 import GlobalDialog from '@/components/GlobalDialog';
 import {
   bindCurrentUserToWechat,
@@ -51,6 +21,37 @@ import {
   openNativeSubscriptionSettings,
 } from '@/utils/miniProgramPreview';
 import { WECHAT_SUBSCRIPTION_NEEDED_EVENT } from '@/services/notificationService';
+
+const LoginPage = lazy(() => import('@/pages/Login'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const Contracts = lazy(() => import('@/pages/Contracts'));
+const ContractDetail = lazy(() => import('@/pages/ContractDetail'));
+const Income = lazy(() => import('@/pages/Income'));
+const Expense = lazy(() => import('@/pages/Expense'));
+const Receivable = lazy(() => import('@/pages/Receivable'));
+const Payable = lazy(() => import('@/pages/Payable'));
+const ProjectCost = lazy(() => import('@/pages/ProjectCost'));
+const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'));
+const CashFlow = lazy(() => import('@/pages/CashFlow'));
+const Reimbursement = lazy(() => import('@/pages/Reimbursement'));
+const Reports = lazy(() => import('@/pages/Reports'));
+const Leads = lazy(() => import('@/pages/Leads'));
+const LeadDetail = lazy(() => import('@/pages/LeadDetail'));
+const SignedContracts = lazy(() => import('@/pages/SignedContracts'));
+const Todos = lazy(() => import('@/pages/Todos'));
+const ProjectsBiz = lazy(() => import('@/pages/ProjectsBiz'));
+const ProjectBizDetail = lazy(() => import('@/pages/ProjectBizDetail'));
+const ProjectShareAccess = lazy(() => import('@/pages/ProjectShareAccess'));
+const TemplateLibrary = lazy(() => import('@/pages/TemplateLibrary'));
+const QuotesBiz = lazy(() => import('@/pages/QuotesBiz'));
+const QuoteBizDetail = lazy(() => import('@/pages/QuoteBizDetail'));
+const QuotationBuilder = lazy(() => import('@/pages/QuotationBuilder'));
+const Notifications = lazy(() => import('@/pages/Notifications'));
+const EmployeeManagement = lazy(() => import('@/pages/EmployeeManagement'));
+const Materials = lazy(() => import('@/pages/Materials'));
+const MaterialDetail = lazy(() => import('@/pages/MaterialDetail'));
+const InventoryRecords = lazy(() => import('@/pages/InventoryRecords'));
+const Profile = lazy(() => import('@/pages/Profile'));
 
 const INIT_TIMEOUT_MS = 25000;
 const SUBSCRIPTION_LOGIN_PROMPT_KEY = 'pnzj:wechat-subscription-login-prompt';
@@ -107,11 +108,8 @@ function RoleGuard({ children }: { children: React.ReactNode }) {
 function FinanceGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user } = useAuthStore();
-  const { init, initialized, contracts } = useFinanceStore();
+  const { init, loadedDatasets } = useFinanceStore();
   const [financeError, setFinanceError] = useState<string | null>(null);
-  const hasData = contracts.length > 0; // 内存中已有数据，视为已就绪
-  const isReady = initialized || hasData;
-
   const isContractDetail = /^\/contracts\/[^/]+$/.test(location.pathname);
   const canViewFinance = canViewFinancialData(user?.roles, user?.role);
 
@@ -128,13 +126,29 @@ function FinanceGuard({ children }: { children: React.ReactNode }) {
     '/quotation-builder',
   ].some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
   const needsFinanceData = (isContractDetail && canViewFinance) || (financePathMatched && !isContractDetail);
+  const datasetsForPath = (): FinanceDataset[] => {
+    const path = location.pathname;
+    if (isContractDetail) return ['contracts', 'receipts', 'expenses', 'quotations'];
+    if (path.startsWith('/income')) return ['contracts', 'receipts'];
+    if (path.startsWith('/expense')) return ['contracts', 'expenses'];
+    if (path.startsWith('/reimbursement')) return ['contracts', 'reimbursements'];
+    if (path.startsWith('/quotes-biz') || path.startsWith('/quotation-builder')) return ['contracts', 'quotations'];
+    if (path.startsWith('/cashflow')) return ['contracts', 'receipts', 'expenses', 'generalIncomes', 'generalExpenses', 'reimbursements'];
+    if (path.startsWith('/reports')) return ['receipts', 'expenses', 'generalIncomes', 'generalExpenses', 'invoices'];
+    if (path.startsWith('/projects')) return ['contracts', 'receipts', 'expenses'];
+    if (path.startsWith('/receivable')) return ['contracts', 'receipts'];
+    if (path.startsWith('/payable')) return ['contracts', 'expenses'];
+    return ['contracts', 'receipts'];
+  };
+  const requiredDatasets = datasetsForPath();
+  const isReady = requiredDatasets.every((dataset) => loadedDatasets.includes(dataset));
 
   useEffect(() => {
     if (!needsFinanceData || isReady) return;
     setFinanceError(null);
-    withTimeout(init(), '系统数据初始化超时，请重试')
+    withTimeout(init(requiredDatasets), '系统数据初始化超时，请重试')
       .catch((err) => setFinanceError(err.message || '数据初始化失败'));
-  }, [init, isReady, needsFinanceData]);
+  }, [init, isReady, location.pathname, needsFinanceData]);
 
   if (!needsFinanceData) {
     return <>{children}</>;
@@ -149,7 +163,7 @@ function FinanceGuard({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => {
                 setFinanceError(null);
-                withTimeout(init(), '系统数据初始化超时，请重试')
+                withTimeout(init(requiredDatasets), '系统数据初始化超时，请重试')
                   .catch((err) => setFinanceError(err.message || '数据初始化失败'));
               }}
               className="px-4 py-2 bg-gold-400 text-black rounded text-sm hover:bg-gold-500"
@@ -172,6 +186,7 @@ function AppInit() {
   const navigate = useNavigate();
   const location = useLocation();
   const loadNotifications = useNotificationStore((s) => s.loadNotifications);
+  const resetFinance = useFinanceStore((s) => s.reset);
   const { showAlert, showConfirm } = useDialogStore();
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
@@ -222,6 +237,10 @@ function AppInit() {
     favicon.href = `${logoUrl}?v=pnzj-20260531`;
   }, []);
 
+  useEffect(() => {
+    if (!isLoggedIn) resetFinance();
+  }, [isLoggedIn, resetFinance]);
+
   const connectCloud = () =>
     withTimeout(initCloudBase(), '数据库连接超时，请检查网络后重试')
       .then(() => setCloudReady(true));
@@ -250,7 +269,6 @@ function AppInit() {
     let disposed = false;
     let refreshing = false;
     let refreshQueued = false;
-    let watcher: { close?: () => void } | null = null;
 
     const refresh = async () => {
       if (disposed) return;
@@ -278,25 +296,17 @@ function AppInit() {
     const handleFocus = () => void refresh();
 
     void refresh();
-    const intervalId = window.setInterval(() => void refresh(), 10000);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 45_000);
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleFocus);
-
-    try {
-      watcher = (cloudDB.collection('notifications') as any).watch({
-        onChange: () => void refresh(),
-        onError: (error: unknown) => console.warn('[notifications] realtime listener unavailable, polling remains active', error),
-      });
-    } catch (error) {
-      console.warn('[notifications] failed to start realtime listener, polling remains active', error);
-    }
 
     return () => {
       disposed = true;
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleFocus);
-      watcher?.close?.();
     };
   }, [cloudReady, isLoggedIn, user?.id, loadNotifications]);
 
@@ -388,6 +398,7 @@ function AppInit() {
   return (
     <>
       <GlobalDialog />
+      <Suspense fallback={<LoadingScreen message="正在加载页面..." />}>
       <Routes>
         <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <LoginPage />} />
 
@@ -436,6 +447,7 @@ function AppInit() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+      </Suspense>
     </>
   );
 }
