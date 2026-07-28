@@ -3015,7 +3015,7 @@ const DEMAND_GROUPS = [
     title: "基础与房屋",
     fields: [
       ["ownerName", "业主姓名"], ["phone", "联系电话"], ["hostessProfile", "女主人职业、爱好、星座"],
-      ["hostProfile", "男主人职业、爱好、星座"], ["address", "房屋地址 / 小区"], ["homeType", "房屋类型"],
+      ["hostProfile", "男主人职业、爱好、星座"], ["address", "房屋地址 / 小区"], ["homeType", "房屋类型"], ["homeTypeOther", "其他房屋类型"],
       ["floor", "所在楼层"], ["totalFloors", "总楼层"], ["area", "建筑面积（㎡）"], ["budget", "装修预算（万元）"],
       ["startTime", "希望开工时间"], ["moveInTime", "计划入住时间"], ["usePurpose", "房屋使用倾向"]
     ]
@@ -3031,14 +3031,14 @@ const DEMAND_GROUPS = [
     title: "风格与审美",
     fields: [
       ["styleElements", "风格元素"], ["tone", "整体色调"], ["materials", "装修材质"],
-      ["clothingStyle", "着装风格"], ["preferredColors", "偏好颜色"], ["communicationTime", "方案沟通时间"]
+      ["clothingStyle", "着装风格"], ["clothingStyleOther", "其他着装风格"], ["preferredColors", "偏好颜色"], ["preferredColorsOther", "其他偏好颜色"], ["communicationTime", "方案沟通时间"]
     ]
   },
   {
     title: "电器与设备",
     fields: [
       ["smartHome", "智能家居"], ["airSystem", "空调与新风"], ["heating", "暖气规划"], ["windows", "窗户更换"],
-      ["securityDoor", "防盗门与门锁"], ["waterSystem", "净水设备"], ["waterHeater", "热水器"],
+      ["securityDoor", "防盗门与门锁"], ["waterSystem", "净水设备"], ["waterSystemOther", "其他净水设备"], ["waterHeater", "热水器"], ["waterHeaterOther", "其他热水器"],
       ["kitchenAppliances", "厨房电器"], ["otherAppliances", "其他电器"], ["instruments", "钢琴或乐器"]
     ]
   },
@@ -3046,14 +3046,14 @@ const DEMAND_GROUPS = [
     title: "收纳与生活",
     fields: [
       ["bookcase", "书柜需求"], ["luggage", "行李箱收纳"], ["entryHanging", "入户挂衣"], ["cleanClothes", "次净衣收纳"],
-      ["otherStorage", "其他重点收纳"], ["sideboard", "餐边柜侧重"], ["hobbies", "家庭爱好"], ["gatherings", "亲友聚会"],
-      ["workspace", "阅读 / 工作空间"], ["vanity", "梳妆习惯"], ["pets", "宠物情况"], ["mirror", "全身镜"], ["collections", "珍藏品展示"]
+      ["otherStorage", "其他重点收纳"], ["sideboard", "餐边柜侧重"], ["hobbies", "家庭爱好"], ["hobbiesOther", "其他家庭爱好"], ["gatherings", "亲友聚会"],
+      ["workspace", "阅读 / 工作空间"], ["vanity", "梳妆习惯"], ["pets", "宠物情况"], ["mirror", "全身镜"], ["collections", "珍藏品展示"], ["collectionsOther", "其他珍藏品"]
     ]
   },
   {
     title: "区域需求",
     fields: [
-      ["sofa", "沙发类型与材质"], ["flooring", "地面材质"], ["walls", "墙面材质"], ["tvStorage", "电视墙储物"],
+      ["sofa", "沙发类型与材质"], ["flooring", "地面材质"], ["walls", "墙面材质"], ["wallsOther", "其他墙面材质"], ["tvStorage", "电视墙储物"],
       ["cookingFrequency", "做饭频率"], ["cookingPerson", "做饭人员"], ["cookHeight", "做饭人员身高"],
       ["bedroomMood", "主卧环境"], ["safe", "保险柜"], ["bathroom", "卫生间"], ["stairs", "楼梯"]
     ]
