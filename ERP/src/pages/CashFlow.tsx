@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Download, TrendingUp, TrendingDown, DollarSign, X } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip } from 'lucide-react';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatDate } from '@/utils/format';
 import { exportToExcel } from '@/utils/export';
+import { downloadAttachment, normalizeAttachments } from '@/utils/financeAttachments';
 import dayjs from 'dayjs';
 import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
@@ -12,6 +13,7 @@ import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import { useIncrementalList } from '@/hooks/useListViewportState';
 import { useNavigate } from 'react-router-dom';
+import type { AttachmentValue } from '@/types';
 
 interface FlowItem {
   id: string;
@@ -28,6 +30,7 @@ interface FlowItem {
   paymentMethod?: string;
   status?: string;
   remark?: string;
+  attachments?: AttachmentValue[];
 }
 
 export default function CashFlow() {
@@ -81,6 +84,7 @@ export default function CashFlow() {
         stage: r.stage,
         paymentMethod: r.paymentMethod,
         remark: r.remark,
+        attachments: r.attachments || [],
         summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
       })),
       ...filteredExpenses.map((e) => ({
@@ -96,6 +100,7 @@ export default function CashFlow() {
         paymentMethod: e.payMethod,
         status: e.status,
         remark: e.remark,
+        attachments: e.attachments || [],
         summary: `${e.category}${e.remark ? ' - ' + e.remark : ''}`,
       })),
     ];
@@ -206,13 +211,51 @@ export default function CashFlow() {
         );
       },
     },
-    { key: 'contractNo', title: '合同编号', sortable: true, render: (row: FlowItem) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs font-mono">
-          {row.contractNo}
+    {
+      key: 'address',
+      title: '地址',
+      sortable: true,
+      render: (row: FlowItem) => (
+        <span className="block max-w-[220px] truncate font-medium text-gray-900" title={row.address || '-'}>
+          {row.address || '-'}
         </span>
-      )},
-    { key: 'relatedParty', title: '关联方', sortable: true },
-    { key: 'summary', title: '说明' },
+      ),
+    },
+    {
+      key: 'relatedParty',
+      title: '姓名',
+      sortable: true,
+      render: (row: FlowItem) => <span className="text-gray-700">{row.relatedParty || '-'}</span>,
+    },
+    {
+      key: 'summary',
+      title: '说明',
+      render: (row: FlowItem) => (
+        <span className="block max-w-[260px] truncate text-gray-600" title={row.summary || '-'}>
+          {row.summary || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'contractAction',
+      title: '合同详情',
+      width: '96px',
+      render: (row: FlowItem) => (
+        row.contractId ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(`/contracts/${row.contractId}`);
+            }}
+            className="inline-flex items-center gap-1 rounded-md bg-gold-50 px-2 py-1 text-xs font-medium text-gold-700 hover:bg-gold-100"
+          >
+            <ExternalLink size={12} />
+            查看
+          </button>
+        ) : <span className="text-xs text-gray-300">-</span>
+      ),
+    },
   ];
 
   const mobileColumns = [
@@ -407,12 +450,14 @@ export default function CashFlow() {
             </div>
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <DetailItem label="合同编号" value={selectedFlow.contractNo || '-'} />
-              <DetailItem label="关联客户/收款方" value={selectedFlow.relatedParty || '-'} />
+              <DetailItem label={selectedFlow.type === '收款' ? '客户姓名' : '收款方/供应商'} value={selectedFlow.relatedParty || '-'} />
+              <DetailItem label="项目地址" value={selectedFlow.address || '-'} wide />
               <DetailItem label={selectedFlow.type === '收款' ? '收款阶段' : '支出类别'} value={selectedFlow.type === '收款' ? (selectedFlow.stage || '-') : (selectedFlow.category || '-')} />
               <DetailItem label={selectedFlow.type === '收款' ? '收款方式' : '支出方式'} value={selectedFlow.paymentMethod || '-'} />
               {selectedFlow.status ? <DetailItem label="状态" value={selectedFlow.status} /> : null}
               <DetailItem label="备注" value={selectedFlow.remark || '-'} wide />
             </div>
+            <AttachmentSection attachments={selectedFlow.attachments || []} />
             {selectedFlow.contractId ? (
               <button
                 type="button"
@@ -438,6 +483,43 @@ function DetailItem({ label, value, wide = false }: { label: string; value: stri
     <div className={`rounded-lg border border-gray-100 bg-white px-3 py-2.5 ${wide ? 'sm:col-span-2' : ''}`}>
       <p className="text-xs text-gray-400">{label}</p>
       <p className="mt-1 break-words text-sm font-medium text-gray-800">{value}</p>
+    </div>
+  );
+}
+
+function AttachmentSection({ attachments }: { attachments: AttachmentValue[] }) {
+  const files = normalizeAttachments(attachments);
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+          <Paperclip size={14} />
+          凭证附件
+        </div>
+        <span className="text-xs text-gray-400">{files.length} 个</span>
+      </div>
+      {files.length === 0 ? (
+        <p className="py-3 text-center text-xs text-gray-400">暂无凭证附件</p>
+      ) : (
+        <div className="space-y-2">
+          {files.map((file, index) => (
+            <div key={`${file.fileID || file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-800" title={file.name}>{file.name}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">{file.uploader || '-'}{file.sizeStr ? ` · ${file.sizeStr}` : ''}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void downloadAttachment(file)}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+              >
+                <Download size={13} />
+                下载
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

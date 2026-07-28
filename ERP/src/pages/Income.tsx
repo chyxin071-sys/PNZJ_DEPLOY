@@ -255,9 +255,6 @@ export default function Income() {
         remark: '',
         attachments: [],
       });
-      if (!editingId && receiptData.contractId) {
-        navigate(`/contracts/${receiptData.contractId}`);
-      }
     } catch (error: any) {
       console.error('收款保存失败', error);
       alert(error?.message || '收款保存失败，请重试');

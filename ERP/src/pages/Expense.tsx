@@ -241,9 +241,6 @@ export default function Expense() {
         remark: '',
         attachments: [],
       });
-      if (!editingId && payload.contractId) {
-        navigate(`/contracts/${payload.contractId}`);
-      }
     } catch (error: any) {
       console.error('支出保存失败', error);
       alert(error?.message || '支出保存失败，请重试');
