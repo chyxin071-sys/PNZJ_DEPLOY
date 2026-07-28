@@ -281,7 +281,7 @@ export default function CashFlow() {
 
       {/* 汇总卡片 */}
       <div className="erp-finance-stats">
-        <button type="button" onClick={() => setFlowType('收款')} className="erp-finance-stat-button">
+        <button type="button" onClick={() => setFlowType('收款')} className={`erp-finance-stat-button ${flowType === '收款' ? 'is-active' : ''}`}>
           <StatCard
             title="收入总额"
             value={formatMoney(incomeTotal)}
@@ -290,7 +290,7 @@ export default function CashFlow() {
             sub="点击查看收入流水"
           />
         </button>
-        <button type="button" onClick={() => setFlowType('支出')} className="erp-finance-stat-button">
+        <button type="button" onClick={() => setFlowType('支出')} className={`erp-finance-stat-button ${flowType === '支出' ? 'is-active' : ''}`}>
           <StatCard
             title="支出总额"
             value={formatMoney(expenseTotal)}
@@ -299,7 +299,7 @@ export default function CashFlow() {
             sub="点击查看支出流水"
           />
         </button>
-        <button type="button" onClick={() => setFlowType('全部')} className="erp-finance-stat-button">
+        <button type="button" onClick={() => setFlowType('全部')} className={`erp-finance-stat-button ${flowType === '全部' ? 'is-active' : ''}`}>
           <StatCard
             title="净额"
             value={formatMoney(netTotal)}
@@ -387,19 +387,19 @@ export default function CashFlow() {
       <Modal open={!!selectedFlow} onClose={() => setSelectedFlow(null)} title="流水详情">
         {selectedFlow && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-gray-50 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400">{formatDate(selectedFlow.date)}</p>
-                  <p className="mt-1 line-clamp-2 text-base font-semibold text-gray-900">
+                  <p className="mt-1 break-words text-base font-semibold leading-6 text-gray-900">
                     {selectedFlow.address || selectedFlow.relatedParty || '-'}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="shrink-0 sm:text-right">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${selectedFlow.type === '收款' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
                     {selectedFlow.type}
                   </span>
-                  <p className={`mt-1 text-lg font-bold ${selectedFlow.type === '收款' ? 'text-emerald-600' : 'text-red-500'}`}>
+                  <p className={`mt-1 break-all text-xl font-bold leading-7 ${selectedFlow.type === '收款' ? 'text-emerald-600' : 'text-red-500'}`}>
                     {selectedFlow.type === '收款' ? '+' : '-'}{formatMoney(selectedFlow.amount)}
                   </p>
                 </div>

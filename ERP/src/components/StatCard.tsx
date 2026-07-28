@@ -33,7 +33,7 @@ export default function StatCard({ title, value, sub, icon: Icon, accent, change
       </div>
       <p className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">{value}</p>
       <div className="flex items-center gap-2 mt-1">
-        {sub && <span className="text-[11px] md:text-xs text-gray-400">{sub}</span>}
+        {sub && !sub.includes('点击') && <span className="text-[11px] md:text-xs text-gray-400">{sub}</span>}
         {change !== undefined && change !== 0 && (
           <span className={`inline-flex items-center gap-0.5 text-[11px] md:text-xs font-medium ${isUp ? 'text-emerald-600' : 'text-red-500'}`}>
             {isUp ? '▲' : '▼'} {Math.abs(change).toFixed(1)}%

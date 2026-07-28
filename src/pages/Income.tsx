@@ -394,13 +394,13 @@ export default function Income() {
 
       {canSeeAllFinancial && (
         <div className="erp-finance-stats">
-          <button type="button" onClick={clearFinanceFilters} className="erp-finance-stat-button">
+          <button type="button" onClick={clearFinanceFilters} className={`erp-finance-stat-button ${!filterYear && !search ? 'is-active' : ''}`}>
             <StatCard title="收款总额" value={formatMoney(totalIncome)} icon={DollarSign} accent="emerald" sub="点击查看全部收款" />
           </button>
-          <button type="button" onClick={filterCurrentMonth} className="erp-finance-stat-button">
+          <button type="button" onClick={filterCurrentMonth} className={`erp-finance-stat-button ${filterYear === String(now.getFullYear()) && filterMonthFrom === String(now.getMonth() + 1) && filterMonthTo === String(now.getMonth() + 1) ? 'is-active' : ''}`}>
             <StatCard title="本月收款" value={formatMoney(monthIncome)} icon={TrendingUp} accent="emerald" sub="点击筛选本月" />
           </button>
-          <button type="button" onClick={clearFinanceFilters} className="erp-finance-stat-button">
+          <button type="button" onClick={clearFinanceFilters} className={`erp-finance-stat-button ${!filterYear && !search ? 'is-active' : ''}`}>
             <StatCard title="收款笔数" value={`${filtered.length} 笔`} icon={Receipt} accent="emerald" sub="点击查看全部记录" />
           </button>
         </div>

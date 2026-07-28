@@ -4,7 +4,7 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { leadsAPI, followUpsAPI, projectsAPI, usersAPI, contractsAPI, systemConfigsAPI } from '@/db/api';
 import { cloudDB } from '@/db/cloudbase';
 import { useFinanceStore } from '@/store/financeStore';
-import { uploadFile as uploadToCloud, getTempFileURL, downloadFile as cloudDownloadFile } from '@/utils/cloudStorage';
+import { uploadFile as uploadToCloud, getTempFileURL, getFileDataURL, downloadFile as cloudDownloadFile } from '@/utils/cloudStorage';
 import DatePicker from '@/components/DatePicker';
 import BottomDrawer from '@/components/BottomDrawer';
 import ContractDrawer from '@/components/ContractDrawer';
@@ -869,8 +869,17 @@ export default function LeadDetail() {
     const allImgIds: string[] = [];
     materials.forEach(m => { if (m.images?.length) allImgIds.push(...m.images); });
     if (!allImgIds.length) return;
-    const urls = await getTempFileURL(allImgIds);
-    setMatImageUrls(prev => ({ ...prev, ...urls }));
+    const ids = Array.from(new Set(allImgIds.filter(Boolean)));
+    const entries = await Promise.all(ids.map(async (fileID) => {
+      if (/^(https?:|data:|blob:)/i.test(fileID)) return [fileID, fileID] as const;
+      try {
+        return [fileID, await getFileDataURL(fileID, 'thumbnail')] as const;
+      } catch {
+        const urls = await getTempFileURL([fileID]);
+        return [fileID, urls[fileID]] as const;
+      }
+    }));
+    setMatImageUrls(prev => ({ ...prev, ...Object.fromEntries(entries.filter(([, url]) => !!url)) }));
   };
 
   useEffect(() => {
@@ -880,8 +889,17 @@ export default function LeadDetail() {
   const loadFileThumbUrls = async (files: any[]) => {
     const imgFiles = files.filter((f: any) => (f.type || getFileType(f.name)) === 'image');
     if (!imgFiles.length) return;
-    const urls = await getTempFileURL(imgFiles.map((f: any) => f.fileID));
-    setFileImgUrls(prev => ({ ...prev, ...urls }));
+    const ids = Array.from(new Set(imgFiles.map((f: any) => f.fileID).filter(Boolean)));
+    const entries = await Promise.all(ids.map(async (fileID) => {
+      if (/^(https?:|data:|blob:)/i.test(fileID)) return [fileID, fileID] as const;
+      try {
+        return [fileID, await getFileDataURL(fileID, 'thumbnail')] as const;
+      } catch {
+        const urls = await getTempFileURL([fileID]);
+        return [fileID, urls[fileID]] as const;
+      }
+    }));
+    setFileImgUrls(prev => ({ ...prev, ...Object.fromEntries(entries.filter(([, url]) => !!url)) }));
   };
 
   useEffect(() => {
@@ -3175,19 +3193,19 @@ export default function LeadDetail() {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="bg-gray-50/60 border-b border-gray-100">
-                                <th className="text-center text-[11px] text-gray-400 font-medium px-3 py-2.5 w-10">#</th>
-                                <th className="text-center text-[11px] text-gray-400 font-medium px-3 py-2.5 w-20">图片</th>
+                                <th className="text-center text-[11px] text-gray-700 font-semibold px-3 py-2.5 w-10">#</th>
+                                <th className="text-center text-[11px] text-gray-700 font-semibold px-3 py-2.5 w-20">图片</th>
                                 {getMaterialColumns(group.category).map(c => (
-                                  <th key={c.key} className={`text-left text-[11px] px-3 py-2.5 ${c.primary ? 'text-gray-500 font-semibold uppercase tracking-wide' : 'text-gray-400 font-normal'}`}>{c.label}</th>
+                                  <th key={c.key} className={`text-left text-[11px] px-3 py-2.5 ${c.primary ? 'text-gray-800 font-semibold uppercase tracking-wide' : 'text-gray-700 font-semibold'}`}>{c.label}</th>
                                 ))}
-                                <th className="text-left text-[11px] text-gray-400 font-normal px-3 py-2.5">备注</th>
-                                <th className="text-center text-[11px] text-gray-400 font-medium px-3 py-2.5 w-20">操作</th>
+                                <th className="text-left text-[11px] text-gray-700 font-semibold px-3 py-2.5">备注</th>
+                                <th className="text-center text-[11px] text-gray-700 font-semibold px-3 py-2.5 w-20">操作</th>
                               </tr>
                             </thead>
                             <tbody>
                               {group.items.map((item: any, idx: number) => (
                                 <tr key={item.id} className="border-b border-gray-50 hover:bg-gold-50/20 transition-colors group/row">
-                                  <td className="px-3 py-3 text-center text-xs text-gray-400">{idx + 1}</td>
+                                  <td className="px-3 py-3 text-center text-xs text-gray-700">{idx + 1}</td>
                                   <td className="px-3 py-3">
                                     {item.images?.length > 0 ? (
                                       <div className="relative cursor-pointer shrink-0 inline-block" onClick={() => {
@@ -3214,7 +3232,7 @@ export default function LeadDetail() {
                                     )}
                                   </td>
                                   {getMaterialColumns(group.category).map(c => (
-                                    <td key={c.key} className={`px-3 py-3 ${c.primary ? 'text-gray-900 font-semibold text-[13px]' : 'text-gray-500 text-xs'}`}>
+                                    <td key={c.key} className={`px-3 py-3 ${c.primary ? 'text-gray-900 font-semibold text-[13px]' : 'text-gray-900 text-xs font-medium'}`}>
                                       <span className={c.primary ? '' : 'truncate max-w-[80px] lg:max-w-[120px] inline-block'} title={getCellValue(item, c.key) !== '-' ? getCellValue(item, c.key) : ''}>
                                         {getCellValue(item, c.key)}
                                       </span>
@@ -3539,7 +3557,7 @@ export default function LeadDetail() {
                               <div key={folder}>
                                 <div className="flex items-center gap-2 mb-2.5">
                                   <Folder size={13} className="text-gray-400" />
-                                  <span className="text-xs font-semibold text-gray-500">{folder}</span>
+                                  <span className="text-xs font-semibold text-gray-900">{folder}</span>
                                   <span className="text-xs text-gray-400">{folderFiles.length}个</span>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -3557,7 +3575,7 @@ export default function LeadDetail() {
                                              <FileTy type={fType} size={24} />
                                            )}
                                          </div>
-                                         <p className="text-xs text-gray-700 truncate mb-1 font-medium">{file.name}</p>
+                                         <p className="text-xs text-gray-900 truncate mb-1 font-semibold">{file.name}</p>
                                          <div className="flex items-center justify-between">
                                            <span className="text-[11px] text-gray-400">{file.sizeStr || formatSize(file.size)}</span>
                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${file.isVisible !== false ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
@@ -3616,7 +3634,7 @@ export default function LeadDetail() {
                                     <FileTy type={sType} size={24} />
                                   )}
                                 </div>
-                                <p className="text-xs text-gray-700 truncate mb-1 font-medium">{file.name}</p>
+                                <p className="text-xs text-gray-900 truncate mb-1 font-semibold">{file.name}</p>
                                 <div className="flex items-center justify-between">
                                   <span className="text-[11px] text-gray-400">{file.sizeStr || formatSize(file.size)}</span>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded ${file.isVisible !== false ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>

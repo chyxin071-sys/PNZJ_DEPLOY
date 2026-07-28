@@ -1156,7 +1156,7 @@ export default function ContractDetail() {
   return (
     <div className="erp-page-spaced max-w-7xl mx-auto">
       {/* 页头 */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-row items-start justify-between gap-3 md:items-center">
         <div className="flex min-w-0 items-start gap-3 md:flex-1 md:items-center">
           <button
             onClick={() => smartBack()}
@@ -1166,7 +1166,7 @@ export default function ContractDetail() {
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="flex min-w-0 flex-wrap items-center gap-2 text-base font-bold text-gray-900 md:flex-nowrap">
-              <span className="min-w-0 max-w-full truncate">{contract.customerName || (isHomeContract ? '未关联客户' : '未填写甲方')}</span>
+              <span className="min-w-0 max-w-full truncate">{normalizeAddress(contract.houseAddress) || contract.customerName || (isHomeContract ? '未关联客户' : '未填写甲方')}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
                 contract.status === '进行中' ? 'bg-blue-50 text-blue-600' :
                 contract.status === '已结算' ? 'bg-emerald-50 text-emerald-600' :
@@ -1176,15 +1176,15 @@ export default function ContractDetail() {
               </span>
             </h1>
             <p className="text-gray-500 text-xs mt-0.5 truncate">
-              {contract.contractNo || '未填写合同编号'}{contract.houseAddress ? ` · ${normalizeAddress(contract.houseAddress)}` : ''}
+              {contract.customerName || (isHomeContract ? '未关联客户' : '未填写甲方')}{contract.contractNo ? ` · ${contract.contractNo}` : ''}
             </p>
           </div>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 md:ml-3 md:flex md:w-auto md:shrink-0 md:flex-wrap md:items-center md:justify-end">
-          <button onClick={handleOpenEdit} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:px-4">
-            编辑资料
+        <div className="grid shrink-0 grid-cols-1 gap-1.5 md:ml-3 md:flex md:w-auto md:flex-wrap md:items-center md:justify-end md:gap-2">
+          <button onClick={handleOpenEdit} className="inline-flex h-7 w-[58px] items-center justify-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-9 md:w-auto md:px-4 md:text-sm">
+            编辑
           </button>
-          <button onClick={() => isAdmin ? handleDeleteContract() : showAlert('只有管理员有权限')} className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 md:px-4">
+          <button onClick={() => isAdmin ? handleDeleteContract() : showAlert('只有管理员有权限')} className="inline-flex h-7 w-[58px] items-center justify-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 md:h-9 md:w-auto md:px-4 md:text-sm">
             删除
           </button>
           {canViewFinance && (
@@ -1200,7 +1200,7 @@ export default function ContractDetail() {
       </div>
 
       {/* StatCard区 */}
-      <div className={`grid ${isMobile ? 'grid-cols-2' : showInvoiceFeature ? 'grid-cols-5' : 'grid-cols-4'} gap-3 md:gap-4`}>
+      <div className={`grid ${isMobile ? 'grid-cols-1' : showInvoiceFeature ? 'grid-cols-5' : 'grid-cols-4'} gap-2.5 md:gap-4`}>
         <StatCard
           title="合同金额"
           value={formatMoney(contract.contractAmount)}
@@ -1267,6 +1267,15 @@ export default function ContractDetail() {
                 )}
                 <InfoItem label="合同金额" value={formatMoney(contract.contractAmount || 0)} />
                 <InfoItem label="备注" value={contract.remark || '-'} />
+                {isHomeContract && (
+                  <button
+                    type="button"
+                    onClick={handleJumpToCustomer}
+                    className="justify-self-start text-xs font-medium text-gold-600 hover:text-gold-700"
+                  >
+                    查看客户详情页
+                  </button>
+                )}
               </div>
 
               <div className="hidden md:grid md:grid-cols-2 md:gap-x-16 md:gap-y-4">
@@ -1297,6 +1306,15 @@ export default function ContractDetail() {
                 <div className="md:col-span-2 pt-1">
                   <InfoItem label="备注" value={contract.remark || '-'} />
                 </div>
+                {isHomeContract && (
+                  <button
+                    type="button"
+                    onClick={handleJumpToCustomer}
+                    className="md:col-span-2 justify-self-start text-xs font-medium text-gold-600 hover:text-gold-700"
+                  >
+                    查看客户详情页
+                  </button>
+                )}
               </div>
             </div>
           )}

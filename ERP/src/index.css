@@ -119,7 +119,11 @@ body {
   }
 
   .erp-finance-stat-button > div {
-    @apply h-full;
+    @apply h-full border border-gray-100;
+  }
+
+  .erp-finance-stat-button.is-active > div {
+    @apply border-gold-400 shadow-sm;
   }
 
   .erp-finance-stats > div,
@@ -166,7 +170,7 @@ body {
   }
 
   .erp-finance-date-row .erp-select:first-child {
-    flex: 1.18 1 0;
+    flex: 1.35 1 0;
   }
 
   .erp-finance-action-row .erp-search-input {
@@ -206,7 +210,7 @@ body {
 
     .erp-finance-date-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-columns: minmax(88px, 1.35fr) minmax(0, 1fr) auto minmax(0, 1fr);
       gap: 8px;
       align-items: center;
     }
@@ -232,7 +236,7 @@ body {
     }
 
     .erp-finance-action-row .erp-finance-type-select {
-      width: 118px;
+      width: 126px;
     }
 
     .erp-finance-action-row .erp-search-input {

@@ -394,13 +394,13 @@ export default function Expense() {
 
       {/* 汇总卡片 */}
       <div className="erp-finance-stats">
-        <button type="button" onClick={clearFilters} className="erp-finance-stat-button">
+        <button type="button" onClick={clearFilters} className={`erp-finance-stat-button ${activeTab === '全部' && !filterYear && !search ? 'is-active' : ''}`}>
           <StatCard title="支出总额" value={formatMoney(totalExpense)} icon={TrendingDown} accent="red" sub="点击查看全部支出" />
         </button>
-        <button type="button" onClick={filterCurrentMonth} className="erp-finance-stat-button">
+        <button type="button" onClick={filterCurrentMonth} className={`erp-finance-stat-button ${filterYear === String(now.getFullYear()) && filterMonthFrom === String(now.getMonth() + 1) && filterMonthTo === String(now.getMonth() + 1) ? 'is-active' : ''}`}>
           <StatCard title="本月支出" value={formatMoney(monthExpense)} icon={DollarSign} accent="red" sub="点击筛选本月" />
         </button>
-        <button type="button" onClick={clearFilters} className="erp-finance-stat-button">
+        <button type="button" onClick={clearFilters} className={`erp-finance-stat-button ${activeTab === '全部' && !filterYear && !search ? 'is-active' : ''}`}>
           <StatCard title="支出笔数" value={`${filtered.length} 笔`} icon={FileText} accent="red" sub="点击查看全部记录" />
         </button>
       </div>
