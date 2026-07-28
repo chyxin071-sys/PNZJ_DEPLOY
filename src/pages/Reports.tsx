@@ -40,10 +40,13 @@ export default function ReportsPage() {
   const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
   const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
   const supportsInvoices = currentBizType === '工装';
-  const includeGeneralLedger = false;
   const filteredInvoices = useMemo(() => supportsInvoices ? invoices.filter(i => i.bizType === currentBizType) : [], [invoices, currentBizType, supportsInvoices]);
-  const scopedGeneralIncomes = includeGeneralLedger ? generalIncomes : [];
-  const scopedGeneralExpenses = includeGeneralLedger ? generalExpenses : [];
+  const ledgerBelongsToCurrentBiz = (item: { bizType?: string }) => {
+    if (item.bizType) return item.bizType === currentBizType;
+    return currentBizType === '家装';
+  };
+  const scopedGeneralIncomes = useMemo(() => generalIncomes.filter(ledgerBelongsToCurrentBiz), [generalIncomes, currentBizType]);
+  const scopedGeneralExpenses = useMemo(() => generalExpenses.filter(ledgerBelongsToCurrentBiz), [generalExpenses, currentBizType]);
 
   const availableYears = useMemo(() => {
     const dates = [
@@ -169,7 +172,7 @@ export default function ReportsPage() {
 
   const reportScopeNote = (
     <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs leading-5 text-amber-700">
-      当前口径：{currentBizType}项目收款按收款日期统计，项目支出按支出日期统计。家装报表只统计家装合同关联的收支，不再混入总店收入/支出、开票、应收或应付数据。
+      当前口径：{currentBizType}合同收款按收款日期统计，项目支出按支出日期统计，店内收支按所属业务统计；历史未标记业务类型的店内收支默认归入家装，不混入工装。
     </div>
   );
 

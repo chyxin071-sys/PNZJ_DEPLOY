@@ -8,6 +8,7 @@ import Select from '@/components/Select';
 import FormAttachmentList from '@/components/FormAttachmentList';
 import { useFinanceStore } from '@/store/financeStore';
 import { useAuthStore } from '@/store/authStore';
+import { useBizStore } from '@/store/bizStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useDialogStore } from '@/store/dialogStore';
 import { formatMoney, formatDate, generateId } from '@/utils/format';
@@ -32,6 +33,7 @@ export default function ReimbursementPage() {
   const [localPreviewIndex, setLocalPreviewIndex] = useState<number | null>(null);
   const navigate = useNavigate();
   const { reimbursements, contracts, addReimbursement, updateReimbursement, deleteReimbursement } = useFinanceStore();
+  const { currentBizType } = useBizStore();
   const { user, users } = useAuthStore();
   const { addNotification } = useNotificationStore();
   const { showConfirm, showAlert } = useDialogStore();
@@ -66,6 +68,16 @@ export default function ReimbursementPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const payFileRef = useRef<HTMLInputElement>(null);
+  const scopedContracts = useMemo(
+    () => contracts.filter((c) => c.bizType === currentBizType && (canSeeAllFinancial || c.createdBy === myName)),
+    [contracts, currentBizType, canSeeAllFinancial, myName]
+  );
+
+  useEffect(() => {
+    if (!form.contractId) return;
+    if (scopedContracts.some((c) => c.id === form.contractId)) return;
+    setForm((prev) => ({ ...prev, contractId: '' }));
+  }, [form.contractId, scopedContracts]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -392,7 +404,7 @@ export default function ReimbursementPage() {
                 searchable
                 options={[
                   { value: '', label: '非项目报销（公司日常费用等）' },
-                  ...contracts.filter(c => canSeeAllFinancial || c.createdBy === myName).map(c => ({ value: c.id, label: `${c.houseAddress} (${c.customerName})` }))
+                  ...scopedContracts.map(c => ({ value: c.id, label: `${c.houseAddress} (${c.customerName})` }))
                 ]} 
               />
             </div>

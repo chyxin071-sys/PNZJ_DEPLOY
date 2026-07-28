@@ -139,6 +139,7 @@ export interface Reimbursement {
 export interface GeneralIncome {
   _id?: string;
   id: string;
+  bizType?: BizType;
   category: '设计费' | '管理费' | '其他收入';
   amount: number;
   source: string;
@@ -151,6 +152,7 @@ export interface GeneralIncome {
 export interface GeneralExpense {
   _id?: string;
   id: string;
+  bizType?: BizType;
   category: '房租' | '水电物业' | '行政工资' | '办公用品' | '营销推广' | '交通物流' | '其他';
   amount: number;
   payee: string;
