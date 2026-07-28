@@ -3046,7 +3046,7 @@ export default function ProjectBizDetail() {
                                                     if (p.isUploading) return;
                                                     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
                                                     const isSecCompleted = section.status === 'completed' || section.submitted;
-                                                    if (isMobile && !isSecCompleted) {
+                                                    if (canEditRecord && isMobile && !isSecCompleted) {
                                                       setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
                                                     } else {
                                                       openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi });
@@ -3670,7 +3670,7 @@ export default function ProjectBizDetail() {
                                                     if (p.isUploading) return;
                                                     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
                                                     const isSecCompleted = section.status === 'completed' || section.submitted;
-                                                    if (isMobile && !isSecCompleted) {
+                                                    if (canEditRecord && isMobile && !isSecCompleted) {
                                                       setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
                                                     } else {
                                                       openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi });
