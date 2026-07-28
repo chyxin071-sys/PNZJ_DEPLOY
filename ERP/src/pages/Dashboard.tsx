@@ -145,37 +145,86 @@ export default function Dashboard() {
   }).length;
 
   // ====== 快捷入口 ======
-  const employeeActions = [
-    { label: '新建客户', action: 'newLead', icon: Plus, tone: 'bg-blue-50 text-blue-600' },
-    { label: '新增收款', action: 'newIncome', icon: ArrowUpRight, tone: 'bg-emerald-50 text-emerald-600' },
+  const actionItems = {
+    newLead: { label: '新建客户', action: 'newLead', icon: Plus, tone: 'bg-blue-50 text-blue-600' },
+    newContract: { label: '新增合同', action: 'newContract', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
+    newIncome: { label: '新增收款', action: 'newIncome', icon: ArrowUpRight, tone: 'bg-emerald-50 text-emerald-600' },
+    newExpense: { label: '新建支出', action: 'newExpense', icon: Receipt, tone: 'bg-orange-50 text-orange-600' },
+    newReimbursement: { label: '新建报销', action: 'newReimbursement', icon: Receipt, tone: 'bg-rose-50 text-rose-600' },
+    newTodo: { label: '新建待办', action: 'newTodo', icon: CheckCircle2, tone: 'bg-violet-50 text-violet-600' },
+    reimbursement: { label: '报销管理', action: 'reimbursement', icon: Receipt, tone: 'bg-pink-50 text-pink-600' },
+    contracts: { label: '合同管理', action: 'contracts', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
+    contractsShort: { label: '合同', action: 'contracts', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
+    leads: { label: '客户管理', action: 'leads', icon: Users, tone: 'bg-blue-50 text-blue-600' },
+    leadsShort: { label: '客户', action: 'leads', icon: Users, tone: 'bg-blue-50 text-blue-600' },
+    projects: { label: '工地管理', action: 'projects', icon: HardHat, tone: 'bg-amber-50 text-amber-600' },
+    projectsShort: { label: '工地', action: 'projects', icon: HardHat, tone: 'bg-amber-50 text-amber-600' },
+    materials: { label: '库存管理', action: 'materials', icon: Package, tone: 'bg-cyan-50 text-cyan-700' },
+    materialsShort: { label: '库存', action: 'materials', icon: Package, tone: 'bg-cyan-50 text-cyan-700' },
+    reports: { label: '财务报表', action: 'reports', icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600' },
+    cashflow: { label: '资金流水', action: 'cashflow', icon: TrendingUp, tone: 'bg-sky-50 text-sky-600' },
+    projectCost: { label: '项目成本', action: 'projectCost', icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600' },
+    employees: { label: '组织架构', action: 'employees', icon: Users, tone: 'bg-slate-100 text-slate-700' },
+    profile: { label: '个人中心', action: 'profile', icon: UserIcon, tone: 'bg-gray-100 text-gray-700' },
+  };
+
+  const employeeDesktopActions = [
+    actionItems.newLead,
+    actionItems.newContract,
+    actionItems.newIncome,
+    actionItems.newReimbursement,
+    actionItems.newTodo,
+    actionItems.materials,
+    actionItems.profile,
+  ];
+
+  const employeeMobileActions = [
+    actionItems.newLead,
+    actionItems.newIncome,
     { label: '新建工地', action: 'newProject', icon: HardHat, tone: 'bg-amber-50 text-amber-600' },
-    { label: '新建待办', action: 'newTodo', icon: CheckCircle2, tone: 'bg-violet-50 text-violet-600' },
+    actionItems.newTodo,
     { label: '报销', action: 'reimbursement', icon: Receipt, tone: 'bg-orange-50 text-orange-600' },
-    { label: '合同', action: 'contracts', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
-    { label: '库存', action: 'materials', icon: Package, tone: 'bg-cyan-50 text-cyan-700' },
-    { label: '个人中心', action: 'profile', icon: UserIcon, tone: 'bg-slate-100 text-slate-700' },
+    actionItems.contractsShort,
+    actionItems.materialsShort,
+    actionItems.profile,
   ];
 
-  const adminActions = [
-    { label: '新建客户', action: 'newLead', icon: Plus, tone: 'bg-blue-50 text-blue-600' },
-    { label: '新增合同', action: 'newContract', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
-    { label: '新增收款', action: 'newIncome', icon: ArrowUpRight, tone: 'bg-emerald-50 text-emerald-600' },
-    { label: '新建支出', action: 'newExpense', icon: Receipt, tone: 'bg-orange-50 text-orange-600' },
-    { label: '新建报销', action: 'newReimbursement', icon: Receipt, tone: 'bg-rose-50 text-rose-600' },
-    { label: '新建待办', action: 'newTodo', icon: CheckCircle2, tone: 'bg-violet-50 text-violet-600' },
-    { label: '报销管理', action: 'reimbursement', icon: Receipt, tone: 'bg-pink-50 text-pink-600' },
-    { label: '组织架构', action: 'employees', icon: Users, tone: 'bg-slate-100 text-slate-700' },
-    { label: '合同管理', action: 'contracts', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
-    { label: '客户管理', action: 'leads', icon: Users, tone: 'bg-blue-50 text-blue-600' },
-    { label: '工地管理', action: 'projects', icon: HardHat, tone: 'bg-amber-50 text-amber-600' },
-    { label: '库存管理', action: 'materials', icon: Package, tone: 'bg-cyan-50 text-cyan-700' },
-    { label: '资金流水', action: 'cashflow', icon: TrendingUp, tone: 'bg-sky-50 text-sky-600' },
-    { label: '项目成本', action: 'projectCost', icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600' },
-    { label: '组织架构', action: 'employees', icon: Users, tone: 'bg-slate-100 text-slate-700' },
-    { label: '个人中心', action: 'profile', icon: UserIcon, tone: 'bg-gray-100 text-gray-700' },
+  const adminDesktopActions = [
+    actionItems.newLead,
+    actionItems.newContract,
+    actionItems.newIncome,
+    actionItems.newExpense,
+    actionItems.newReimbursement,
+    actionItems.newTodo,
+    actionItems.reimbursement,
+    actionItems.employees,
+    actionItems.contracts,
+    actionItems.leads,
+    actionItems.projects,
+    actionItems.materials,
+    actionItems.cashflow,
+    actionItems.projectCost,
+    actionItems.employees,
+    actionItems.profile,
   ];
 
-  const quickActions = isAdmin ? adminActions : employeeActions;
+  const adminMobileActions = [
+    actionItems.newLead,
+    actionItems.newContract,
+    actionItems.newIncome,
+    actionItems.newExpense,
+    actionItems.contractsShort,
+    actionItems.leadsShort,
+    actionItems.projectsShort,
+    actionItems.materialsShort,
+    actionItems.reports,
+    actionItems.cashflow,
+    actionItems.reimbursement,
+    actionItems.profile,
+  ];
+
+  const desktopQuickActions = isAdmin ? adminDesktopActions : employeeDesktopActions;
+  const mobileQuickActions = isAdmin ? adminMobileActions : employeeMobileActions;
 
   const handleQuickAction = (action: string) => {
     switch (action) {
@@ -574,13 +623,31 @@ export default function Dashboard() {
             </button>
           )}
         </div>
-        <div className={`grid gap-2 ${isAdmin ? 'grid-cols-4 md:grid-cols-8' : 'grid-cols-4 md:grid-cols-5 lg:grid-cols-8'}`}>
-          {quickActions.map((item, index) => {
+        <div className={`grid gap-2 md:hidden ${isAdmin ? 'grid-cols-4' : 'grid-cols-4'}`}>
+          {mobileQuickActions.map((item, index) => {
             const Icon = item.icon;
             const tone = item.tone;
             return (
               <button
-                key={`${item.action}-${item.label}-${index}`}
+                key={`mobile-${item.action}-${item.label}-${index}`}
+                onClick={() => handleQuickAction(item.action)}
+                className="min-h-[64px] rounded-xl border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded-lg ${tone}`}>
+                  <Icon size={18} />
+                </span>
+                <span className="mt-1.5 block text-[11px] font-medium text-gray-900 truncate">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className={`hidden gap-2 md:grid ${isAdmin ? 'md:grid-cols-8' : 'md:grid-cols-7'}`}>
+          {desktopQuickActions.map((item, index) => {
+            const Icon = item.icon;
+            const tone = item.tone;
+            return (
+              <button
+                key={`desktop-${item.action}-${item.label}-${index}`}
                 onClick={() => handleQuickAction(item.action)}
                 className="md:min-h-[80px] min-h-[64px] rounded-xl border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
               >
