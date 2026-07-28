@@ -1350,7 +1350,7 @@ export default function Leads() {
       )}
 
       <div className="erp-surface">
-        <div className="erp-search-row">
+        <div className="erp-search-row erp-search-row-compact">
           <div className="erp-search-field">
             <Search size={14} className="erp-search-icon" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={isDesktopSignedView ? "搜索客户姓名、电话、地址" : "搜索客户姓名、电话、地址、编号"}

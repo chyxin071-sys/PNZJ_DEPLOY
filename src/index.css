@@ -94,6 +94,22 @@ body {
     @apply py-1.5;
   }
 
+  .erp-search-row-compact {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .erp-search-row-compact .erp-search-field {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .erp-search-row-compact > .shrink-0 {
+    width: auto;
+    justify-content: flex-end;
+  }
+
   .erp-list-head {
     @apply hidden md:grid items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-2 text-[11px] font-semibold text-gray-400;
     position: sticky;
@@ -121,6 +137,7 @@ body {
 
   .erp-filter-button {
     @apply flex items-center gap-1.5 px-2.5 py-1.5 text-xs md:text-sm font-medium rounded-lg border transition-colors shrink-0;
+    white-space: nowrap;
   }
 
   .erp-filter-button-active {
@@ -272,6 +289,31 @@ body {
     .erp-search-row .erp-filter-button,
     .erp-search-row .md\:hidden {
       min-height: 36px;
+    }
+
+    .erp-search-row-compact {
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .erp-search-row-compact .erp-search-field {
+      flex: 1 1 auto;
+      width: auto;
+      min-width: 0;
+    }
+
+    .erp-search-row-compact > .shrink-0 {
+      width: auto;
+      justify-content: flex-end;
+      gap: 0.375rem;
+    }
+
+    .erp-search-row-compact .erp-filter-button,
+    .erp-search-row-compact .md\:hidden {
+      min-height: 34px;
+      padding-left: 0.625rem;
+      padding-right: 0.625rem;
     }
 
     .erp-lead-stat-card {

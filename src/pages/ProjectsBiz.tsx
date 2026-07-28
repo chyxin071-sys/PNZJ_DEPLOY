@@ -1014,7 +1014,7 @@ export default function ProjectsBiz() {
       </div>
 
       <div className="erp-surface overflow-visible">
-        <div className="erp-search-row">
+        <div className="erp-search-row erp-search-row-compact">
             <div className="erp-search-field">
               <Search size={14} className="erp-search-icon" />
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索客户、地址、电话"
