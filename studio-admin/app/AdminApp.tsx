@@ -6,6 +6,7 @@ import {
   Bell,
   Bold,
   Check,
+  ClipboardList,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -71,6 +72,7 @@ type View =
   | "case-preview"
   | "case-edit"
   | "customers"
+  | "demands"
   | "analytics"
   | "notifications"
   | "tags"
@@ -119,6 +121,7 @@ type ImageSection = { name: string; images: string[]; imageFileIDs: string[] };
 
 type Customer = {
   id: string;
+  recordId?: string;
   phone: string;
   name: string;
   community: string;
@@ -135,12 +138,14 @@ type Customer = {
   decorationStatus?: string;
   question?: string;
   sourceCaseName?: string;
+  designDemand?: Record<string, string | string[]>;
+  lastDemandAt?: string;
 };
 
 type AnalyticsEvent = {
   _id?: string;
   type:
-    "profile_update" | "case_view" | "favorite_add" | "favorite_remove" | "share" | "consultation";
+    "profile_update" | "case_view" | "favorite_add" | "favorite_remove" | "share" | "consultation" | "demand_submit";
   caseId?: string;
   caseName?: string;
   openid?: string;
@@ -149,6 +154,9 @@ type AnalyticsEvent = {
   avatarFileID?: string;
   phone?: string;
   community?: string;
+  leadId?: string;
+  customerNo?: string;
+  demand?: Record<string, string | string[]>;
   createdAt?: string | Date;
 };
 
@@ -383,6 +391,7 @@ function formatChinaDateTime(value: unknown) {
 function mapLeadToCustomer(record: any): Customer {
   return {
     id: record.customerNo || record._id,
+    recordId: record._id,
     phone: record.phone || "-",
     name: record.nickname || record.name || record.customerName || "微信客户",
     community: record.community || record.address || "-",
@@ -406,6 +415,8 @@ function mapLeadToCustomer(record: any): Customer {
       record.remark ||
       "",
     sourceCaseName: record.miniProgram?.sourceCaseName || "",
+    designDemand: record.latestDesignDemand?.answers || record.designDemand || undefined,
+    lastDemandAt: formatChinaDateTime(record.lastDemandAt || record.latestDesignDemand?.submittedAt),
   };
 }
 
@@ -476,6 +487,7 @@ function mapCaseRecord(record: any): CaseRecord {
 const navItems = [
   { key: "cases" as View, label: "案例管理", icon: FolderKanban },
   { key: "customers" as View, label: "客户管理", icon: Users },
+  { key: "demands" as View, label: "设计需求", icon: ClipboardList },
   { key: "analytics" as View, label: "数据统计", icon: BarChart3 },
   { key: "notifications" as View, label: "通知中心", icon: Bell },
   { key: "tags" as View, label: "标签管理", icon: Tags },
@@ -2998,6 +3010,95 @@ function CaseEdit({
   );
 }
 
+const DEMAND_GROUPS = [
+  {
+    title: "基础与房屋",
+    fields: [
+      ["ownerName", "业主姓名"], ["phone", "联系电话"], ["hostessProfile", "女主人职业、爱好、星座"],
+      ["hostProfile", "男主人职业、爱好、星座"], ["address", "房屋地址 / 小区"], ["homeType", "房屋类型"],
+      ["floor", "所在楼层"], ["totalFloors", "总楼层"], ["area", "建筑面积（㎡）"], ["budget", "装修预算（万元）"],
+      ["startTime", "希望开工时间"], ["moveInTime", "计划入住时间"], ["usePurpose", "房屋使用倾向"]
+    ]
+  },
+  {
+    title: "家庭与空间",
+    fields: [
+      ["residents", "家庭常住人员"], ["occasionalGuests", "偶住人员及频率"], ["spacePlan", "空间规划"],
+      ["studyUse", "独立书房用途"], ["guestRoomReason", "预留客房原因"]
+    ]
+  },
+  {
+    title: "风格与审美",
+    fields: [
+      ["styleElements", "风格元素"], ["tone", "整体色调"], ["materials", "装修材质"],
+      ["clothingStyle", "着装风格"], ["preferredColors", "偏好颜色"], ["communicationTime", "方案沟通时间"]
+    ]
+  },
+  {
+    title: "电器与设备",
+    fields: [
+      ["smartHome", "智能家居"], ["airSystem", "空调与新风"], ["heating", "暖气规划"], ["windows", "窗户更换"],
+      ["securityDoor", "防盗门与门锁"], ["waterSystem", "净水设备"], ["waterHeater", "热水器"],
+      ["kitchenAppliances", "厨房电器"], ["otherAppliances", "其他电器"], ["instruments", "钢琴或乐器"]
+    ]
+  },
+  {
+    title: "收纳与生活",
+    fields: [
+      ["bookcase", "书柜需求"], ["luggage", "行李箱收纳"], ["entryHanging", "入户挂衣"], ["cleanClothes", "次净衣收纳"],
+      ["otherStorage", "其他重点收纳"], ["sideboard", "餐边柜侧重"], ["hobbies", "家庭爱好"], ["gatherings", "亲友聚会"],
+      ["workspace", "阅读 / 工作空间"], ["vanity", "梳妆习惯"], ["pets", "宠物情况"], ["mirror", "全身镜"], ["collections", "珍藏品展示"]
+    ]
+  },
+  {
+    title: "区域需求",
+    fields: [
+      ["sofa", "沙发类型与材质"], ["flooring", "地面材质"], ["walls", "墙面材质"], ["tvStorage", "电视墙储物"],
+      ["cookingFrequency", "做饭频率"], ["cookingPerson", "做饭人员"], ["cookHeight", "做饭人员身高"],
+      ["bedroomMood", "主卧环境"], ["safe", "保险柜"], ["bathroom", "卫生间"], ["stairs", "楼梯"]
+    ]
+  },
+  {
+    title: "补充与对接",
+    fields: [
+      ["additionalRequirements", "其他需求补充"], ["advisor", "家居顾问"], ["designer", "意向设计师"], ["measureTime", "方便量房时间"]
+    ]
+  }
+] as const;
+
+function demandText(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value.join("、") : String(value || "");
+}
+
+function DemandReport({ demand }: { demand?: Record<string, string | string[]> }) {
+  if (!demand || Object.keys(demand).length === 0) {
+    return <div className="demand-empty">该客户尚未提交设计需求清单</div>;
+  }
+  return (
+    <div className="demand-report">
+      {DEMAND_GROUPS.map((group) => {
+        const rows = group.fields
+          .map(([key, label]) => ({ key, label, value: demandText(demand[key]) }))
+          .filter((item) => item.value);
+        if (!rows.length) return null;
+        return (
+          <section key={group.title}>
+            <h4>{group.title}</h4>
+            <dl>
+              {rows.map((row) => (
+                <div key={row.key}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function Customers({
   customers,
   notify,
@@ -3189,6 +3290,15 @@ function Customers({
                 <dd>{selectedCustomer.createdAt}</dd>
               </div>
             </dl>
+            <div className="customer-demand-block">
+              <div className="customer-demand-title">
+                <strong>设计需求清单</strong>
+                {selectedCustomer.lastDemandAt && selectedCustomer.lastDemandAt !== "-" && (
+                  <span>提交于 {selectedCustomer.lastDemandAt}</span>
+                )}
+              </div>
+              <DemandReport demand={selectedCustomer.designDemand} />
+            </div>
             <footer>
               <button
                 className="gold-button"
@@ -3196,6 +3306,110 @@ function Customers({
               >
                 完成
               </button>
+            </footer>
+          </section>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DesignDemands({
+  events,
+  customers,
+}: {
+  events: AnalyticsEvent[];
+  customers: Customer[];
+}) {
+  const [selected, setSelected] = useState<{
+    customer?: Customer;
+    event?: AnalyticsEvent;
+  } | null>(null);
+  const submittedEvents = events.filter(
+    (event) => event.type === "demand_submit" && event.demand,
+  );
+  const eventKeys = new Set(
+    submittedEvents.flatMap((event) =>
+      [event.leadId, event.phone, event.openid].filter(Boolean),
+    ),
+  );
+  const customerOnly = customers.filter(
+    (customer) =>
+      customer.designDemand &&
+      ![customer.recordId, customer.phone, customer.openid].some(
+        (key) => key && eventKeys.has(key),
+      ),
+  );
+  const rows = [
+    ...submittedEvents.map((event) => ({
+      event,
+      customer: customers.find(
+        (customer) =>
+          (event.leadId && customer.recordId === event.leadId) ||
+          (event.phone && customer.phone === event.phone) ||
+          (event.openid && customer.openid === event.openid),
+      ),
+    })),
+    ...customerOnly.map((customer) => ({ customer, event: undefined })),
+  ];
+
+  return (
+    <section className="page-section demand-admin-page">
+      <div className="demand-admin-summary">
+        <div>
+          <span>DESIGN BRIEF</span>
+          <strong>客户设计需求清单</strong>
+          <p>按提交时间整理客户的居住方式、审美偏好、设备配置与空间需求。</p>
+        </div>
+        <b>{rows.length} 份</b>
+      </div>
+      <div className="demand-admin-list">
+        {rows.length === 0 && (
+          <div className="demand-admin-empty">
+            <ClipboardList size={28} />
+            <strong>尚未收到设计需求</strong>
+            <span>客户从小程序“设计服务”提交后，将自动出现在这里。</span>
+          </div>
+        )}
+        {rows.map(({ event, customer }, index) => {
+          const demand = event?.demand || customer?.designDemand;
+          const name = customer?.name || event?.nickname || demandText(demand?.ownerName) || "小程序客户";
+          const phone = customer?.phone || event?.phone || demandText(demand?.phone) || "未留手机号";
+          const community = customer?.community || event?.community || demandText(demand?.address) || "未填写小区";
+          const submittedAt = event?.createdAt
+            ? formatChinaDateTime(event.createdAt)
+            : customer?.lastDemandAt || "-";
+          return (
+            <button
+              className="demand-admin-card"
+              key={event?._id || customer?.recordId || `${phone}-${index}`}
+              onClick={() => setSelected({ customer, event })}
+            >
+              <i><ClipboardList size={20} /></i>
+              <div>
+                <strong>{name}</strong>
+                <span>{phone} · {community}</span>
+              </div>
+              <time>{submittedAt}</time>
+              <ChevronRight size={18} />
+            </button>
+          );
+        })}
+      </div>
+      {selected && (
+        <div className="dialog-layer">
+          <button className="dialog-backdrop" onClick={() => setSelected(null)} />
+          <section className="customer-info-dialog demand-admin-dialog">
+            <header>
+              <div>
+                <h3>{selected.customer?.name || selected.event?.nickname || "客户设计需求"}</h3>
+                <span>{selected.customer?.phone || selected.event?.phone || "未留手机号"}</span>
+              </div>
+              <button onClick={() => setSelected(null)}><X size={19} /></button>
+            </header>
+            <DemandReport demand={selected.event?.demand || selected.customer?.designDemand} />
+            <footer>
+              <button className="gold-button" onClick={() => setSelected(null)}>完成</button>
             </footer>
           </section>
         </div>
@@ -3467,7 +3681,7 @@ function Notifications({
     null,
   );
   const list = events.filter((event) =>
-    ["case_view", "favorite_add", "consultation", "share"].includes(event.type),
+    ["case_view", "favorite_add", "consultation", "share", "demand_submit"].includes(event.type),
   );
   const eventLabel = (type: AnalyticsEvent["type"]) =>
     type === "case_view"
@@ -3476,6 +3690,8 @@ function Notifications({
         ? "收藏了案例"
         : type === "consultation"
           ? "咨询了案例"
+          : type === "demand_submit"
+            ? "提交了设计需求清单"
           : "分享了案例";
   const eventIcon = (type: AnalyticsEvent["type"]) =>
     type === "case_view"
@@ -3484,6 +3700,8 @@ function Notifications({
         ? Heart
         : type === "consultation"
           ? Users
+          : type === "demand_submit"
+            ? ClipboardList
           : Share2;
   return (
     <section className="page-section notification-page">
@@ -3496,14 +3714,17 @@ function Notifications({
           <div className="notification-empty">
             <Bell size={24} />
             <strong>暂无客户互动</strong>
-            <span>客户收藏、分享案例或提交咨询后，通知会显示在这里。</span>
+            <span>客户浏览、收藏、分享案例、提交咨询或设计需求后，通知会显示在这里。</span>
           </div>
         )}
         {list.map((event, index) => {
           const Icon = eventIcon(event.type);
           const target = cases.find((item) => item.id === event.caseId);
           const customer = customers.find(
-            (item) => item.openid && item.openid === event.openid,
+            (item) =>
+              (event.leadId && item.recordId === event.leadId) ||
+              (event.phone && item.phone === event.phone) ||
+              (item.openid && item.openid === event.openid),
           );
           return (
             <div
@@ -3512,7 +3733,11 @@ function Notifications({
             >
               <button
                 className="notification-main"
-                onClick={() => target && open("case-preview", target)}
+                onClick={() =>
+                  event.type === "demand_submit"
+                    ? customer && setSelectedCustomer(customer)
+                    : target && open("case-preview", target)
+                }
               >
                 <i>
                   <Icon size={19} />
@@ -3523,7 +3748,9 @@ function Notifications({
                       {customer?.name || event.nickname || "匿名访客"}
                     </strong>{" "}
                     {eventLabel(event.type)}{" "}
-                    <b>{event.caseName || target?.name || "未命名案例"}</b>
+                    {event.type !== "demand_submit" && (
+                      <b>{event.caseName || target?.name || "未命名案例"}</b>
+                    )}
                   </p>
                   <span>
                     {event.createdAt
@@ -3602,6 +3829,15 @@ function Notifications({
                 <dd>{selectedCustomer.createdAt}</dd>
               </div>
             </dl>
+            <div className="customer-demand-block">
+              <div className="customer-demand-title">
+                <strong>设计需求清单</strong>
+                {selectedCustomer.lastDemandAt && selectedCustomer.lastDemandAt !== "-" && (
+                  <span>提交于 {selectedCustomer.lastDemandAt}</span>
+                )}
+              </div>
+              <DemandReport demand={selectedCustomer.designDemand} />
+            </div>
             <footer>
               <button
                 className="gold-button"
@@ -4613,6 +4849,7 @@ export function AdminApp() {
     "case-preview": "案例预览",
     "case-edit": selectedCase ? "编辑案例" : "新建案例",
     customers: "客户管理",
+    demands: "设计需求",
     analytics: "数据统计",
     notifications: "通知中心",
     tags: "标签管理",
@@ -4979,7 +5216,7 @@ export function AdminApp() {
     session.admin.role === "超级管理员" ||
     activeCase?.uploader === session.admin.username;
   const notificationCount = analyticsEvents.filter((event) =>
-    ["favorite_add", "consultation", "share"].includes(event.type),
+    ["favorite_add", "consultation", "share", "demand_submit"].includes(event.type),
   ).length;
 
   return (
@@ -5127,6 +5364,9 @@ export function AdminApp() {
           )}
           {view === "customers" && (
             <Customers customers={customers} notify={notify} />
+          )}
+          {view === "demands" && (
+            <DesignDemands events={analyticsEvents} customers={customers} />
           )}
           {view === "analytics" && (
             <Analytics
