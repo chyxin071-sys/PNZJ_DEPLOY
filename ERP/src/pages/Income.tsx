@@ -366,6 +366,25 @@ export default function Income() {
     },
   ];
 
+  const clearFinanceFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setFilterYear('');
+    setFilterMonthFrom('1');
+    setFilterMonthTo('12');
+    setSearch('');
+  };
+
+  const filterCurrentMonth = () => {
+    const month = String(now.getMonth() + 1);
+    setDateFrom('');
+    setDateTo('');
+    setFilterYear(String(now.getFullYear()));
+    setFilterMonthFrom(month);
+    setFilterMonthTo(month);
+    setSearch('');
+  };
+
   return (
     <div className="erp-page-spaced">
       <div className="flex items-center justify-between">
@@ -375,9 +394,15 @@ export default function Income() {
 
       {canSeeAllFinancial && (
         <div className="erp-finance-stats">
-          <StatCard title="收款总额" value={formatMoney(totalIncome)} icon={DollarSign} accent="emerald" />
-          <StatCard title="本月收款" value={formatMoney(monthIncome)} icon={TrendingUp} accent="emerald" />
-          <StatCard title="收款笔数" value={`${filtered.length} 笔`} icon={Receipt} accent="emerald" />
+          <button type="button" onClick={clearFinanceFilters} className="erp-finance-stat-button">
+            <StatCard title="收款总额" value={formatMoney(totalIncome)} icon={DollarSign} accent="emerald" sub="点击查看全部收款" />
+          </button>
+          <button type="button" onClick={filterCurrentMonth} className="erp-finance-stat-button">
+            <StatCard title="本月收款" value={formatMoney(monthIncome)} icon={TrendingUp} accent="emerald" sub="点击筛选本月" />
+          </button>
+          <button type="button" onClick={clearFinanceFilters} className="erp-finance-stat-button">
+            <StatCard title="收款笔数" value={`${filtered.length} 笔`} icon={Receipt} accent="emerald" sub="点击查看全部记录" />
+          </button>
         </div>
       )}
 

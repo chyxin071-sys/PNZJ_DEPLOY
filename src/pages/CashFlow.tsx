@@ -281,27 +281,33 @@ export default function CashFlow() {
 
       {/* 汇总卡片 */}
       <div className="erp-finance-stats">
-        <StatCard
-          title="收入总额"
-          value={formatMoney(incomeTotal)}
-          icon={TrendingUp}
-          accent="emerald"
-          sub="时间段内收款合计"
-        />
-        <StatCard
-          title="支出总额"
-          value={formatMoney(expenseTotal)}
-          icon={TrendingDown}
-          accent="red"
-          sub="时间段内支出合计"
-        />
-        <StatCard
-          title="净额"
-          value={formatMoney(netTotal)}
-          icon={DollarSign}
-          accent={netTotal >= 0 ? 'gold' : 'red'}
-          sub={netTotal >= 0 ? '净流入' : '净流出'}
-        />
+        <button type="button" onClick={() => setFlowType('收款')} className="erp-finance-stat-button">
+          <StatCard
+            title="收入总额"
+            value={formatMoney(incomeTotal)}
+            icon={TrendingUp}
+            accent="emerald"
+            sub="点击查看收入流水"
+          />
+        </button>
+        <button type="button" onClick={() => setFlowType('支出')} className="erp-finance-stat-button">
+          <StatCard
+            title="支出总额"
+            value={formatMoney(expenseTotal)}
+            icon={TrendingDown}
+            accent="red"
+            sub="点击查看支出流水"
+          />
+        </button>
+        <button type="button" onClick={() => setFlowType('全部')} className="erp-finance-stat-button">
+          <StatCard
+            title="净额"
+            value={formatMoney(netTotal)}
+            icon={DollarSign}
+            accent={netTotal >= 0 ? 'gold' : 'red'}
+            sub={netTotal >= 0 ? '点击查看全部流水' : '点击查看全部流水'}
+          />
+        </button>
       </div>
 
       {/* 筛选栏 */}
@@ -335,7 +341,7 @@ export default function CashFlow() {
               { value: '收款', label: '收入' },
               { value: '支出', label: '支出' },
             ]}
-            className="w-[88px] shrink-0"
+            className="erp-finance-type-select"
           />
           <input
             type="text"

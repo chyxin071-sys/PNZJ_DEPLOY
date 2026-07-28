@@ -114,23 +114,36 @@ body {
     @apply grid grid-cols-3 gap-2 md:gap-4;
   }
 
-  .erp-finance-stats > div {
+  .erp-finance-stat-button {
+    @apply block w-full text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-300;
+  }
+
+  .erp-finance-stat-button > div {
+    @apply h-full;
+  }
+
+  .erp-finance-stats > div,
+  .erp-finance-stat-button > div {
     @apply px-2.5 py-3 md:px-5 md:py-4;
   }
 
-  .erp-finance-stats > div > div:first-child {
+  .erp-finance-stats > div > div:first-child,
+  .erp-finance-stat-button > div > div:first-child {
     @apply mb-1.5 md:mb-3;
   }
 
-  .erp-finance-stats > div > div:first-child > div {
+  .erp-finance-stats > div > div:first-child > div,
+  .erp-finance-stat-button > div > div:first-child > div {
     @apply hidden sm:flex;
   }
 
-  .erp-finance-stats > div p {
+  .erp-finance-stats > div p,
+  .erp-finance-stat-button > div p {
     @apply text-[15px] md:text-2xl leading-tight;
   }
 
-  .erp-finance-stats > div span {
+  .erp-finance-stats > div span,
+  .erp-finance-stat-button > div span {
     @apply text-[10px] md:text-xs leading-tight;
   }
 
@@ -158,6 +171,75 @@ body {
 
   .erp-finance-action-row .erp-search-input {
     @apply min-w-0 flex-1;
+  }
+
+  .erp-finance-action-row .erp-finance-type-select {
+    @apply shrink-0;
+    width: 116px;
+  }
+
+  .erp-finance-action-row .erp-finance-type-select .erp-select span {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  @media (max-width: 767px) {
+    .erp-finance-stats {
+      @apply grid-cols-1 gap-2;
+    }
+
+    .erp-finance-stats > div,
+    .erp-finance-stat-button > div {
+      @apply px-4 py-3;
+    }
+
+    .erp-finance-stats > div p,
+    .erp-finance-stat-button > div p {
+      @apply text-xl;
+      word-break: break-word;
+    }
+
+    .erp-finance-stats > div > div:first-child > div,
+    .erp-finance-stat-button > div > div:first-child > div {
+      @apply flex;
+    }
+
+    .erp-finance-date-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .erp-finance-date-row > .relative {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .erp-finance-date-row > button {
+      grid-column: 1 / -1;
+      justify-self: end;
+    }
+
+    .erp-finance-date-row .erp-select {
+      width: 100%;
+      padding-left: 10px;
+      padding-right: 8px;
+    }
+
+    .erp-finance-action-row {
+      gap: 8px;
+    }
+
+    .erp-finance-action-row .erp-finance-type-select {
+      width: 118px;
+    }
+
+    .erp-finance-action-row .erp-search-input {
+      min-width: 0;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
   }
 
   .erp-list-head {

@@ -161,6 +161,18 @@ export default function Expense() {
     setFilterMonthFrom('1');
     setFilterMonthTo('12');
     setSearch('');
+    setActiveTab('全部');
+  };
+
+  const filterCurrentMonth = () => {
+    const month = String(now.getMonth() + 1);
+    setDateFrom('');
+    setDateTo('');
+    setFilterYear(String(now.getFullYear()));
+    setFilterMonthFrom(month);
+    setFilterMonthTo(month);
+    setSearch('');
+    setActiveTab('全部');
   };
 
   const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
@@ -382,9 +394,15 @@ export default function Expense() {
 
       {/* 汇总卡片 */}
       <div className="erp-finance-stats">
-        <StatCard title="支出总额" value={formatMoney(totalExpense)} icon={TrendingDown} accent="red" />
-        <StatCard title="本月支出" value={formatMoney(monthExpense)} icon={DollarSign} accent="red" />
-        <StatCard title="支出笔数" value={`${filtered.length} 笔`} icon={FileText} accent="red" />
+        <button type="button" onClick={clearFilters} className="erp-finance-stat-button">
+          <StatCard title="支出总额" value={formatMoney(totalExpense)} icon={TrendingDown} accent="red" sub="点击查看全部支出" />
+        </button>
+        <button type="button" onClick={filterCurrentMonth} className="erp-finance-stat-button">
+          <StatCard title="本月支出" value={formatMoney(monthExpense)} icon={DollarSign} accent="red" sub="点击筛选本月" />
+        </button>
+        <button type="button" onClick={clearFilters} className="erp-finance-stat-button">
+          <StatCard title="支出笔数" value={`${filtered.length} 笔`} icon={FileText} accent="red" sub="点击查看全部记录" />
+        </button>
       </div>
 
       {/* 分类Tab */}
