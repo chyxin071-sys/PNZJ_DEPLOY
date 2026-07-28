@@ -974,10 +974,10 @@ export default function Dashboard() {
       </Modal>
       {/* 员工表现详情查看全部弹窗 */}
       <Modal open={showEmployeePerformanceModal} onClose={() => setShowEmployeePerformanceModal(false)} title="员工表现详情" size="xl" mobileFullScreen>
-        <div className="space-y-5 pb-4">
+        <div className="space-y-6 pb-4">
           {performanceSections.map((section) => (
             <section key={section.key}>
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-2 flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-900">{section.title}</span>
                 <span className="text-xs text-gray-400">
                   {section.target === 'projects' ? '点击进入工地列表' : '点击进入客户列表'}
@@ -987,9 +987,12 @@ export default function Dashboard() {
               {section.items.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">暂无数据</div>
               ) : (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
                   {section.items.map((item: any, idx) => {
                     const rate = section.target === 'projects' ? item.onTimeRate : item.rate;
+                    const primaryCount = section.target === 'projects' ? item.projectCount : item.total;
+                    const secondaryCount = section.target === 'projects' ? item.logCount : item.signed;
+                    const tertiaryCount = section.target === 'projects' ? item.completedSubNodes : `${item.rate}%`;
                     return (
                       <button
                         key={`${section.key}-${item.name}`}
@@ -998,39 +1001,34 @@ export default function Dashboard() {
                           setShowEmployeePerformanceModal(false);
                           openEmployeeWorkList(section.target, item.name);
                         }}
-                        className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-left transition-colors hover:border-gold-200 hover:bg-gold-50/40 active:scale-[0.99]"
+                        className="grid w-full grid-cols-[34px_minmax(0,1fr)_58px_58px_58px] items-center gap-2 border-b border-gray-50 px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50 active:bg-gold-50/40 md:grid-cols-[42px_minmax(0,1fr)_90px_90px_90px_82px]"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-500'}`}>
-                            {idx + 1}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="truncate text-sm font-semibold text-gray-900">{item.name}</span>
-                              <span className={`shrink-0 text-sm font-bold ${rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-gray-500'}`}>
-                                {rate}%
-                              </span>
-                            </div>
-                            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                              {section.target === 'projects' ? (
-                                <>
-                                  <SmallMetric label="工地" value={item.projectCount} />
-                                  <SmallMetric label="日志" value={item.logCount} />
-                                  <SmallMetric label="节点" value={item.completedSubNodes} />
-                                </>
-                              ) : (
-                                <>
-                                  <SmallMetric label="客户" value={item.total} />
-                                  <SmallMetric label="签单" value={item.signed} />
-                                  <SmallMetric label="转化" value={`${item.rate}%`} />
-                                </>
-                              )}
-                            </div>
-                            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, rate)}%` }} />
-                            </div>
-                          </div>
-                        </div>
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-gray-50 text-gray-500'}`}>
+                          {idx + 1}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-gray-900">{item.name}</span>
+                          <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-100">
+                            <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, rate)}%` }} />
+                          </span>
+                        </span>
+                        <span className="text-right">
+                          <span className="block text-[10px] text-gray-400">{section.target === 'projects' ? '工地' : '客户'}</span>
+                          <span className="block text-sm font-semibold text-gray-800">{primaryCount}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="block text-[10px] text-gray-400">{section.target === 'projects' ? '日志' : '签单'}</span>
+                          <span className="block text-sm font-semibold text-gray-800">{secondaryCount}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="block text-[10px] text-gray-400">{section.target === 'projects' ? '节点' : '转化'}</span>
+                          <span className={`block text-sm font-bold ${rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-gray-500'}`}>
+                            {tertiaryCount}
+                          </span>
+                        </span>
+                        <span className={`hidden text-right text-sm font-bold md:block ${rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-gray-500'}`}>
+                          {rate}%
+                        </span>
                       </button>
                     );
                   })}
@@ -1041,14 +1039,5 @@ export default function Dashboard() {
         </div>
       </Modal>
     </div>
-  );
-}
-
-function SmallMetric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <span className="rounded-lg bg-white px-2 py-1.5">
-      <span className="block text-[10px] text-gray-400">{label}</span>
-      <span className="mt-0.5 block truncate text-xs font-semibold text-gray-800">{value}</span>
-    </span>
   );
 }
