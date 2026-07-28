@@ -19,6 +19,10 @@ interface FlowItem {
   contractNo: string;
   relatedParty: string;
   summary: string;
+  address?: string;
+  stage?: string;
+  category?: string;
+  remark?: string;
 }
 
 export default function CashFlow() {
@@ -60,7 +64,10 @@ export default function CashFlow() {
         type: '收款' as const,
         amount: r.amount,
         contractNo: r.contractNo,
-        relatedParty: getHouseAddress(r.contractNo) || r.customerName,
+        relatedParty: r.customerName,
+        address: getHouseAddress(r.contractNo),
+        stage: r.stage,
+        remark: r.remark,
         summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
       })),
       ...filteredExpenses.map((e) => ({
@@ -70,6 +77,9 @@ export default function CashFlow() {
         amount: e.amount,
         contractNo: e.contractNo,
         relatedParty: e.supplier,
+        address: getHouseAddress(e.contractNo),
+        category: e.category,
+        remark: e.remark,
         summary: `${e.category}${e.remark ? ' - ' + e.remark : ''}`,
       })),
     ];
@@ -94,7 +104,7 @@ export default function CashFlow() {
           c.customerName.toLowerCase().includes(q)
         ).map(c => c.contractNo)
       );
-      list = list.filter(f => matchedAddresses.has(f.contractNo));
+      list = list.filter(f => matchedAddresses.has(f.contractNo) || (f.address || '').toLowerCase().includes(q) || (f.relatedParty || '').toLowerCase().includes(q));
     }
     if (sortField) {
       list.sort((a, b) => {
@@ -197,7 +207,7 @@ export default function CashFlow() {
         <div>
           <div className="text-[11px] font-medium text-gray-400">{formatDate(row.date)}</div>
           <div className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900">
-            {row.relatedParty || row.contractNo || '-'}
+            {row.address || row.relatedParty || '-'}
           </div>
         </div>
       ),
@@ -224,8 +234,13 @@ export default function CashFlow() {
       title: '说明',
       render: (row: FlowItem) => (
         <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
-          <div className="line-clamp-2 text-xs leading-5 text-gray-500">{row.summary || '-'}</div>
-          {row.contractNo && <div className="mt-1 text-[11px] font-mono text-gray-400">{row.contractNo}</div>}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-gray-400">{row.type === '收款' ? '收款阶段' : '支出类别'}</span>
+            <span className="font-medium text-gray-700">{row.type === '收款' ? (row.stage || '-') : (row.category || '-')}</span>
+          </div>
+          {row.remark ? (
+            <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">备注：{row.remark}</div>
+          ) : null}
         </div>
       ),
     },
@@ -249,7 +264,7 @@ export default function CashFlow() {
       </div>
 
       {/* 汇总卡片 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="erp-finance-stats">
         <StatCard
           title="收入总额"
           value={formatMoney(incomeTotal)}
@@ -275,12 +290,27 @@ export default function CashFlow() {
 
       {/* 筛选栏 */}
       <div className="erp-surface overflow-visible">
-      <div className="erp-search-row flex-wrap md:flex-nowrap">
-        <span className="hidden lg:inline shrink-0 text-xs text-gray-500">日期：</span>
-        <Select value={filterYear} onChange={setFilterYear} options={yearOptions} className="w-32 shrink-0" />
-        <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-24 shrink-0" />
-        <span className="text-xs text-gray-400">至</span>
-        <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-24 shrink-0" />
+      <div className="erp-finance-date-row">
+        <Select value={filterYear} onChange={setFilterYear} options={yearOptions} className="w-auto shrink min-w-0" />
+        <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-auto shrink min-w-0" />
+        <span className="shrink-0 text-xs text-gray-400">至</span>
+        <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-auto shrink min-w-0" />
+        {(filterYear) && (
+          <button
+            onClick={() => {
+              setDateFrom('');
+              setDateTo('');
+              setFilterYear('');
+              setFilterMonthFrom('1');
+              setFilterMonthTo('12');
+            }}
+            className="shrink-0 text-xs font-medium text-gold-500 hover:text-gold-600"
+          >
+            清除
+          </button>
+        )}
+      </div>
+      <div className="erp-finance-action-row">
           <Select
             value={flowType}
             onChange={(v) => setFlowType(v as '全部' | '收款' | '支出')}
@@ -289,26 +319,21 @@ export default function CashFlow() {
               { value: '收款', label: '收入' },
               { value: '支出', label: '支出' },
             ]}
-            className="w-28 shrink-0"
+            className="w-[88px] shrink-0"
           />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索项目地址/客户姓名"
-            className="erp-search-input min-w-[220px] flex-1"
+            className="erp-search-input"
           />
-        {(dateFrom || dateTo || search) && (
+        {search && (
           <button
             onClick={() => {
-              setDateFrom('');
-              setDateTo('');
-              setFilterYear('');
-              setFilterMonthFrom('1');
-              setFilterMonthTo('12');
               setSearch('');
             }}
-            className="text-xs text-gold-500 hover:text-gold-600 font-medium"
+            className="shrink-0 text-xs font-medium text-gold-500 hover:text-gold-600"
           >
             清除
           </button>

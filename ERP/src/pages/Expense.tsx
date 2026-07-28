@@ -319,6 +319,51 @@ export default function Expense() {
     },
   ];
 
+  const mobileColumns = [
+    {
+      key: 'expenseDate',
+      title: '日期',
+      render: (row: Record<string, unknown>) => {
+        const ct = filteredContracts.find((c) => c.id === row.contractId as string);
+        return (
+          <div>
+            <div className="text-[11px] font-medium text-gray-400">{formatDate(row.expenseDate as string)}</div>
+            <div className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900">
+              {ct?.houseAddress || '-'}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'amount',
+      title: '支出',
+      render: (row: Record<string, unknown>) => (
+        <div className="shrink-0 text-right">
+          <span className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-500">支出</span>
+          <div className="mt-1 text-[15px] font-bold text-red-500">-{formatMoney(row.amount as number)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      title: '支出类别',
+      render: (row: Record<string, unknown>) => (
+        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-gray-400">支出类别</span>
+            <span className={`rounded px-2 py-0.5 font-medium ${CATEGORY_BADGE[row.category as string] || 'bg-gray-100 text-gray-600'}`}>
+              {(row.category as string) || '-'}
+            </span>
+          </div>
+          {row.remark ? (
+            <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">备注：{row.remark as string}</div>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="erp-page-spaced">
       {/* 页头 */}
@@ -329,14 +374,14 @@ export default function Expense() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="erp-btn-primary"
+          className="erp-btn-primary hidden md:inline-flex"
         >
           <Plus size={16} /> 新增支出
         </button>
       </div>
 
       {/* 汇总卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="erp-finance-stats">
         <StatCard title="支出总额" value={formatMoney(totalExpense)} icon={TrendingDown} accent="red" />
         <StatCard title="本月支出" value={formatMoney(monthExpense)} icon={DollarSign} accent="red" />
         <StatCard title="支出笔数" value={`${filtered.length} 笔`} icon={FileText} accent="red" />
@@ -366,26 +411,29 @@ export default function Expense() {
 
       {/* 日期筛选 + 搜索 */}
       <div className="erp-surface overflow-visible">
-        <div className="erp-search-row flex-wrap md:flex-nowrap">
-          <Select value={filterYear} onChange={setFilterYear} options={yearOptions} className="w-full md:w-28 shrink-0" />
-          <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-[calc(50%-18px)] md:w-24 shrink-0" />
+        <div className="erp-finance-date-row">
+          <Select value={filterYear} onChange={setFilterYear} options={yearOptions} className="w-auto shrink min-w-0" />
+          <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-auto shrink min-w-0" />
           <span className="shrink-0 text-xs text-gray-400">至</span>
-          <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-[calc(50%-18px)] md:w-24 shrink-0" />
+          <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-auto shrink min-w-0" />
+          {(filterYear) && (
+            <button onClick={() => { setFilterYear(''); setFilterMonthFrom('1'); setFilterMonthTo('12'); setDateFrom(''); setDateTo(''); }}
+              className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
+          )}
+        </div>
+        <div className="erp-finance-action-row">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索地址/客户/合同号"
-            className="erp-search-input min-w-[220px] flex-1"
+            className="erp-search-input"
           />
-          {(filterYear) && (
-            <button onClick={() => { setFilterYear(''); setFilterMonthFrom('1'); setFilterMonthTo('12'); setDateFrom(''); setDateTo(''); }}
-              className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
-          )}
           {search && (
             <button onClick={clearFilters}
               className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
           )}
+          <button onClick={() => setShowModal(true)} className="erp-btn-primary shrink-0"><Plus size={15} /> 支出</button>
         </div>
         <DataTable
             columns={columns}
@@ -399,6 +447,7 @@ export default function Expense() {
                 navigate(`/contracts/${row.contractId}`);
               }
             }}
+            mobileCardColumns={mobileColumns}
         />
       </div>
 

@@ -110,6 +110,56 @@ body {
     justify-content: flex-end;
   }
 
+  .erp-finance-stats {
+    @apply grid grid-cols-3 gap-2 md:gap-4;
+  }
+
+  .erp-finance-stats > div {
+    @apply px-2.5 py-3 md:px-5 md:py-4;
+  }
+
+  .erp-finance-stats > div > div:first-child {
+    @apply mb-1.5 md:mb-3;
+  }
+
+  .erp-finance-stats > div > div:first-child > div {
+    @apply hidden sm:flex;
+  }
+
+  .erp-finance-stats > div p {
+    @apply text-[15px] md:text-2xl leading-tight;
+  }
+
+  .erp-finance-stats > div span {
+    @apply text-[10px] md:text-xs leading-tight;
+  }
+
+  .erp-finance-date-row {
+    @apply flex items-center gap-1.5 px-3 py-2 border-b border-gray-100;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(10px);
+  }
+
+  .erp-finance-action-row {
+    @apply flex items-center gap-2 px-3 py-2 border-b border-gray-100;
+    background: rgba(255, 255, 255, 0.97);
+  }
+
+  .erp-finance-date-row .erp-select {
+    @apply flex-1 min-w-0 py-1.5;
+  }
+
+  .erp-finance-date-row .erp-select:first-child {
+    flex: 1.18 1 0;
+  }
+
+  .erp-finance-action-row .erp-search-input {
+    @apply min-w-0 flex-1;
+  }
+
   .erp-list-head {
     @apply hidden md:grid items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-2 text-[11px] font-semibold text-gray-400;
     position: sticky;

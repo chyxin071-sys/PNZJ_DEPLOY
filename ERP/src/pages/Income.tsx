@@ -323,15 +323,58 @@ export default function Income() {
     },
   ];
 
+  const mobileColumns = [
+    {
+      key: 'receiptDate',
+      title: '日期',
+      render: (row: Record<string, unknown>) => {
+        const ct = filteredContracts.find((c) => c.id === row.contractId as string);
+        return (
+          <div>
+            <div className="text-[11px] font-medium text-gray-400">{formatDate(row.receiptDate as string)}</div>
+            <div className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900">
+              {ct?.houseAddress || '-'}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'amount',
+      title: '收入',
+      render: (row: Record<string, unknown>) => (
+        <div className="shrink-0 text-right">
+          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600">收入</span>
+          <div className="mt-1 text-[15px] font-bold text-emerald-600">+{formatMoney(row.amount as number)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'stage',
+      title: '收款阶段',
+      render: (row: Record<string, unknown>) => (
+        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-gray-400">收款阶段</span>
+            <span className="font-medium text-gray-700">{(row.stage as string) || '-'}</span>
+          </div>
+          {row.remark ? (
+            <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">备注：{row.remark as string}</div>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="erp-page-spaced">
       <div className="flex items-center justify-between">
         <div><h1 className="text-base md:text-lg font-bold text-gray-900">收入管理</h1><p className="text-gold-500 text-xs md:text-sm">管理所有收款记录</p></div>
-        <button onClick={() => setShowModal(true)} className="erp-btn-primary"><Plus size={16} /> 新增收款</button>
+        <button onClick={() => setShowModal(true)} className="erp-btn-primary hidden md:inline-flex"><Plus size={16} /> 新增收款</button>
       </div>
 
       {canSeeAllFinancial && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="erp-finance-stats">
           <StatCard title="收款总额" value={formatMoney(totalIncome)} icon={DollarSign} accent="emerald" />
           <StatCard title="本月收款" value={formatMoney(monthIncome)} icon={TrendingUp} accent="emerald" />
           <StatCard title="收款笔数" value={`${filtered.length} 笔`} icon={Receipt} accent="emerald" />
@@ -339,14 +382,17 @@ export default function Income() {
       )}
 
       <div className="erp-surface overflow-visible">
-        <div className="erp-search-row flex-wrap md:flex-nowrap">
-          <Select value={filterYear} onChange={v => { setFilterYear(v); }} options={[{ value: '', label: '年份' }, ...Array.from(new Set(receipts.map(r => r.receiptDate ? String(dayjs(r.receiptDate).year()) : '').filter(Boolean))).sort((a,b) => parseInt(b)-parseInt(a)).map(y => ({ value: y, label: y }))]} className="w-full md:w-28 shrink-0" />
-          <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-[calc(50%-18px)] md:w-24 shrink-0" />
+        <div className="erp-finance-date-row">
+          <Select value={filterYear} onChange={v => { setFilterYear(v); }} options={[{ value: '', label: '年份' }, ...Array.from(new Set(receipts.map(r => r.receiptDate ? String(dayjs(r.receiptDate).year()) : '').filter(Boolean))).sort((a,b) => parseInt(b)-parseInt(a)).map(y => ({ value: y, label: y }))]} className="w-auto shrink min-w-0" />
+          <Select value={filterMonthFrom} onChange={setFilterMonthFrom} options={MONTH_OPTS} className="w-auto shrink min-w-0" />
           <span className="shrink-0 text-xs text-gray-400">至</span>
-          <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-[calc(50%-18px)] md:w-24 shrink-0" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索地址/客户/合同号" className="erp-search-input min-w-[220px] flex-1" />
+          <Select value={filterMonthTo} onChange={setFilterMonthTo} options={MONTH_OPTS} className="w-auto shrink min-w-0" />
           {(filterYear) && <button onClick={() => { setDateFrom(''); setDateTo(''); setFilterYear(''); setFilterMonthFrom('1'); setFilterMonthTo('12'); }} className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>}
+        </div>
+        <div className="erp-finance-action-row">
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索地址/客户/合同号" className="erp-search-input" />
           {search && <button onClick={() => setSearch('')} className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>}
+          <button onClick={() => setShowModal(true)} className="erp-btn-primary shrink-0"><Plus size={15} /> 收款</button>
         </div>
         <DataTable
             columns={columns} 
@@ -360,6 +406,7 @@ export default function Income() {
                 navigate(`/contracts/${row.contractId}`);
               }
             }}
+            mobileCardColumns={mobileColumns}
         />
       </div>
 
