@@ -1901,6 +1901,7 @@ export default function Leads() {
                 )},
               ]}
               data={visibleSignedItems as unknown as Record<string, unknown>[]}
+              onRowClick={handleRowClick}
               rowKey={(row) => (row as any)._id as string}
               mobileFixedLeft={0}
               horizontalScroll

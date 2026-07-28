@@ -4593,6 +4593,43 @@ export default function LeadDetail() {
         </div>
       </BottomDrawer>
 
+      {mobileStatusPicker && createPortal(
+        <div className="fixed inset-0 z-[110] hidden items-center justify-center bg-black/35 p-6 md:flex" onClick={() => setMobileStatusPicker(false)}>
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900">更改客户状态</h3>
+              <button
+                type="button"
+                onClick={() => setMobileStatusPicker(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {statusOptions.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleStatusChange(opt.value)}
+                  className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+                    lead.status === opt.value
+                      ? 'border-gold-200 bg-gold-50 text-gray-900'
+                      : 'border-gray-100 text-gray-600 hover:border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusColorMap[opt.value] || 'bg-gray-100 text-gray-500'}`}>
+                    {opt.label}
+                  </span>
+                  {lead.status === opt.value && <CheckCircle2 size={16} className="text-gold-600" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Image Preview Overlay */}
       {previewUrl && createPortal(
         <div className="fixed inset-0 bg-black/85 z-[60] flex items-center justify-center p-4" onClick={() => { setPreviewUrl(null); setPreviewImageList([]); }}>
