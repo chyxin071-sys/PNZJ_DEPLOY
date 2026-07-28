@@ -161,14 +161,18 @@ export default function Dashboard() {
     { label: '新增合同', action: 'newContract', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
     { label: '新增收款', action: 'newIncome', icon: ArrowUpRight, tone: 'bg-emerald-50 text-emerald-600' },
     { label: '新建支出', action: 'newExpense', icon: Receipt, tone: 'bg-orange-50 text-orange-600' },
-    { label: '合同', action: 'contracts', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
-    { label: '客户', action: 'leads', icon: Users, tone: 'bg-blue-50 text-blue-600' },
-    { label: '工地', action: 'projects', icon: HardHat, tone: 'bg-amber-50 text-amber-600' },
-    { label: '库存', action: 'materials', icon: Package, tone: 'bg-cyan-50 text-cyan-700' },
-    { label: '财务报表', action: 'reports', icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600' },
+    { label: '新建报销', action: 'newReimbursement', icon: Receipt, tone: 'bg-rose-50 text-rose-600' },
+    { label: '新建待办', action: 'newTodo', icon: CheckCircle2, tone: 'bg-violet-50 text-violet-600' },
+    { label: '报销管理', action: 'reimbursement', icon: Receipt, tone: 'bg-pink-50 text-pink-600' },
+    { label: '组织架构', action: 'employees', icon: Users, tone: 'bg-slate-100 text-slate-700' },
+    { label: '合同管理', action: 'contracts', icon: FileText, tone: 'bg-indigo-50 text-indigo-600' },
+    { label: '客户管理', action: 'leads', icon: Users, tone: 'bg-blue-50 text-blue-600' },
+    { label: '工地管理', action: 'projects', icon: HardHat, tone: 'bg-amber-50 text-amber-600' },
+    { label: '库存管理', action: 'materials', icon: Package, tone: 'bg-cyan-50 text-cyan-700' },
     { label: '资金流水', action: 'cashflow', icon: TrendingUp, tone: 'bg-sky-50 text-sky-600' },
-    { label: '费用报销', action: 'reimbursement', icon: Receipt, tone: 'bg-rose-50 text-rose-600' },
-    { label: '个人中心', action: 'profile', icon: UserIcon, tone: 'bg-slate-100 text-slate-700' },
+    { label: '项目成本', action: 'projectCost', icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600' },
+    { label: '组织架构', action: 'employees', icon: Users, tone: 'bg-slate-100 text-slate-700' },
+    { label: '个人中心', action: 'profile', icon: UserIcon, tone: 'bg-gray-100 text-gray-700' },
   ];
 
   const quickActions = isAdmin ? adminActions : employeeActions;
@@ -180,6 +184,7 @@ export default function Dashboard() {
       case 'newContract': navigate('/contracts?action=new'); break;
       case 'newIncome': navigate('/income?action=create'); break;
       case 'newExpense': navigate('/expense?action=create'); break;
+      case 'newReimbursement': navigate('/reimbursement?action=new'); break;
       case 'reimbursement': navigate('/reimbursement'); break;
       case 'contracts': navigate('/contracts'); break;
       case 'leads': navigate('/leads'); break;
@@ -190,6 +195,8 @@ export default function Dashboard() {
       case 'myTodos': navigate('/todos'); break;
       case 'reports': navigate('/reports'); break;
       case 'cashflow': navigate('/cashflow'); break;
+      case 'projectCost': navigate('/projects'); break;
+      case 'employees': navigate('/employees'); break;
       case 'profile': navigate('/profile'); break;
     }
   };
@@ -567,13 +574,13 @@ export default function Dashboard() {
             </button>
           )}
         </div>
-        <div className={`grid gap-2 ${isAdmin ? 'grid-cols-4' : 'grid-cols-4 md:grid-cols-5 lg:grid-cols-8'}`}>
-          {quickActions.map((item) => {
+        <div className={`grid gap-2 ${isAdmin ? 'grid-cols-4 md:grid-cols-8' : 'grid-cols-4 md:grid-cols-5 lg:grid-cols-8'}`}>
+          {quickActions.map((item, index) => {
             const Icon = item.icon;
             const tone = item.tone;
             return (
               <button
-                key={item.label}
+                key={`${item.action}-${item.label}-${index}`}
                 onClick={() => handleQuickAction(item.action)}
                 className="md:min-h-[80px] min-h-[64px] rounded-xl border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
               >

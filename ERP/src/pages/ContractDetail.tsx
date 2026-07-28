@@ -1223,7 +1223,7 @@ export default function ContractDetail() {
             accent="blue"
           />
         )}
-        {!isMobile && (
+        {canViewFinance && !isMobile && (
           <StatCard title="累计支出" value={formatMoney(totalExpenses)} icon={Wallet} accent="red" />
         )}
         {showInvoiceFeature && !isMobile && (
