@@ -3012,7 +3012,10 @@ function Customers({
     null,
   );
   const miniProgramCustomers = customers.filter(
-    (item) => item.source === "小程序" || item.source === "微信小程序",
+    (item) =>
+      item.source === "小程序" ||
+      item.source === "微信小程序" ||
+      Boolean(item.openid || item.visitorId),
   );
   const filtered = miniProgramCustomers.filter(
     (item) =>
