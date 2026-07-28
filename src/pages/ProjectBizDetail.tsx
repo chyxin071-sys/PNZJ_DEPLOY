@@ -2884,7 +2884,7 @@ export default function ProjectBizDetail() {
                                 <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                                   <button
                                     onClick={() => handleShareCraft(index, node.name)}
-                                    className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-600"
+                                    className="flex items-center gap-1 rounded-lg border border-gray-900 bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white"
                                   >
                                     <Share2 className="w-3 h-3" /> 分享给客户
                                   </button>
@@ -3110,7 +3110,7 @@ export default function ProjectBizDetail() {
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                                className="rounded-lg bg-gray-900 py-2 text-xs font-medium text-white disabled:opacity-50"
+                                                className="rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white disabled:opacity-50"
                                               >
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                               </button>
@@ -3119,7 +3119,7 @@ export default function ProjectBizDetail() {
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                                className="rounded-lg bg-gray-900 py-2 text-xs font-medium text-white disabled:opacity-50"
+                                                className="rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white disabled:opacity-50"
                                               >
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                               </button>
@@ -3158,7 +3158,7 @@ export default function ProjectBizDetail() {
                                               ) : (
                                                 <button
                                                   onClick={() => enterShareSelect(index, secIdx, section)}
-                                                  className="rounded-lg bg-gold-500 py-2 text-xs font-medium text-white flex items-center justify-center gap-1.5"
+                                                  className="rounded-lg bg-gray-900 py-2 text-xs font-medium text-white flex items-center justify-center gap-1.5"
                                                 >
                                                   <Share2 className="w-3.5 h-3.5" /> 分享给客户
                                                 </button>
@@ -3494,7 +3494,7 @@ export default function ProjectBizDetail() {
                               <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
                                 <button
                                   onClick={() => handleShareCraft(index, node.name)}
-                                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                                  className="flex items-center gap-1.5 rounded-lg border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
                                 >
                                   <Share2 className="w-3.5 h-3.5" />
                                   分享给客户
@@ -3754,13 +3754,13 @@ export default function ProjectBizDetail() {
                                           )}
                                           {isSecCurrent && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                              className="rounded-lg bg-gray-900 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
+                                              className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                             </button>
                                           )}
                                           {isSecCompleted && isEditingRecord && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                              className="rounded-lg bg-gray-900 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
+                                              className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                             </button>
                                           )}
@@ -3778,7 +3778,7 @@ export default function ProjectBizDetail() {
                                                 </button>
                                               </div>
                                             ) : (
-                                              <button onClick={() => enterShareSelect(index, secIdx, section)} className="rounded-lg bg-gold-500 px-3 py-2 text-[11px] font-medium text-white flex items-center gap-1">
+                                              <button onClick={() => enterShareSelect(index, secIdx, section)} className="rounded-lg bg-gray-900 px-3 py-2 text-[11px] font-medium text-white flex items-center gap-1">
                                                 <Share2 className="w-3 h-3" /> 分享给客户
                                               </button>
                                             )
@@ -3817,7 +3817,7 @@ export default function ProjectBizDetail() {
                       setShowCompletionModal(true);
                     }}
                     disabled={isProjectActionBusy('complete-project')}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gray-900 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
                   >
                     <CheckCircle className="h-4 w-4" />
                     工地完工
