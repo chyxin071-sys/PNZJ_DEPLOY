@@ -306,12 +306,8 @@ function AppInit() {
       .then(async (initialResult) => {
         let result = initialResult;
         if (result.code === 'WECHAT_MANUALLY_UNBOUND') {
-          const confirmed = await showConfirm(
-            '当前微信尚未绑定此ERP账号。绑定后，业务通知才会发送到这个微信。',
-            { title: '绑定当前微信', confirmText: '确认绑定', cancelText: '暂不绑定' },
-          );
-          if (!confirmed) return;
-          result = await bindCurrentUserToWechat(user.id, { confirmRebind: true });
+          console.info('[wechat-binding] current WeChat was manually unbound; skip automatic rebind');
+          return;
         }
         if (result.code === 'PERSON_REBIND_REQUIRED') {
           const confirmed = await showConfirm(buildWechatRebindMessage(result), {
