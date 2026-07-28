@@ -492,9 +492,8 @@ export default function Expense() {
               type="text"
               value={form.supplier}
               onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-              readOnly={currentBizType === '家装' && !!selectedContract}
               placeholder={selectedContract?.customerName || '请输入收款方名称'}
-              className={`erp-input ${currentBizType === '家装' && selectedContract ? 'bg-gray-50 text-gray-500' : ''}`}
+              className="erp-input"
             />
           </div>
           <div>

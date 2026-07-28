@@ -9,23 +9,29 @@ import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
+import Modal from '@/components/Modal';
 import { useIncrementalList } from '@/hooks/useListViewportState';
+import { useNavigate } from 'react-router-dom';
 
 interface FlowItem {
   id: string;
   date: string;
   type: '收款' | '支出';
   amount: number;
+  contractId?: string;
   contractNo: string;
   relatedParty: string;
   summary: string;
   address?: string;
   stage?: string;
   category?: string;
+  paymentMethod?: string;
+  status?: string;
   remark?: string;
 }
 
 export default function CashFlow() {
+  const navigate = useNavigate();
   const { receipts, expenses, contracts } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const [dateFrom, setDateFrom] = useState('');
@@ -37,6 +43,7 @@ export default function CashFlow() {
   const [filterMonthTo, setFilterMonthTo] = useState('12');
   const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedFlow, setSelectedFlow] = useState<FlowItem | null>(null);
 
   const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
 
@@ -51,10 +58,14 @@ export default function CashFlow() {
   const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
   const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
 
-  const getHouseAddress = (contractNo: string) => {
-    const c = contracts.find((ct) => ct.contractNo === contractNo);
-    return c?.houseAddress || '';
+  const getContractByNo = (contractNo: string) => contracts.find((ct) => ct.contractNo === contractNo);
+  const getContractId = (contractId: string | undefined, contractNo: string) => {
+    const contract = contractId
+      ? contracts.find((ct) => ct.id === contractId || (ct as any)._id === contractId)
+      : getContractByNo(contractNo);
+    return contract?.id || (contract as any)?._id || contractId || '';
   };
+  const getHouseAddress = (contractNo: string) => getContractByNo(contractNo)?.houseAddress || '';
 
   const flowList = useMemo(() => {
     const flows: FlowItem[] = [
@@ -63,10 +74,12 @@ export default function CashFlow() {
         date: r.receiptDate,
         type: '收款' as const,
         amount: r.amount,
+        contractId: getContractId(r.contractId, r.contractNo),
         contractNo: r.contractNo,
         relatedParty: r.customerName,
         address: getHouseAddress(r.contractNo),
         stage: r.stage,
+        paymentMethod: r.paymentMethod,
         remark: r.remark,
         summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
       })),
@@ -75,10 +88,13 @@ export default function CashFlow() {
         date: e.expenseDate,
         type: '支出' as const,
         amount: e.amount,
+        contractId: getContractId(e.contractId, e.contractNo),
         contractNo: e.contractNo,
         relatedParty: e.supplier,
         address: getHouseAddress(e.contractNo),
         category: e.category,
+        paymentMethod: e.payMethod,
+        status: e.status,
         remark: e.remark,
         summary: `${e.category}${e.remark ? ' - ' + e.remark : ''}`,
       })),
@@ -346,6 +362,7 @@ export default function CashFlow() {
             sortOrder={sortOrder}
             onSort={handleSort}
             rowKey={(row) => row.id}
+            onRowClick={(row) => setSelectedFlow(row)}
             emptyText="暂无流水记录"
             mobileCardColumns={mobileColumns}
         />
@@ -361,6 +378,60 @@ export default function CashFlow() {
           </div>
         )}
       </div>
+      <Modal open={!!selectedFlow} onClose={() => setSelectedFlow(null)} title="流水详情">
+        {selectedFlow && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-400">{formatDate(selectedFlow.date)}</p>
+                  <p className="mt-1 line-clamp-2 text-base font-semibold text-gray-900">
+                    {selectedFlow.address || selectedFlow.relatedParty || '-'}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${selectedFlow.type === '收款' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                    {selectedFlow.type}
+                  </span>
+                  <p className={`mt-1 text-lg font-bold ${selectedFlow.type === '收款' ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {selectedFlow.type === '收款' ? '+' : '-'}{formatMoney(selectedFlow.amount)}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <DetailItem label="合同编号" value={selectedFlow.contractNo || '-'} />
+              <DetailItem label="关联客户/收款方" value={selectedFlow.relatedParty || '-'} />
+              <DetailItem label={selectedFlow.type === '收款' ? '收款阶段' : '支出类别'} value={selectedFlow.type === '收款' ? (selectedFlow.stage || '-') : (selectedFlow.category || '-')} />
+              <DetailItem label={selectedFlow.type === '收款' ? '收款方式' : '支出方式'} value={selectedFlow.paymentMethod || '-'} />
+              {selectedFlow.status ? <DetailItem label="状态" value={selectedFlow.status} /> : null}
+              <DetailItem label="备注" value={selectedFlow.remark || '-'} wide />
+            </div>
+            {selectedFlow.contractId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const target = selectedFlow.contractId;
+                  setSelectedFlow(null);
+                  navigate(`/contracts/${target}`);
+                }}
+                className="erp-btn-primary w-full justify-center"
+              >
+                跳转到合同页面
+              </button>
+            ) : null}
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function DetailItem({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={`rounded-lg border border-gray-100 bg-white px-3 py-2.5 ${wide ? 'sm:col-span-2' : ''}`}>
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-gray-800">{value}</p>
     </div>
   );
 }

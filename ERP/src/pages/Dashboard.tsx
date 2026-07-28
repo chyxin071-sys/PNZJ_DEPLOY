@@ -51,6 +51,17 @@ export default function Dashboard() {
     if (Array.isArray(val)) return val.some((v: any) => (typeof v === 'string' ? v : v?.name || '') === name);
     return String(val).split('、').includes(name);
   };
+  const employeeHasRole = (emp: any, targetRole: string) => {
+    const roleList = Array.isArray(emp.roles) ? emp.roles : [emp.role].filter(Boolean);
+    return roleList.includes(targetRole);
+  };
+  const isActiveEmployee = (emp: any) => (
+    emp.status !== 'inactive' &&
+    emp.status !== 'disabled' &&
+    emp.disabled !== true &&
+    emp.isDisabled !== true &&
+    emp.enabled !== false
+  );
 
   const [leads, setLeads] = useState<any[]>([]);
   const [todos, setTodos] = useState<any[]>([]);
@@ -201,19 +212,27 @@ export default function Dashboard() {
     return new Date(l.createdAt || 0).getTime() >= weekStart.getTime();
   }).length;
 
-  // 员工签约排名与表现数据
-  const employeeSigned = employees.filter(e => ['sales', 'designer'].includes(e.role)).map(emp => {
-    const signed = filteredLeads.filter(l => l.status === '已签单' && (l.sales === emp.name || l.designer === emp.name)).length;
-    const total = filteredLeads.filter(l => l.sales === emp.name || l.designer === emp.name).length;
-    const rate = total > 0 ? ((signed / total) * 100).toFixed(1) : '0.0';
-    return { name: emp.name, role: emp.role, signed, total, rate: parseFloat(rate), department: emp.department };
-  }).sort((a, b) => b.signed - a.signed);
+  // 员工签约排名与表现数据：停用员工不进入排名，但他们经手的数据仍然留在全局统计中
+  const activeEmployees = employees.filter(isActiveEmployee);
+  const buildLeadPerformance = (roleKey: 'sales' | 'designer') => activeEmployees
+    .filter((emp) => employeeHasRole(emp, roleKey))
+    .map((emp) => {
+      const assigned = filteredLeads.filter((l) => includesPerson(l[roleKey], emp.name));
+      const signed = assigned.filter((l) => l.status === '已签单').length;
+      const total = assigned.length;
+      const rate = total > 0 ? Number(((signed / total) * 100).toFixed(1)) : 0;
+      return { name: emp.name, role: roleKey, signed, total, rate, department: emp.department };
+    })
+    .sort((a, b) => b.signed - a.signed || b.total - a.total);
+
+  const salesStats = buildLeadPerformance('sales');
+  const designerStats = buildLeadPerformance('designer');
+  const employeeSigned = [...salesStats, ...designerStats].sort((a, b) => b.signed - a.signed || b.total - a.total);
 
   // 项目经理表现数据
-  const managerStats = employees.filter(e => e.role === 'manager').map(emp => {
+  const managerStats = activeEmployees.filter(e => employeeHasRole(e, 'manager')).map(emp => {
     const myProjects = filteredProjects.filter(p => {
-      const managerName = typeof p.manager === 'object' ? p.manager?.name : p.manager;
-      return managerName === emp.name;
+      return includesPerson(p.manager, emp.name);
     });
     const projectCount = myProjects.length;
 
@@ -259,6 +278,20 @@ export default function Dashboard() {
       projectCount, logCount, completedSubNodes, onTimeRate,
     };
   }).sort((a, b) => b.projectCount - a.projectCount);
+
+  const performanceSections = [
+    { key: 'sales', title: '销售', items: salesStats, target: 'leads' as const, metricLabel: '签单', rateLabel: '转化率' },
+    { key: 'designer', title: '设计', items: designerStats, target: 'leads' as const, metricLabel: '签单', rateLabel: '转化率' },
+    { key: 'manager', title: '项目经理', items: managerStats, target: 'projects' as const, metricLabel: '工地', rateLabel: '按时完工' },
+  ];
+
+  const openEmployeeWorkList = (target: 'leads' | 'projects', name: string) => {
+    if (target === 'projects') {
+      navigate(`/projects-biz?employee=${encodeURIComponent(name)}`);
+    } else {
+      navigate(`/leads?employee=${encodeURIComponent(name)}`);
+    }
+  };
 
   // 客户来源
   const sources = [...new Set(filteredLeads.map(l => l.source).filter(Boolean))].map(s => ({
@@ -581,70 +614,49 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 员工表现详情（签约表现 + 工地表现） */}
+            {/* 员工表现详情（销售 / 设计 / 项目经理） */}
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <Award size={16} className="text-amber-500" />
                   <h3 className="text-sm font-semibold text-gray-800">员工表现详情</h3>
-                  <Tooltip content="签约表现：统计销售/设计师的转化率 = 成功签单数 ÷ 负责客户数 × 100%。工地表现：统计项目经理的工地管理数据。">
+                  <Tooltip content="只显示启用员工的排名；停用员工经手的数据仍然计入全局统计。销售/设计点击进入客户列表，项目经理点击进入工地列表。">
                     <HelpCircle size={14} className="text-gray-400 cursor-pointer hover:text-gray-600" />
                   </Tooltip>
                 </div>
                 <button onClick={() => setShowEmployeePerformanceModal(true)} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5">查看全部 <ChevronRight size={12} /></button>
               </div>
-              {/* 签约表现 */}
-              <div className="mb-1 flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-500">签约表现</span>
-                <span className="text-[10px] text-gray-400">转化率 = 签单数 ÷ 客户数</span>
-                <div className="flex-1 h-px bg-gray-100" />
-              </div>
-              <div className="space-y-1.5 mb-3">
-                {employeeSigned.slice(0, 6).map((emp, idx) => (
-                  <button key={emp.name} onClick={() => navigate(`/leads?employee=${encodeURIComponent(emp.name)}`)} className="flex items-center gap-1.5 md:gap-3 p-1.5 md:p-2 rounded-lg hover:bg-gray-50 w-full text-left transition-all cursor-pointer">
-                    <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>{idx + 1}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs md:text-sm font-medium text-gray-900 truncate">{emp.name}</span>
-                        <span className="text-[10px] md:text-xs text-gray-400 shrink-0">{ROLE_MAP[emp.role] || emp.role}</span>
-                      </div>
-                      <div className="flex items-center gap-2 md:gap-3 mt-0.5 md:mt-1 text-[10px] md:text-xs text-gray-400">
-                        <span>{emp.total} 客户</span>
-                        <span>{emp.signed} 签单</span>
-                      </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {performanceSections.map((section) => (
+                  <div key={section.key} className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-600">{section.title}</span>
+                      <span className="text-[10px] text-gray-400">{section.items.length} 人</span>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-xs md:text-sm font-bold ${emp.rate >= 30 ? 'text-emerald-600' : 'text-gray-400'}`}>{emp.rate}%</p>
-                      <p className="text-[10px] md:text-xs text-gray-400">转化率</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              {/* 工地表现 */}
-              <div className="mb-1 flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-500">工地表现</span>
-                <span className="text-[10px] text-gray-400">按时完工率 = 按时完成工序数 ÷ 已完成工序总数</span>
-                <div className="flex-1 h-px bg-gray-100" />
-              </div>
-              <div className="space-y-1.5">
-                {managerStats.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3">暂无项目经理数据</p>
-                ) : managerStats.slice(0, 3).map((mgr, idx) => (
-                  <div key={mgr.name} className="flex items-center gap-1.5 md:gap-3 p-1.5 md:p-2 rounded-lg hover:bg-gray-50">
-                    <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>{idx + 1}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs md:text-sm font-medium text-gray-900 truncate">{mgr.name}</span>
-                        <span className="text-[10px] md:text-xs text-gray-400 shrink-0">{ROLE_MAP[mgr.role] || mgr.role}</span>
-                      </div>
-                      <div className="flex items-center gap-2 md:gap-3 mt-0.5 md:mt-1 text-[10px] md:text-xs text-gray-400">
-                        <span>{mgr.projectCount} 工地</span>
-                        <span>{mgr.logCount} 日志</span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-xs md:text-sm font-bold ${mgr.onTimeRate >= 80 ? 'text-emerald-600' : mgr.onTimeRate >= 50 ? 'text-amber-600' : 'text-gray-400'}`}>{mgr.onTimeRate}%</p>
-                      <p className="text-[10px] md:text-xs text-gray-400">按时完工</p>
+                    <div className="space-y-2">
+                      {section.items.length === 0 ? (
+                        <p className="py-4 text-center text-xs text-gray-400">暂无数据</p>
+                      ) : section.items.slice(0, 3).map((item: any, idx) => (
+                        <button
+                          key={`${section.key}-${item.name}`}
+                          onClick={() => openEmployeeWorkList(section.target, item.name)}
+                          className="flex w-full items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-left transition-colors hover:bg-gray-100"
+                        >
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>{idx + 1}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold text-gray-900">{item.name}</span>
+                            <span className="mt-0.5 block text-[10px] text-gray-400">
+                              {section.target === 'projects' ? `${item.projectCount} 工地 · ${item.logCount} 日志` : `${item.total} 客户 · ${item.signed} 签单`}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className={`block text-xs font-bold ${(section.target === 'projects' ? item.onTimeRate : item.rate) >= 50 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                              {section.target === 'projects' ? item.onTimeRate : item.rate}%
+                            </span>
+                            <span className="block text-[10px] text-gray-400">{section.rateLabel}</span>
+                          </span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -960,83 +972,83 @@ export default function Dashboard() {
           ))}
         </div>
       </Modal>
-      {/* 员工表现详情查看全部弹窗（签约表现 + 工地表现） */}
-      <Modal open={showEmployeePerformanceModal} onClose={() => setShowEmployeePerformanceModal(false)} title="员工表现详情 (全部)" size="lg">
-        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 pb-8">
-          {/* 签约表现 */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold text-gray-500">签约表现</span>
-              <span className="text-[10px] text-gray-400">转化率 = 签单数 ÷ 客户数</span>
-              <div className="flex-1 h-px bg-gray-100" />
-            </div>
-            <div className="grid grid-cols-12 gap-2 md:gap-4 text-[10px] md:text-xs font-medium text-gray-500 mb-2 px-1 md:px-2">
-              <div className="col-span-3">员工</div>
-              <div className="col-span-3 text-center">负责客户</div>
-              <div className="col-span-3 text-center">成功签单</div>
-              <div className="col-span-3 text-right">转化率</div>
-            </div>
-            {employeeSigned.map((emp) => (
-              <div key={emp.name} className="grid grid-cols-12 gap-2 md:gap-4 items-center p-2 md:p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="col-span-3 flex flex-col min-w-0 pl-1 md:pl-2">
-                  <span className="text-xs md:text-sm font-medium text-gray-900 truncate">{emp.name}</span>
-                  <span className="text-[10px] md:text-xs text-gray-400 truncate">{ROLE_MAP[emp.role] || emp.role}</span>
-                </div>
-                <div className="col-span-3 text-center">
-                  <span className="text-xs md:text-sm font-semibold text-gray-700">{emp.total}</span>
-                </div>
-                <div className="col-span-3 text-center">
-                  <span className="text-xs md:text-sm font-bold text-emerald-600">{emp.signed}</span>
-                </div>
-                <div className="col-span-3 flex flex-col items-end">
-                  <span className={`text-xs md:text-sm font-bold ${emp.rate >= 30 ? 'text-emerald-600' : 'text-gray-600'}`}>{emp.rate}%</span>
-                  <div className="w-12 md:w-16 bg-gray-200 rounded-full h-1 md:h-1.5 mt-1 overflow-hidden">
-                    <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${emp.rate}%` }} />
-                  </div>
-                </div>
+      {/* 员工表现详情查看全部弹窗 */}
+      <Modal open={showEmployeePerformanceModal} onClose={() => setShowEmployeePerformanceModal(false)} title="员工表现详情" size="xl" mobileFullScreen>
+        <div className="space-y-5 pb-4">
+          {performanceSections.map((section) => (
+            <section key={section.key}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">{section.title}</span>
+                <span className="text-xs text-gray-400">
+                  {section.target === 'projects' ? '点击进入工地列表' : '点击进入客户列表'}
+                </span>
+                <div className="h-px flex-1 bg-gray-100" />
               </div>
-            ))}
-          </div>
-          {/* 工地表现 */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold text-gray-500">工地表现</span>
-              <span className="text-[10px] text-gray-400">按时完工率 = 按时完成工序数 ÷ 已完成工序总数</span>
-              <div className="flex-1 h-px bg-gray-100" />
-            </div>
-            <div className="grid grid-cols-12 gap-2 md:gap-4 text-[10px] md:text-xs font-medium text-gray-500 mb-2 px-1 md:px-2">
-              <div className="col-span-3">项目经理</div>
-              <div className="col-span-2 text-center">负责工地</div>
-              <div className="col-span-2 text-center">施工日志</div>
-              <div className="col-span-3 text-center">完成子节点</div>
-              <div className="col-span-2 text-right">按时完工率</div>
-            </div>
-            {managerStats.map((mgr) => (
-              <div key={mgr.name} className="grid grid-cols-12 gap-2 md:gap-4 items-center p-2 md:p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="col-span-3 flex flex-col min-w-0 pl-1 md:pl-2">
-                  <span className="text-xs md:text-sm font-medium text-gray-900 truncate">{mgr.name}</span>
-                  <span className="text-[10px] md:text-xs text-gray-400 truncate">{ROLE_MAP[mgr.role] || mgr.role}</span>
+              {section.items.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">暂无数据</div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {section.items.map((item: any, idx) => {
+                    const rate = section.target === 'projects' ? item.onTimeRate : item.rate;
+                    return (
+                      <button
+                        key={`${section.key}-${item.name}`}
+                        type="button"
+                        onClick={() => {
+                          setShowEmployeePerformanceModal(false);
+                          openEmployeeWorkList(section.target, item.name);
+                        }}
+                        className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-left transition-colors hover:border-gold-200 hover:bg-gold-50/40 active:scale-[0.99]"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-500'}`}>
+                            {idx + 1}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="truncate text-sm font-semibold text-gray-900">{item.name}</span>
+                              <span className={`shrink-0 text-sm font-bold ${rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-gray-500'}`}>
+                                {rate}%
+                              </span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                              {section.target === 'projects' ? (
+                                <>
+                                  <SmallMetric label="工地" value={item.projectCount} />
+                                  <SmallMetric label="日志" value={item.logCount} />
+                                  <SmallMetric label="节点" value={item.completedSubNodes} />
+                                </>
+                              ) : (
+                                <>
+                                  <SmallMetric label="客户" value={item.total} />
+                                  <SmallMetric label="签单" value={item.signed} />
+                                  <SmallMetric label="转化" value={`${item.rate}%`} />
+                                </>
+                              )}
+                            </div>
+                            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-200">
+                              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, rate)}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="col-span-2 text-center">
-                  <span className="text-xs md:text-sm font-semibold text-gray-700">{mgr.projectCount}</span>
-                </div>
-                <div className="col-span-2 text-center">
-                  <span className="text-xs md:text-sm font-semibold text-blue-600">{mgr.logCount}</span>
-                </div>
-                <div className="col-span-3 text-center">
-                  <span className="text-xs md:text-sm font-semibold text-gray-700">{mgr.completedSubNodes}</span>
-                </div>
-                <div className="col-span-2 flex flex-col items-end">
-                  <span className={`text-xs md:text-sm font-bold ${mgr.onTimeRate >= 80 ? 'text-emerald-600' : mgr.onTimeRate >= 50 ? 'text-amber-600' : 'text-gray-600'}`}>{mgr.onTimeRate}%</span>
-                  <div className="w-12 md:w-16 bg-gray-200 rounded-full h-1 md:h-1.5 mt-1 overflow-hidden">
-                    <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${mgr.onTimeRate}%` }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              )}
+            </section>
+          ))}
         </div>
       </Modal>
     </div>
+  );
+}
+
+function SmallMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <span className="rounded-lg bg-white px-2 py-1.5">
+      <span className="block text-[10px] text-gray-400">{label}</span>
+      <span className="mt-0.5 block truncate text-xs font-semibold text-gray-800">{value}</span>
+    </span>
   );
 }

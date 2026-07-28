@@ -585,6 +585,13 @@ export default function ProjectsBiz() {
     if (searchParams.get('action') === 'new') handleOpenCreate();
   }, [searchParams]);
 
+  useEffect(() => {
+    const employee = searchParams.get('employee');
+    if (!employee) return;
+    setFilterEmployee(employee);
+    setFilterScope('all');
+  }, [searchParams]);
+
   const handleSelectLead = (lead: any) => {
     setSelectedLead(lead);
     setLeadSearch('');
