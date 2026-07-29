@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip } from 'lucide-react';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
@@ -12,7 +12,7 @@ import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import { useIncrementalList } from '@/hooks/useListViewportState';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AttachmentValue } from '@/types';
 
 interface FlowItem {
@@ -35,6 +35,7 @@ interface FlowItem {
 
 export default function CashFlow() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { receipts, expenses, contracts } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const [dateFrom, setDateFrom] = useState('');
@@ -49,6 +50,37 @@ export default function CashFlow() {
   const [selectedFlow, setSelectedFlow] = useState<FlowItem | null>(null);
 
   const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
+
+  useEffect(() => {
+    const yearParam = searchParams.get('year');
+    const monthFromParam = searchParams.get('monthFrom');
+    const monthToParam = searchParams.get('monthTo');
+    const typeParam = searchParams.get('type');
+    let consumed = false;
+
+    if (yearParam && /^\d{4}$/.test(yearParam)) {
+      setFilterYear(yearParam);
+      consumed = true;
+    }
+    if (monthFromParam && Number(monthFromParam) >= 1 && Number(monthFromParam) <= 12) {
+      setFilterMonthFrom(String(Number(monthFromParam)));
+      consumed = true;
+    }
+    if (monthToParam && Number(monthToParam) >= 1 && Number(monthToParam) <= 12) {
+      setFilterMonthTo(String(Number(monthToParam)));
+      consumed = true;
+    }
+    if (typeParam === '收款' || typeParam === '支出' || typeParam === '全部') {
+      setFlowType(typeParam);
+      consumed = true;
+    }
+
+    if (consumed) {
+      const next = new URLSearchParams(searchParams);
+      ['year', 'monthFrom', 'monthTo', 'type'].forEach((key) => next.delete(key));
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // 年份选项：从所有收付款记录中提取
   const yearOptions = useMemo(() => {

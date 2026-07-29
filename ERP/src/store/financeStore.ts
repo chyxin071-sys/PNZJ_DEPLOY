@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { seedDatabase } from '@/db/seed';
 import { contractsAPI, receiptsAPI, expensesAPI, reimbursementsAPI,
   generalIncomesAPI, generalExpensesAPI, quotationsAPI, invoicesAPI,
 } from '@/db/api';
@@ -95,7 +94,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     try {
       if (import.meta.env.DEV) {
         await ensureCollections();
-        await seedDatabase();
       }
       await get()._refreshSilent(datasets);
       set({ initialized: true });
