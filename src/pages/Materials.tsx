@@ -294,24 +294,24 @@ export default function Materials() {
         <div data-inventory-filters className="sticky top-0 z-30 space-y-2 border-b border-gray-100 bg-white/95 p-3 shadow-[0_8px_18px_rgba(15,23,42,0.04)] backdrop-blur">
           <div className="-mx-3 overflow-x-auto px-3">
             <div className="flex min-w-max gap-2">
-              <button onClick={() => selectPrimary('all')} className={`rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${primaryFilter === 'all' ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>全部一级</button>
+              <button onClick={() => selectPrimary('all')} className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${primaryFilter === 'all' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}>全部一级</button>
               {categories.map((category) => (
-                <button key={category.id} onClick={() => selectPrimary(category.id)} className={`rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${primaryFilter === category.id ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{category.name}</button>
+                <button key={category.id} onClick={() => selectPrimary(category.id)} className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${primaryFilter === category.id ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}>{category.name}</button>
               ))}
             </div>
           </div>
           <div className="-mx-3 overflow-x-auto px-3">
             <div className="flex min-w-max gap-2">
-              <button onClick={() => selectSecondary('all')} className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${secondaryFilter === 'all' ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>全部二级</button>
+              <button onClick={() => selectSecondary('all')} className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${secondaryFilter === 'all' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:bg-white'}`}>全部二级</button>
               {secondaryOptions.map((child) => (
-                <button key={child.id} onClick={() => selectSecondary(child.id)} className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${secondaryFilter === child.id ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`} title={child.primaryName}>{child.name}</button>
+                <button key={child.id} onClick={() => selectSecondary(child.id)} className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${secondaryFilter === child.id ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:bg-white'}`} title={child.primaryName}>{child.name}</button>
               ))}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <label className="relative min-w-0 flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索型号、色号、品牌、备注" className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-gray-400" /></label>
-            {hasActiveFilters && <button onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50"><X size={14} />清除</button>}
-            {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden shrink-0 rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 md:inline-flex">分类管理</button>}
+            <label className="relative min-w-0 flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索型号、色号、品牌、备注" className="h-9 w-full rounded-md border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-gray-400" /></label>
+            {hasActiveFilters && <button onClick={clearFilters} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50"><X size={14} />清除</button>}
+            {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden h-9 shrink-0 items-center rounded-md border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50 md:inline-flex">分类管理</button>}
           </div>
         </div>
 
