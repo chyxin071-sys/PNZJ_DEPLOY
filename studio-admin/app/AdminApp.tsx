@@ -128,6 +128,7 @@ type Customer = {
   layout: string;
   area: string;
   source: string;
+  miniProgramActivity?: boolean;
   status: string;
   category: string;
   createdAt: string;
@@ -401,6 +402,12 @@ function mapLeadToCustomer(record: any): Customer {
       record.sourceType === "mini_program" || record.source === "微信小程序"
         ? "小程序"
         : record.source || "-",
+    miniProgramActivity:
+      Boolean(record.miniProgramActivity) ||
+      record.sourceType === "mini_program" ||
+      record.source === "微信小程序" ||
+      Boolean(record.miniProgram?.openid || record.miniProgram?.visitorId) ||
+      Boolean(record.latestDesignDemand || record.designDemand),
     status: record.status || "新客户",
     category: "",
     createdAt: formatChinaDateTime(record.createdAt),
@@ -487,7 +494,6 @@ function mapCaseRecord(record: any): CaseRecord {
 const navItems = [
   { key: "cases" as View, label: "案例管理", icon: FolderKanban },
   { key: "customers" as View, label: "客户管理", icon: Users },
-  { key: "demands" as View, label: "设计需求", icon: ClipboardList },
   { key: "analytics" as View, label: "数据统计", icon: BarChart3 },
   { key: "notifications" as View, label: "通知中心", icon: Bell },
   { key: "tags" as View, label: "标签管理", icon: Tags },
@@ -3114,9 +3120,11 @@ function Customers({
   );
   const miniProgramCustomers = customers.filter(
     (item) =>
+      Boolean(item.miniProgramActivity) ||
       item.source === "小程序" ||
       item.source === "微信小程序" ||
-      Boolean(item.openid || item.visitorId),
+      Boolean(item.openid || item.visitorId) ||
+      Boolean(item.designDemand),
   );
   const filtered = miniProgramCustomers.filter(
     (item) =>
