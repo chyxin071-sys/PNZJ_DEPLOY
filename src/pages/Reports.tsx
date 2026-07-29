@@ -12,10 +12,12 @@ import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { systemConfigsAPI } from '@/db/api';
 import { formatMoney } from '@/utils/format';
+import { usePageScrollRestore } from '@/hooks/useListViewportState';
 
 echarts.use([LineChart, BarChart, EChartsPieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
 const FINANCE_TARGET_CONFIG_ID = 'dashboard_finance_targets';
+const REPORTS_SCROLL_KEY = 'reports_scroll_pos';
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
 const LIGHT_TEXT = '#6b7280';
 const LIGHT_GRID = '#eef0f3';
@@ -165,6 +167,7 @@ export default function ReportsPage() {
   const prevYearData = hasLiveData ? livePrevYearData : [];
   const costCategories = hasLiveData ? liveCostCategories : [];
   const readyToRender = monthlyData.length === 12;
+  const saveReportsScroll = usePageScrollRestore(REPORTS_SCROLL_KEY, readyToRender);
 
   const totals = useMemo(() => {
     const income = sum(monthlyData.map(d => monthTotal(d).income));
@@ -227,6 +230,7 @@ export default function ReportsPage() {
 
   const drillToCashflow = (monthNo: number, type: 'income' | 'expense' | 'all') => {
     const flowType = type === 'income' ? '收款' : type === 'expense' ? '支出' : '全部';
+    saveReportsScroll();
     navigate(`/cashflow?year=${year}&monthFrom=${monthNo}&monthTo=${monthNo}&type=${encodeURIComponent(flowType)}`);
   };
 
