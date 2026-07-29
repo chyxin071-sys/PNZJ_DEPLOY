@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image as ImageIcon, Loader2 } from 'lucide-react';
-import { getTempFileURL } from '@/utils/cloudStorage';
+import { getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
 import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
 
 type Props = {
@@ -24,10 +24,13 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
       return () => { active = false; };
     }
     setLoading(true);
-    getTempFileURL([fileID])
-      .then((urls) => {
+    const resolveThumbnail = import.meta.env.DEV && fileID.startsWith('cloud://')
+      ? getFileDataURL(fileID, 'thumbnail')
+      : getTempFileURL([fileID]).then((urls) => urls[fileID] || fileID);
+    resolveThumbnail
+      .then((resolvedUrl) => {
         if (!active) return;
-        setUrl(urls[fileID] || fileID);
+        setUrl(resolvedUrl);
       })
       .catch(() => {
         if (active) setFailed(true);
@@ -38,11 +41,18 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
     return () => { active = false; };
   }, [fileID]);
 
-  const preview = (event: React.MouseEvent) => {
+  const preview = async (event: React.MouseEvent) => {
     event.stopPropagation();
     if (!fileID || failed) return;
     if (openNativeMediaPreview([{ url: fileID, type: 'image' }], 0)) return;
-    onWebPreview?.(url || fileID);
+    try {
+      const previewUrl = import.meta.env.DEV && fileID.startsWith('cloud://')
+        ? await getFileDataURL(fileID, 'original')
+        : url || fileID;
+      onWebPreview?.(previewUrl);
+    } catch {
+      setFailed(true);
+    }
   };
 
   return (

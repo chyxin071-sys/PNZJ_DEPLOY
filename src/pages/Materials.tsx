@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowDownCircle, ArrowUpCircle, CheckCircle, Edit3, Layers,
-  Loader2, PackageOpen, Plus, Search, Trash2, X,
+  History, Loader2, PackageOpen, Plus, Search, Trash2, X,
 } from 'lucide-react';
 import { inventoryRecordsAPI, materialsAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
@@ -90,6 +90,12 @@ export default function Materials() {
     total: materials.length,
     active: materials.filter((material) => material.status !== 'inactive').length,
     lowStock: materials.filter((material) => Number(material.stock || 0) <= 10 && material.status !== 'inactive').length,
+  };
+  const hasActiveFilters = primaryFilter !== 'all' || secondaryFilter !== 'all' || search.trim().length > 0;
+  const clearFilters = () => {
+    setPrimaryFilter('all');
+    setSecondaryFilter('all');
+    setSearch('');
   };
 
   const handleSave = async (draft: MaterialEditorDraft) => {
@@ -200,7 +206,16 @@ export default function Materials() {
           <h1 className="text-base font-bold text-gray-900 md:text-lg">库存管理</h1>
           <p className="mt-0.5 text-xs text-amber-600">材料分类、库存与出入库记录</p>
         </div>
-        {isAdmin && <button onClick={() => { setEditingItem(null); setShowEditor(true); }} className="flex items-center gap-1.5 rounded-md bg-gray-900 px-3 py-2 text-xs font-medium text-white md:px-4 md:text-sm"><Plus size={16} /> 新增材料</button>}
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => navigate('/inventory-records', { state: { from: returnPath } })}
+            className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 md:px-3 md:text-sm"
+            title="操作记录"
+          >
+            <History size={16} /><span className="hidden sm:inline">操作记录</span>
+          </button>
+          {isAdmin && <button onClick={() => { setEditingItem(null); setShowEditor(true); }} className="flex items-center gap-1.5 rounded-md bg-gray-900 px-3 py-2 text-xs font-medium text-white md:px-4 md:text-sm"><Plus size={16} /> 新增材料</button>}
+        </div>
       </header>
 
       <div className="mb-4 grid grid-cols-3 gap-2 md:gap-3">
@@ -211,8 +226,8 @@ export default function Materials() {
         ].map(([label, value, icon]) => <div key={String(label)} className="min-w-0 rounded-md border border-gray-100 bg-white p-3 md:p-4"><div className="flex items-center justify-between gap-1 text-[11px] text-gray-400 md:text-xs"><span className="truncate">{label}</span>{icon}</div><p className="mt-1 text-xl font-bold text-gray-900 md:text-2xl">{value}</p></div>)}
       </div>
 
-      <section className="overflow-hidden rounded-md border border-gray-100 bg-white">
-        <div className="grid grid-cols-2 gap-2 border-b border-gray-100 p-3 md:grid-cols-[180px_180px_minmax(220px,1fr)_auto]">
+      <section className="overflow-hidden rounded-md border border-gray-100 bg-white xl:overflow-visible">
+        <div data-inventory-filters className="grid grid-cols-2 gap-2 border-b border-gray-100 bg-white p-3 md:grid-cols-[180px_180px_minmax(220px,1fr)_auto] xl:sticky xl:top-0 xl:z-30 xl:h-16">
           <Select
             value={primaryFilter}
             onChange={(value) => { setPrimaryFilter(value); setSecondaryFilter('all'); }}
@@ -228,21 +243,45 @@ export default function Materials() {
             className="min-w-0"
           />
           <label className="relative col-span-2 md:col-span-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索型号、色号、品牌、备注" className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-gray-400" /></label>
-          {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden rounded-md border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50 md:block">分类管理</button>}
+          {(hasActiveFilters || isAdmin) && <div className={`col-span-2 items-center justify-end gap-2 md:col-span-1 ${hasActiveFilters ? 'flex' : 'hidden md:flex'}`}>
+            {hasActiveFilters && <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50"><X size={14} />清除筛选</button>}
+            {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 md:inline-flex">分类管理</button>}
+          </div>}
         </div>
 
         {loading ? <div className="py-16 text-center text-sm text-gray-400"><Loader2 size={18} className="mx-auto mb-2 animate-spin" />加载中...</div>
           : filtered.length === 0 ? <div className="py-16 text-center text-sm text-gray-400">暂无符合条件的材料</div>
           : <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[880px] text-left">
-                <thead><tr className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500"><th className="px-4 py-3 font-medium">材料</th><th className="px-4 py-3 font-medium">分类</th><th className="px-4 py-3 font-medium">品牌</th><th className="px-4 py-3 font-medium">库存</th><th className="px-4 py-3 font-medium">备注</th>{isAdmin && <th className="px-4 py-3 text-right font-medium">操作</th>}</tr></thead>
+            <div className="hidden xl:block">
+              <table className="w-full table-fixed text-left">
+                <colgroup>
+                  <col className="w-[76px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[110px]" />
+                  <col />
+                  {isAdmin && <col className="w-[190px]" />}
+                </colgroup>
+                <thead>
+                  <tr className="text-xs text-gray-500">
+                    {['图片', '型号', '色号', '一级分类', '二级分类', '品牌', '库存', '备注'].map((label) => (
+                      <th key={label} className="sticky !top-16 z-20 border-b border-gray-100 !bg-gray-50 px-4 py-3 font-medium">{label}</th>
+                    ))}
+                    {isAdmin && <th className="sticky !top-16 z-20 border-b border-gray-100 !bg-gray-50 px-4 py-3 text-right font-medium">操作</th>}
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-gray-100">{filtered.map((material) => {
                   const path = resolveMaterialCategory(material, categories);
                   const low = Number(material.stock || 0) <= 10;
                   return <tr key={material._id} onClick={() => navigate(`/materials/${material._id}`, { state: { from: returnPath } })} className="cursor-pointer hover:bg-gray-50/70">
-                    <td className="px-4 py-3"><div className="flex items-center gap-3"><MaterialImage fileID={getMaterialImageID(material)} className="h-12 w-12 rounded-md" onWebPreview={showPreview} /><div className="min-w-0"><p className="max-w-[220px] truncate text-sm font-semibold text-gray-900">{material.spec || '未填写型号'} {material.color && <span className="text-amber-600">#{material.color}</span>}</p>{material.name && <p className="mt-0.5 max-w-[220px] truncate text-xs text-gray-400">{material.name}</p>}</div></div></td>
-                    <td className="px-4 py-3"><p className="text-sm text-gray-700">{path.primaryName || '-'}</p><p className="text-xs text-gray-400">{path.secondaryName || '-'}</p></td>
+                    <td className="px-4 py-3"><MaterialImage fileID={getMaterialImageID(material)} className="h-12 w-12 rounded-md" onWebPreview={showPreview} /></td>
+                    <td className="px-4 py-3"><p className="truncate text-sm font-semibold text-gray-900">{material.spec || '-'}</p>{material.name && <p className="mt-0.5 truncate text-xs text-gray-400">{material.name}</p>}</td>
+                    <td className="truncate px-4 py-3 text-sm font-medium text-amber-600">{material.color || '-'}</td>
+                    <td className="truncate px-4 py-3 text-sm text-gray-700">{path.primaryName || '-'}</td>
+                    <td className="truncate px-4 py-3 text-sm text-gray-500">{path.secondaryName || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{material.brand || '-'}</td>
                     <td className={`px-4 py-3 text-sm font-semibold ${low ? 'text-amber-600' : 'text-gray-900'}`}>{material.stock || 0} <span className="font-normal text-gray-400">{material.unit || ''}</span></td>
                     <td className="max-w-[220px] truncate px-4 py-3 text-sm text-gray-500">{material.remark || '-'}</td>
@@ -252,7 +291,7 @@ export default function Materials() {
               </table>
             </div>
 
-            <div className="divide-y divide-gray-100 md:hidden">{filtered.map((material) => {
+            <div className="divide-y divide-gray-100 xl:hidden">{filtered.map((material) => {
               const path = resolveMaterialCategory(material, categories);
               const low = Number(material.stock || 0) <= 10;
               const open = swipedId === material._id;
