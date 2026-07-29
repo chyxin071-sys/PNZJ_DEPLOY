@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, BarChart3, PieChart, RefreshCw, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, PieChart, RefreshCw, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
@@ -10,17 +10,29 @@ import { CanvasRenderer } from 'echarts/renderers';
 import Select from '@/components/Select';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
+import { systemConfigsAPI } from '@/db/api';
 import { formatMoney } from '@/utils/format';
 
 echarts.use([LineChart, BarChart, EChartsPieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
-const REPORT_CACHE_PREFIX = 'pnzj:finance-report:v2';
-const TABS = ['经营总览', '利润分析', '现金流', '成本分析'] as const;
+const FINANCE_TARGET_CONFIG_ID = 'dashboard_finance_targets';
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
 const LIGHT_TEXT = '#6b7280';
 const LIGHT_GRID = '#eef0f3';
 
-type ReportTab = typeof TABS[number];
+type FinanceTargets = {
+  yearContract: number;
+  monthContract: number;
+  yearReceipt: number;
+  monthReceipt: number;
+};
+
+const EMPTY_FINANCE_TARGETS: FinanceTargets = {
+  yearContract: 0,
+  monthContract: 0,
+  yearReceipt: 0,
+  monthReceipt: 0,
+};
 
 type MonthStats = {
   month: string;
@@ -39,13 +51,6 @@ type CostCategory = {
   ratio: number;
 };
 
-type ReportSnapshot = {
-  monthlyData: MonthStats[];
-  prevYearData: MonthStats[];
-  costCategories: CostCategory[];
-  updatedAt: number;
-};
-
 function sum(list: number[]) {
   return list.reduce((total, value) => total + Number(value || 0), 0);
 }
@@ -56,48 +61,51 @@ function monthTotal(d: MonthStats) {
   return { income, expense, profit: income - expense };
 }
 
-function cacheKey(bizType: string, year: number) {
-  return `${REPORT_CACHE_PREFIX}:${bizType}:${year}`;
-}
-
-function readReportCache(bizType: string, year: number): ReportSnapshot | null {
-  try {
-    const raw = window.localStorage?.getItem(cacheKey(bizType, year));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed?.monthlyData) || parsed.monthlyData.length !== 12) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeReportCache(bizType: string, year: number, snapshot: ReportSnapshot) {
-  try {
-    window.localStorage?.setItem(cacheKey(bizType, year), JSON.stringify(snapshot));
-  } catch {
-    // Cache is a speed-up only.
-  }
-}
-
 export default function ReportsPage() {
   const navigate = useNavigate();
-  const { receipts, expenses, invoices, generalIncomes, generalExpenses, initialized, loading } = useFinanceStore();
+  const { contracts, receipts, expenses, invoices, generalIncomes, generalExpenses, initialized, loading, _refreshSilent } = useFinanceStore();
   const { currentBizType } = useBizStore();
-  const [tab, setTab] = useState<ReportTab>('经营总览');
   const [year, setYear] = useState(dayjs().year());
-  const [cachedSnapshot, setCachedSnapshot] = useState<ReportSnapshot | null>(() => readReportCache(currentBizType, dayjs().year()));
+  const [financeTargets, setFinanceTargets] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
+  const [reportRefreshing, setReportRefreshing] = useState(false);
 
-  const hasLiveData = initialized || receipts.length > 0 || expenses.length > 0 || generalIncomes.length > 0 || generalExpenses.length > 0;
-  const hasCache = !!cachedSnapshot;
+  const hasLiveData = initialized || contracts.length > 0 || receipts.length > 0 || expenses.length > 0 || generalIncomes.length > 0 || generalExpenses.length > 0;
   const supportsInvoices = currentBizType === '工装';
 
   useEffect(() => {
-    setCachedSnapshot(readReportCache(currentBizType, year));
-  }, [currentBizType, year]);
+    let cancelled = false;
+    setReportRefreshing(true);
+    _refreshSilent(['contracts', 'receipts', 'expenses', 'generalIncomes', 'generalExpenses', 'invoices'], true)
+      .finally(() => {
+        if (!cancelled) setReportRefreshing(false);
+      });
+    return () => { cancelled = true; };
+  }, [_refreshSilent, currentBizType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const normalizeTargets = (data: any): FinanceTargets => ({
+      yearContract: Number(data?.yearContract || 0),
+      monthContract: Number(data?.monthContract || 0),
+      yearReceipt: Number(data?.yearReceipt || 0),
+      monthReceipt: Number(data?.monthReceipt || 0),
+    });
+    const loadTargets = async () => {
+      try {
+        const doc = await systemConfigsAPI.doc(FINANCE_TARGET_CONFIG_ID).get();
+        const scopedTargets = doc?.targets?.[currentBizType] || doc?.[currentBizType] || null;
+        if (!cancelled) setFinanceTargets(normalizeTargets(scopedTargets));
+      } catch {
+        if (!cancelled) setFinanceTargets(EMPTY_FINANCE_TARGETS);
+      }
+    };
+    void loadTargets();
+    return () => { cancelled = true; };
+  }, [currentBizType]);
 
   const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
   const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
+  const filteredContracts = useMemo(() => contracts.filter(c => c.bizType === currentBizType), [contracts, currentBizType]);
   const filteredInvoices = useMemo(() => supportsInvoices ? invoices.filter(i => i.bizType === currentBizType) : [], [invoices, currentBizType, supportsInvoices]);
   const ledgerBelongsToCurrentBiz = (item: { bizType?: string }) => {
     if (item.bizType) return item.bizType === currentBizType;
@@ -153,18 +161,6 @@ export default function ReportsPage() {
       .sort((a, b) => b.amount - a.amount);
   }, [filteredExpenses, scopedGeneralExpenses, year]);
 
-  useEffect(() => {
-    if (!hasLiveData) return;
-    const snapshot = {
-      monthlyData: liveMonthlyData,
-      prevYearData: livePrevYearData,
-      costCategories: liveCostCategories,
-      updatedAt: Date.now(),
-    };
-    setCachedSnapshot(snapshot);
-    writeReportCache(currentBizType, year, snapshot);
-  }, [currentBizType, hasLiveData, liveCostCategories, liveMonthlyData, livePrevYearData, year]);
-
   const monthlyData = hasLiveData ? liveMonthlyData : [];
   const prevYearData = hasLiveData ? livePrevYearData : [];
   const costCategories = hasLiveData ? liveCostCategories : [];
@@ -202,6 +198,32 @@ export default function ReportsPage() {
   const projectCostRate = totals.projectIncome > 0 ? totals.projectExpense / totals.projectIncome : 0;
   const bestMonth = monthlyData.reduce<MonthStats | null>((best, item) => (!best || monthTotal(item).profit > monthTotal(best).profit ? item : best), null);
   const worstMonth = monthlyData.reduce<MonthStats | null>((worst, item) => (!worst || monthTotal(item).profit < monthTotal(worst).profit ? item : worst), null);
+  const currentMonthNo = dayjs().month() + 1;
+  const selectedYearContractAmount = useMemo(() => (
+    sum(filteredContracts
+      .filter((contract) => {
+        const value = contract.signDate || contract.createdAt;
+        return !!value && dayjs(value).year() === year;
+      })
+      .map(contract => Number(contract.contractAmount || 0)))
+  ), [filteredContracts, year]);
+  const selectedMonthContractAmount = useMemo(() => (
+    sum(filteredContracts
+      .filter((contract) => {
+        const value = contract.signDate || contract.createdAt;
+        if (!value) return false;
+        const date = dayjs(value);
+        return date.year() === year && date.month() + 1 === currentMonthNo;
+      })
+      .map(contract => Number(contract.contractAmount || 0)))
+  ), [currentMonthNo, filteredContracts, year]);
+  const currentMonthReceiptAmount = sum(monthlyData.filter(item => item.monthNo === currentMonthNo).map(item => item.projIncome));
+  const targetItems = [
+    { title: '本月合同金额', value: selectedMonthContractAmount, target: financeTargets.monthContract },
+    { title: '本月回款金额', value: currentMonthReceiptAmount, target: financeTargets.monthReceipt },
+    { title: '本年合同金额', value: selectedYearContractAmount, target: financeTargets.yearContract },
+    { title: '本年回款金额', value: totals.projectIncome, target: financeTargets.yearReceipt },
+  ];
 
   const drillToCashflow = (monthNo: number, type: 'income' | 'expense' | 'all') => {
     const flowType = type === 'income' ? '收款' : type === 'expense' ? '支出' : '全部';
@@ -280,7 +302,7 @@ export default function ReportsPage() {
         <div className="flex h-96 items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" />
-            <p className="text-sm text-gray-400">{loading || hasCache ? '正在同步真实财务数据...' : '正在准备报表...'}</p>
+            <p className="text-sm text-gray-400">{loading || reportRefreshing ? '正在同步真实财务数据...' : '正在准备报表...'}</p>
           </div>
         </div>
       </div>
@@ -302,25 +324,6 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="sticky top-[calc(var(--erp-header-height,0px))] z-20 -mx-4 bg-gray-100/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0">
-        <div className="flex gap-2 overflow-x-auto pb-1 md:border-b md:border-gray-200">
-          {TABS.map(item => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setTab(item)}
-              className={`h-9 shrink-0 rounded-md px-4 text-sm font-medium transition-colors md:rounded-none md:border-b-2 md:px-5 ${
-                tab === item
-                  ? 'bg-gray-900 text-white md:border-gold-400 md:bg-transparent md:text-gold-600'
-                  : 'bg-white text-gray-500 md:border-transparent md:bg-transparent md:hover:text-gray-900'
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs leading-5 text-amber-700">
         当前口径：合同收款按收款日期统计，项目支出按支出日期统计，店内收入/支出按所属业务统计。家装不包含开票记录；工装保留开票与回款分析。
       </div>
@@ -332,76 +335,114 @@ export default function ReportsPage() {
         <MetricCard title="项目成本率" value={`${(projectCostRate * 100).toFixed(1)}%`} sub={`项目支出 ${formatMoney(totals.projectExpense)}`} icon={PieChart} tone="slate" />
       </section>
 
-      {tab === '经营总览' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <ChartCard title={`${year}年月度经营趋势`} className="lg:col-span-2">
-              <ReactEChartsCore echarts={echarts} option={overviewOption} style={{ height: chartHeight }} notMerge />
-            </ChartCard>
-            <div className="grid gap-3">
-              <SummaryBlock label="利润最好月份" title={bestMonth?.month || '-'} value={bestMonth ? formatMoney(monthTotal(bestMonth).profit) : '-'} tone="emerald" />
-              <SummaryBlock label="利润压力月份" title={worstMonth?.month || '-'} value={worstMonth ? formatMoney(monthTotal(worstMonth).profit) : '-'} tone="red" />
-              {supportsInvoices && <SummaryBlock label="开票欠款" title="工装口径" value={formatMoney(totals.invoiceDebt)} tone={totals.invoiceDebt > 0 ? 'red' : 'emerald'} />}
-            </div>
+      <section className="space-y-3">
+        <SectionTitle title="经营目标达成" desc={`目标复用首页设置；本月按${currentMonthNo}月统计，本年按${year}年统计`} />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          {targetItems.map(item => <TargetProgressCard key={item.title} {...item} />)}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle title="经营总览" desc="收入、支出、利润在同一张趋势图里对比" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <ChartCard title={`${year}年月度经营趋势`} className="lg:col-span-2">
+            <ReactEChartsCore echarts={echarts} option={overviewOption} style={{ height: chartHeight }} notMerge />
+          </ChartCard>
+          <div className="grid gap-3">
+            <SummaryBlock label="利润最好月份" title={bestMonth?.month || '-'} value={bestMonth ? formatMoney(monthTotal(bestMonth).profit) : '-'} tone="emerald" />
+            <SummaryBlock label="利润压力月份" title={worstMonth?.month || '-'} value={worstMonth ? formatMoney(monthTotal(worstMonth).profit) : '-'} tone="red" />
+            {supportsInvoices && <SummaryBlock label="开票欠款" title="工装口径" value={formatMoney(totals.invoiceDebt)} tone={totals.invoiceDebt > 0 ? 'red' : 'emerald'} />}
           </div>
-          <MonthlyDrillList monthlyData={monthlyData} prevYearData={prevYearData} onDrill={drillToCashflow} mode="overview" />
         </div>
-      )}
+      </section>
 
-      {tab === '利润分析' && (
-        <div className="space-y-4">
-          <ChartCard title={`${year}年利润与去年对比`}>
-            <ReactEChartsCore echarts={echarts} option={profitOption} style={{ height: chartHeight }} notMerge />
+      <section className="space-y-3">
+        <SectionTitle title="利润分析" desc="当前年份与去年同期利润对比" />
+        <ChartCard title={`${year}年利润与去年对比`}>
+          <ReactEChartsCore echarts={echarts} option={profitOption} style={{ height: chartHeight }} notMerge />
+        </ChartCard>
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle title="现金流" desc="收款流入与支出流出的月度节奏" />
+        <ChartCard title={`${year}年月度现金流`}>
+          <ReactEChartsCore echarts={echarts} option={cashOption} style={{ height: chartHeight }} notMerge />
+        </ChartCard>
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle title="成本分析" desc="项目支出与店内支出的分类结构" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ChartCard title={`${year}年成本分类`}>
+            {costCategories.length > 0 ? (
+              <ReactEChartsCore echarts={echarts} option={costOption} style={{ height: chartHeight }} notMerge />
+            ) : (
+              <EmptyBlock text="暂无成本分类数据" />
+            )}
           </ChartCard>
-          <MonthlyDrillList monthlyData={monthlyData} prevYearData={prevYearData} onDrill={drillToCashflow} mode="profit" />
-        </div>
-      )}
-
-      {tab === '现金流' && (
-        <div className="space-y-4">
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <MetricCard title="现金流入" value={formatMoney(totals.income)} sub="点击月度收入可查看流水" icon={TrendingUp} tone="emerald" />
-            <MetricCard title="现金流出" value={formatMoney(totals.expense)} sub="点击月度支出可查看流水" icon={ArrowDownRight} tone="red" />
-            <MetricCard title="净现金流" value={formatMoney(totals.income - totals.expense)} sub="收款减支出" icon={Wallet} tone={totals.income - totals.expense >= 0 ? 'dark' : 'red'} />
-          </section>
-          <ChartCard title={`${year}年月度现金流`}>
-            <ReactEChartsCore echarts={echarts} option={cashOption} style={{ height: chartHeight }} notMerge />
-          </ChartCard>
-          <MonthlyDrillList monthlyData={monthlyData} prevYearData={prevYearData} onDrill={drillToCashflow} mode="cash" />
-        </div>
-      )}
-
-      {tab === '成本分析' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ChartCard title={`${year}年成本分类`}>
-              {costCategories.length > 0 ? (
-                <ReactEChartsCore echarts={echarts} option={costOption} style={{ height: chartHeight }} notMerge />
-              ) : (
-                <EmptyBlock text="暂无成本分类数据" />
-              )}
-            </ChartCard>
-            <div className="rounded-lg border border-gray-100 bg-white p-4">
-              <h3 className="mb-3 text-sm font-semibold text-gray-900">成本排行</h3>
-              <div className="space-y-3">
-                {costCategories.length === 0 ? <EmptyBlock text="暂无成本记录" /> : costCategories.slice(0, 8).map((item) => (
-                  <div key={item.name}>
-                    <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                      <span className="min-w-0 truncate font-medium text-gray-700">{item.name}</span>
-                      <span className="shrink-0 font-semibold text-gray-900">{formatMoney(item.amount)}</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full rounded-full bg-gray-900" style={{ width: `${Math.min(100, item.ratio * 100)}%` }} />
-                    </div>
-                    <div className="mt-1 text-right text-[11px] text-gray-400">{(item.ratio * 100).toFixed(1)}%</div>
+          <div className="rounded-lg border border-gray-100 bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">成本排行</h3>
+            <div className="space-y-3">
+              {costCategories.length === 0 ? <EmptyBlock text="暂无成本记录" /> : costCategories.slice(0, 8).map((item) => (
+                <div key={item.name}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium text-gray-700">{item.name}</span>
+                    <span className="shrink-0 font-semibold text-gray-900">{formatMoney(item.amount)}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-full rounded-full bg-gray-900" style={{ width: `${Math.min(100, item.ratio * 100)}%` }} />
+                  </div>
+                  <div className="mt-1 text-right text-[11px] text-gray-400">{(item.ratio * 100).toFixed(1)}%</div>
+                </div>
+              ))}
             </div>
           </div>
-          <MonthlyDrillList monthlyData={monthlyData} prevYearData={prevYearData} onDrill={drillToCashflow} mode="cost" />
         </div>
-      )}
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle title="月度明细" desc="点击月度收入或支出可跳转资金流水并自动筛选" />
+        <MonthlyDrillList monthlyData={monthlyData} prevYearData={prevYearData} onDrill={drillToCashflow} mode="overview" />
+      </section>
+    </div>
+  );
+}
+
+function SectionTitle({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+      <div>
+        <h2 className="text-base font-bold text-gray-900">{title}</h2>
+        <p className="mt-0.5 text-xs text-gray-400">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function TargetProgressCard({ title, value, target }: { title: string; value: number; target: number }) {
+  const progress = target > 0 ? Math.round((value / target) * 100) : 0;
+  const progressWidth = target > 0 ? Math.min(100, Math.max(0, (value / target) * 100)) : 0;
+  const reached = target > 0 && value >= target;
+  return (
+    <div className={`rounded-lg border bg-white p-4 ${reached ? 'border-emerald-100' : 'border-gray-100'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-medium text-gray-400">{title}</div>
+          <div className="mt-2 break-words text-xl font-bold leading-tight text-gray-900">{formatMoney(value)}</div>
+        </div>
+        <div className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${reached ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+          {target > 0 ? `${progress}%` : '--'}
+        </div>
+      </div>
+      <div className="mt-3">
+        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-gray-400">目标</span>
+          <span className="truncate text-gray-500">{target > 0 ? formatMoney(target) : '未设置'}</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+          <div className={`h-full rounded-full transition-all ${reached ? 'bg-emerald-500' : 'bg-gray-900'}`} style={{ width: `${progressWidth}%` }} />
+        </div>
+      </div>
     </div>
   );
 }

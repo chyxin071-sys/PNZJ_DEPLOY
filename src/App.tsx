@@ -134,7 +134,7 @@ function FinanceGuard({ children }: { children: React.ReactNode }) {
     if (path.startsWith('/reimbursement')) return ['contracts', 'reimbursements'];
     if (path.startsWith('/quotes-biz') || path.startsWith('/quotation-builder')) return ['contracts', 'quotations'];
     if (path.startsWith('/cashflow')) return ['contracts', 'receipts', 'expenses', 'generalIncomes', 'generalExpenses', 'reimbursements'];
-    if (path.startsWith('/reports')) return ['receipts', 'expenses', 'generalIncomes', 'generalExpenses', 'invoices'];
+    if (path.startsWith('/reports')) return ['contracts', 'receipts', 'expenses', 'generalIncomes', 'generalExpenses', 'invoices'];
     if (path.startsWith('/projects')) return ['contracts', 'receipts', 'expenses'];
     if (path.startsWith('/receivable')) return ['contracts', 'receipts'];
     if (path.startsWith('/payable')) return ['contracts', 'expenses'];

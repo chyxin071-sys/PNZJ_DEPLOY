@@ -42,7 +42,7 @@ interface FinanceState {
 
   init: (datasets?: FinanceDataset[]) => Promise<void>;
   refreshAll: () => Promise<void>;
-  _refreshSilent: (datasets?: FinanceDataset[]) => Promise<void>;
+  _refreshSilent: (datasets?: FinanceDataset[], force?: boolean) => Promise<void>;
   reset: () => void;
 
   addContract: (c: Contract) => Promise<void>;
@@ -112,14 +112,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   refreshAll: async () => {
     set({ loading: true });
-    await get()._refreshSilent(ALL_FINANCE_DATASETS);
+    await get()._refreshSilent(ALL_FINANCE_DATASETS, true);
     set({ loading: false });
   },
 
-  _refreshSilent: async (datasets = ALL_FINANCE_DATASETS) => {
+  _refreshSilent: async (datasets = ALL_FINANCE_DATASETS, force = false) => {
     try {
       const requested = Array.from(new Set(datasets));
-      const missing = requested.filter((dataset) => !get().loadedDatasets.includes(dataset));
+      const missing = force ? requested : requested.filter((dataset) => !get().loadedDatasets.includes(dataset));
       if (missing.length === 0) return;
       const loaders: Record<FinanceDataset, () => Promise<any[]>> = {
         contracts: contractsAPI.toArray,
