@@ -400,9 +400,9 @@ function sortEmployeesForFilter(list: any[]) {
   });
 }
 
-async function generateCustomerNo(): Promise<string> {
+async function generateCustomerNo(seedLeads?: any[]): Promise<string> {
   const year = new Date().getFullYear();
-  const allLeads = await leadsAPI.toArray(LEAD_LIST_FIELDS);
+  const allLeads = seedLeads && seedLeads.length > 0 ? seedLeads : await leadsAPI.toArray(LEAD_LIST_FIELDS);
   const prefix = `P${year}`;
   let maxSeq = 0;
   allLeads.forEach((l: any) => {
@@ -959,7 +959,7 @@ export default function Leads() {
     if (!form.name || !form.phone || creatingLead) return;
     setCreatingLead(true);
     try {
-      const customerNo = await generateCustomerNo();
+      const customerNo = await generateCustomerNo(allLeads);
       const nowIso = new Date().toISOString();
       const now = formatDateTime(nowIso);
       const autoAssign: any = {};
@@ -987,6 +987,12 @@ export default function Leads() {
         content: `${myName}新建客户：${newLead.name}，电话 ${newLead.phone || '未填写'}，地址 ${newLead.address || '未填写'}；初始状态为跟进中。`,
         createdAt: nowIso,
       });
+
+      setAllLeads(prev => [newLead, ...prev.filter((item: any) => item._id !== newLead._id)]);
+      setShowCreate(false);
+      setForm(INIT_FORM);
+      setCreatingLead(false);
+      void fetchLeads(true);
 
       await createNotificationEventSafely({
         operationId: stableOperationId('lead-created', newLead._id),
@@ -1081,8 +1087,12 @@ export default function Leads() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!isAdmin) return;
     const lead = allLeads.find(l => l._id === id);
+    if (!lead) return;
+    if (!isAdmin && lead.creatorName !== myName) {
+      alert('只有管理员或客户创建人可以删除该客户');
+      return;
+    }
     const leadName = lead?.name || '未命名客户';
     const customerNo = lead?.customerNo || id;
     const customerPhone = lead?.phone || '';
