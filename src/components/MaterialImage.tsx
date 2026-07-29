@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image as ImageIcon, Loader2 } from 'lucide-react';
 import { getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
-import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
+import { isMiniProgramWebView, openNativeMediaPreview } from '@/utils/miniProgramPreview';
 
 type Props = {
   fileID?: string;
@@ -11,22 +11,47 @@ type Props = {
 };
 
 export default function MaterialImage({ fileID = '', alt = '材料图片', className = '', onWebPreview }: Props) {
+  const rootRef = useRef<HTMLButtonElement | null>(null);
   const [url, setUrl] = useState('');
-  const [loading, setLoading] = useState(Boolean(fileID));
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setVisible(false);
+    if (!fileID) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return;
+    }
+
+    const node = rootRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '240px 0px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fileID]);
 
   useEffect(() => {
     let active = true;
     setFailed(false);
-    if (!fileID) {
-      setUrl('');
+    setUrl('');
+    if (!fileID || !visible) {
       setLoading(false);
       return () => { active = false; };
     }
+
     setLoading(true);
-    const resolveThumbnail = import.meta.env.DEV && fileID.startsWith('cloud://')
+    const shouldUseCachedThumbnail = fileID.startsWith('cloud://') && (import.meta.env.DEV || isMiniProgramWebView());
+    const resolveThumbnail = shouldUseCachedThumbnail
       ? getFileDataURL(fileID, 'thumbnail')
       : getTempFileURL([fileID]).then((urls) => urls[fileID] || fileID);
+
     resolveThumbnail
       .then((resolvedUrl) => {
         if (!active) return;
@@ -39,13 +64,18 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [fileID]);
+  }, [fileID, visible]);
 
   const preview = async (event: React.MouseEvent) => {
     event.stopPropagation();
     if (!fileID || failed) return;
-    if (openNativeMediaPreview([{ url: fileID, type: 'image' }], 0)) return;
+
     try {
+      if (isMiniProgramWebView()) {
+        const urls = await getTempFileURL([fileID]);
+        if (openNativeMediaPreview([{ url: urls[fileID] || fileID, type: 'image' }], 0)) return;
+      }
+
       const previewUrl = import.meta.env.DEV && fileID.startsWith('cloud://')
         ? await getFileDataURL(fileID, 'original')
         : url || fileID;
@@ -57,6 +87,7 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
 
   return (
     <button
+      ref={rootRef}
       type="button"
       onClick={preview}
       disabled={!fileID || failed}
@@ -80,4 +111,3 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
     </button>
   );
 }
-

@@ -4,11 +4,18 @@ import { isMiniProgramWebView } from './miniProgramPreview';
 const TEMP_URL_CACHE_KEY = 'pnzj:cloud-temp-urls:v1';
 const TEMP_URL_TTL_MS = 30 * 60_000;
 const pendingTempUrlRequests = new Map<string, Promise<Record<string, string>>>();
+const FILE_DATA_CACHE_NAME = 'pnzj-file-cache';
+const FILE_DATA_CACHE_STORE = 'files';
+const FILE_DATA_CACHE_VERSION = 1;
+const FILE_DATA_CACHE_TTL_MS = 14 * 24 * 60 * 60_000;
+const FILE_DATA_CACHE_LIMIT = 220;
 
 type TempUrlCacheItem = { url: string; expiresAt: number };
+type FileDataCacheItem = { key: string; dataURL: string; expiresAt: number; touchedAt: number };
 
 function readTempUrlCache(): Record<string, TempUrlCacheItem> {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return {};
     return JSON.parse(window.localStorage.getItem(TEMP_URL_CACHE_KEY) || '{}');
   } catch {
     return {};
@@ -17,6 +24,7 @@ function readTempUrlCache(): Record<string, TempUrlCacheItem> {
 
 function writeTempUrlCache(cache: Record<string, TempUrlCacheItem>) {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
     const entries = Object.entries(cache)
       .filter(([, value]) => value.expiresAt > Date.now())
       .sort((a, b) => b[1].expiresAt - a[1].expiresAt)
@@ -173,11 +181,95 @@ export async function getTempFileURL(fileIDs: string[]): Promise<Record<string, 
 const fileDataURLCache = new Map<string, string>();
 const pendingFileDataURLs = new Map<string, Promise<string>>();
 
+function openFileDataCache(): Promise<IDBDatabase | null> {
+  if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const request = window.indexedDB.open(FILE_DATA_CACHE_NAME, FILE_DATA_CACHE_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(FILE_DATA_CACHE_STORE)) {
+        const store = db.createObjectStore(FILE_DATA_CACHE_STORE, { keyPath: 'key' });
+        store.createIndex('touchedAt', 'touchedAt');
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+}
+
+async function readFileDataCache(key: string): Promise<string> {
+  const db = await openFileDataCache();
+  if (!db) return '';
+
+  return new Promise((resolve) => {
+    const tx = db.transaction(FILE_DATA_CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(FILE_DATA_CACHE_STORE);
+    const request = store.get(key);
+    request.onsuccess = () => {
+      const item = request.result as FileDataCacheItem | undefined;
+      if (!item?.dataURL || item.expiresAt <= Date.now()) {
+        if (item) store.delete(key);
+        resolve('');
+        return;
+      }
+      store.put({ ...item, touchedAt: Date.now() });
+      resolve(item.dataURL);
+    };
+    request.onerror = () => resolve('');
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => db.close();
+  });
+}
+
+async function trimFileDataCache(store: IDBObjectStore) {
+  const countRequest = store.count();
+  countRequest.onsuccess = () => {
+    const overflow = Number(countRequest.result || 0) - FILE_DATA_CACHE_LIMIT;
+    if (overflow <= 0) return;
+    const index = store.index('touchedAt');
+    let deleted = 0;
+    const cursorRequest = index.openCursor();
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor || deleted >= overflow) return;
+      cursor.delete();
+      deleted += 1;
+      cursor.continue();
+    };
+  };
+}
+
+async function writeFileDataCache(key: string, dataURL: string) {
+  const db = await openFileDataCache();
+  if (!db) return;
+
+  const tx = db.transaction(FILE_DATA_CACHE_STORE, 'readwrite');
+  const store = tx.objectStore(FILE_DATA_CACHE_STORE);
+  store.put({
+    key,
+    dataURL,
+    expiresAt: Date.now() + FILE_DATA_CACHE_TTL_MS,
+    touchedAt: Date.now(),
+  } satisfies FileDataCacheItem);
+  trimFileDataCache(store);
+  tx.oncomplete = () => db.close();
+  tx.onerror = () => db.close();
+}
+
 export async function getFileDataURL(fileID: string, variant: 'original' | 'thumbnail' = 'original'): Promise<string> {
   await initCloudBase();
   const cacheKey = `${variant}:${fileID}`;
   const cached = fileDataURLCache.get(cacheKey);
   if (cached) return cached;
+  if (variant === 'thumbnail') {
+    const persisted = await readFileDataCache(cacheKey);
+    if (persisted) {
+      fileDataURLCache.set(cacheKey, persisted);
+      return persisted;
+    }
+  }
   const pending = pendingFileDataURLs.get(cacheKey);
   if (pending) return pending;
 
@@ -191,6 +283,7 @@ export async function getFileDataURL(fileID: string, variant: 'original' | 'thum
     }
     const dataURL = `data:${result.contentType || 'image/jpeg'};base64,${result.fileContent}`;
     fileDataURLCache.set(cacheKey, dataURL);
+    if (variant === 'thumbnail') writeFileDataCache(cacheKey, dataURL);
     return dataURL;
   }).finally(() => pendingFileDataURLs.delete(cacheKey));
 

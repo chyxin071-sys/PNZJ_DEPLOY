@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowDownCircle, ArrowUpCircle, CheckCircle, Edit3, Layers,
@@ -12,7 +12,6 @@ import ImagePreviewModal from '@/components/ImagePreviewModal';
 import InventoryCategoryManager from '@/components/InventoryCategoryManager';
 import MaterialEditorModal, { type MaterialEditorDraft } from '@/components/MaterialEditorModal';
 import MaterialImage from '@/components/MaterialImage';
-import Select from '@/components/Select';
 import {
   categoryPayload, ensureCategoryPath, getMaterialImageID, inventoryErrorMessage, loadInventoryCategories,
   resolveMaterialCategory, saveCategoriesAndMigrateMaterials, saveInventoryCategories,
@@ -20,6 +19,43 @@ import {
 } from '@/services/inventoryCategories';
 
 const ACTION_WIDTH = 144;
+const MATERIALS_CACHE_KEY = 'pnzj:materials:list:v2';
+const MATERIALS_CACHE_TTL_MS = 10 * 60_000;
+
+type MaterialsCachePayload = {
+  materials: MaterialRecord[];
+  categories: InventoryCategory[];
+  savedAt: number;
+};
+
+function readMaterialsCache(): MaterialsCachePayload | null {
+  try {
+    const cached = window.localStorage?.getItem(MATERIALS_CACHE_KEY)
+      || window.sessionStorage?.getItem('materials_cache');
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    if (Array.isArray(parsed)) return { materials: parsed, categories: [], savedAt: 0 };
+    if (!Array.isArray(parsed.materials)) return null;
+    return {
+      materials: parsed.materials,
+      categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+      savedAt: Number(parsed.savedAt) || 0,
+    };
+  } catch {
+    window.localStorage?.removeItem(MATERIALS_CACHE_KEY);
+    return null;
+  }
+}
+
+function writeMaterialsCache(materials: MaterialRecord[], categories: InventoryCategory[]) {
+  const payload: MaterialsCachePayload = { materials, categories, savedAt: Date.now() };
+  try {
+    window.localStorage?.setItem(MATERIALS_CACHE_KEY, JSON.stringify(payload));
+    window.sessionStorage?.setItem('materials_cache', JSON.stringify(payload));
+  } catch {
+    try { window.sessionStorage?.setItem('materials_cache', JSON.stringify(payload)); } catch {}
+  }
+}
 
 export default function Materials() {
   const { user } = useAuthStore();
@@ -56,15 +92,18 @@ export default function Materials() {
   const isDraggingRef = useRef(false);
 
   const fetchData = useCallback(async () => {
-    const cached = sessionStorage.getItem('materials_cache');
+    const cached = readMaterialsCache();
     if (cached) {
-      try { setMaterials(JSON.parse(cached)); setLoading(false); } catch { sessionStorage.removeItem('materials_cache'); }
+      setMaterials(cached.materials);
+      if (cached.categories.length > 0) setCategories(cached.categories);
+      setLoading(false);
+      if (Date.now() - cached.savedAt < MATERIALS_CACHE_TTL_MS) return;
     }
     const [data, categoryTree] = await Promise.all([materialsAPI.toArray(), loadInventoryCategories()]);
     setMaterials(data);
     setCategories(categoryTree);
     setLoading(false);
-    sessionStorage.setItem('materials_cache', JSON.stringify(data));
+    writeMaterialsCache(data, categoryTree);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -76,6 +115,31 @@ export default function Materials() {
   }, [loading]);
 
   const selectedPrimary = categories.find((category) => category.id === primaryFilter);
+  const secondaryOptions = useMemo(() => {
+    const source = selectedPrimary
+      ? [selectedPrimary]
+      : categories;
+    return source.flatMap((category) => category.children.map((child) => ({
+      ...child,
+      primaryId: category.id,
+      primaryName: category.name,
+    })));
+  }, [categories, selectedPrimary]);
+
+  const selectPrimary = (id: string) => {
+    setPrimaryFilter(id);
+    setSecondaryFilter('all');
+  };
+
+  const selectSecondary = (id: string) => {
+    if (id === 'all') {
+      setSecondaryFilter('all');
+      return;
+    }
+    const owner = categories.find((category) => category.children.some((child) => child.id === id));
+    if (owner) setPrimaryFilter(owner.id);
+    setSecondaryFilter(id);
+  };
   const filtered = useMemo(() => materials.filter((material) => {
     const path = resolveMaterialCategory(material, categories);
     if (primaryFilter !== 'all' && path.primaryId !== primaryFilter) return false;
@@ -227,26 +291,28 @@ export default function Materials() {
       </div>
 
       <section className="overflow-hidden rounded-md border border-gray-100 bg-white xl:overflow-visible">
-        <div data-inventory-filters className="grid grid-cols-2 gap-2 border-b border-gray-100 bg-white p-3 md:grid-cols-[180px_180px_minmax(220px,1fr)_auto] xl:sticky xl:top-0 xl:z-30 xl:h-16">
-          <Select
-            value={primaryFilter}
-            onChange={(value) => { setPrimaryFilter(value); setSecondaryFilter('all'); }}
-            options={[{ value: 'all', label: '全部一级分类' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
-            sheetTitle="选择一级分类"
-            className="min-w-0"
-          />
-          <Select
-            value={secondaryFilter}
-            onChange={setSecondaryFilter}
-            options={[{ value: 'all', label: '全部二级分类' }, ...(selectedPrimary?.children || categories.flatMap((category) => category.children)).map((child) => ({ value: child.id, label: child.name }))]}
-            sheetTitle="选择二级分类"
-            className="min-w-0"
-          />
-          <label className="relative col-span-2 md:col-span-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索型号、色号、品牌、备注" className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-gray-400" /></label>
-          {(hasActiveFilters || isAdmin) && <div className={`col-span-2 items-center justify-end gap-2 md:col-span-1 ${hasActiveFilters ? 'flex' : 'hidden md:flex'}`}>
-            {hasActiveFilters && <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50"><X size={14} />清除筛选</button>}
-            {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 md:inline-flex">分类管理</button>}
-          </div>}
+        <div data-inventory-filters className="sticky top-0 z-30 space-y-2 border-b border-gray-100 bg-white/95 p-3 shadow-[0_8px_18px_rgba(15,23,42,0.04)] backdrop-blur">
+          <div className="-mx-3 overflow-x-auto px-3">
+            <div className="flex min-w-max gap-2">
+              <button onClick={() => selectPrimary('all')} className={`rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${primaryFilter === 'all' ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>全部一级</button>
+              {categories.map((category) => (
+                <button key={category.id} onClick={() => selectPrimary(category.id)} className={`rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${primaryFilter === category.id ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{category.name}</button>
+              ))}
+            </div>
+          </div>
+          <div className="-mx-3 overflow-x-auto px-3">
+            <div className="flex min-w-max gap-2">
+              <button onClick={() => selectSecondary('all')} className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${secondaryFilter === 'all' ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>全部二级</button>
+              {secondaryOptions.map((child) => (
+                <button key={child.id} onClick={() => selectSecondary(child.id)} className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${secondaryFilter === child.id ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`} title={child.primaryName}>{child.name}</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="relative min-w-0 flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索型号、色号、品牌、备注" className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-gray-400" /></label>
+            {hasActiveFilters && <button onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-300 hover:bg-gray-50"><X size={14} />清除</button>}
+            {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden shrink-0 rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 md:inline-flex">分类管理</button>}
+          </div>
         </div>
 
         {loading ? <div className="py-16 text-center text-sm text-gray-400"><Loader2 size={18} className="mx-auto mb-2 animate-spin" />加载中...</div>
@@ -268,9 +334,9 @@ export default function Materials() {
                 <thead>
                   <tr className="text-xs text-gray-500">
                     {['图片', '型号', '色号', '一级分类', '二级分类', '品牌', '库存', '备注'].map((label) => (
-                      <th key={label} className="sticky !top-16 z-20 border-b border-gray-100 !bg-gray-50 px-4 py-3 font-medium">{label}</th>
+                      <th key={label} className="sticky !top-[142px] z-20 border-b border-gray-100 !bg-gray-50 px-4 py-3 font-medium">{label}</th>
                     ))}
-                    {isAdmin && <th className="sticky !top-16 z-20 border-b border-gray-100 !bg-gray-50 px-4 py-3 text-right font-medium">操作</th>}
+                    {isAdmin && <th className="sticky !top-[142px] z-20 border-b border-gray-100 !bg-gray-50 px-4 py-3 text-right font-medium">操作</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">{filtered.map((material) => {
