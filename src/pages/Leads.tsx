@@ -1785,7 +1785,8 @@ export default function Leads() {
             ]}
             data={visibleLeads as unknown as Record<string, unknown>[]}
             onRowClick={handleRowClick}
-            onDelete={isAdmin ? (row: any) => handleDelete(row._id) : undefined}
+            onDelete={(row: any) => handleDelete(row._id)}
+            canDelete={(row: any) => isAdmin || row.creatorName === myName}
             rowKey={(row) => (row as any)._id as string}
             sortField={sortField}
             sortOrder={sortOrder}
