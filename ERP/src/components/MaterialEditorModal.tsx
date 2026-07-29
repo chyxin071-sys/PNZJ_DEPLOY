@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ImagePlus, Trash2, Upload, X } from 'lucide-react';
 import MaterialImage from '@/components/MaterialImage';
+import Select from '@/components/Select';
 import type { InventoryCategory, MaterialRecord } from '@/services/inventoryCategories';
 import { getMaterialImageID, resolveMaterialCategory } from '@/services/inventoryCategories';
 
@@ -40,6 +41,8 @@ export default function MaterialEditorModal({
   const [draft, setDraft] = useState<MaterialEditorDraft | null>(null);
   const [localPreview, setLocalPreview] = useState('');
   const [error, setError] = useState('');
+  const [customPrimary, setCustomPrimary] = useState(false);
+  const [customSecondary, setCustomSecondary] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -64,6 +67,8 @@ export default function MaterialEditorModal({
     });
     setLocalPreview('');
     setError('');
+    setCustomPrimary(Boolean(path?.primaryName && !categories.some((category) => category.name === path.primaryName)));
+    setCustomSecondary(Boolean(path?.secondaryName && !categories.some((category) => category.children.some((child) => child.name === path.secondaryName))));
   }, [open, material, categories]);
 
   useEffect(() => () => {
@@ -74,6 +79,12 @@ export default function MaterialEditorModal({
     if (!draft) return [];
     return categories.find((category) => category.name === draft.primaryCategoryName)?.children || [];
   }, [categories, draft]);
+  const selectedPrimary = draft
+    ? categories.find((category) => category.name === draft.primaryCategoryName)
+    : undefined;
+  const selectedSecondary = draft
+    ? secondaryOptions.find((child) => child.name === draft.secondaryCategoryName)
+    : undefined;
 
   if (!open || !draft) return null;
 
@@ -138,20 +149,45 @@ export default function MaterialEditorModal({
               <button type="button" onClick={onManageCategories} className="text-xs font-medium text-amber-600">分类管理</button>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-xs text-gray-500">一级分类 *
-                <input list="inventory-primary-options" value={draft.primaryCategoryName} onChange={(event) => {
-                  const name = event.target.value;
-                  const category = categories.find((item) => item.name === name);
-                  setDraft((current) => current ? { ...current, primaryCategoryName: name, secondaryCategoryName: category?.children[0]?.name || '' } : current);
-                }} className={`${inputClass} mt-1`} placeholder="例如：瓷砖" />
-                <datalist id="inventory-primary-options">{categories.map((category) => <option key={category.id} value={category.name} />)}</datalist>
-              </label>
-              <label className="text-xs text-gray-500">二级分类 *
-                <input list="inventory-secondary-options" value={draft.secondaryCategoryName} onChange={(event) => update('secondaryCategoryName', event.target.value)} className={`${inputClass} mt-1`} placeholder="例如：墙砖" />
-                <datalist id="inventory-secondary-options">{secondaryOptions.map((child) => <option key={child.id} value={child.name} />)}</datalist>
-              </label>
+              <div className="text-xs text-gray-500">一级分类 *
+                <Select
+                  value={customPrimary ? '__custom__' : selectedPrimary?.id || ''}
+                  onChange={(value) => {
+                    if (value === '__custom__') {
+                      setCustomPrimary(true); setCustomSecondary(true);
+                      setDraft((current) => current ? { ...current, primaryCategoryName: '', secondaryCategoryName: '' } : current);
+                      return;
+                    }
+                    const category = categories.find((item) => item.id === value);
+                    setCustomPrimary(false); setCustomSecondary(false);
+                    setDraft((current) => current ? { ...current, primaryCategoryName: category?.name || '', secondaryCategoryName: category?.children[0]?.name || '' } : current);
+                  }}
+                  options={[...categories.map((category) => ({ value: category.id, label: category.name, description: `${category.children.length} 个二级分类` })), { value: '__custom__', label: '＋ 新建一级分类' }]}
+                  placeholder="选择一级分类"
+                  sheetTitle="选择一级分类"
+                  className="mt-1"
+                />
+                {customPrimary && <input autoFocus value={draft.primaryCategoryName} onChange={(event) => update('primaryCategoryName', event.target.value)} className={`${inputClass} mt-2`} placeholder="输入新一级分类名称" />}
+              </div>
+              <div className="text-xs text-gray-500">二级分类 *
+                <Select
+                  value={customSecondary ? '__custom__' : selectedSecondary?.id || ''}
+                  onChange={(value) => {
+                    if (value === '__custom__') {
+                      setCustomSecondary(true); update('secondaryCategoryName', ''); return;
+                    }
+                    const child = secondaryOptions.find((item) => item.id === value);
+                    setCustomSecondary(false); update('secondaryCategoryName', child?.name || '');
+                  }}
+                  options={[...secondaryOptions.map((child) => ({ value: child.id, label: child.name })), { value: '__custom__', label: '＋ 新建二级分类' }]}
+                  placeholder="选择二级分类"
+                  sheetTitle="选择二级分类"
+                  className="mt-1"
+                />
+                {customSecondary && <input autoFocus value={draft.secondaryCategoryName} onChange={(event) => update('secondaryCategoryName', event.target.value)} className={`${inputClass} mt-2`} placeholder="输入新二级分类名称" />}
+              </div>
             </div>
-            <p className="mt-1.5 text-xs text-gray-400">可直接输入新分类，保存材料后会自动沉淀到分类库。</p>
+            <p className="mt-1.5 text-xs text-gray-400">选择“新建分类”可输入名称，保存材料后会自动沉淀到分类库。</p>
           </section>
 
           <section className="grid gap-3 md:grid-cols-2">

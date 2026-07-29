@@ -16,9 +16,10 @@ interface SelectProps {
   className?: string;
   disabled?: boolean;
   searchable?: boolean;
+  sheetTitle?: string;
 }
 
-export default function Select({ value, onChange, options, placeholder = '请选择', className = '', disabled = false, searchable = false }: SelectProps) {
+export default function Select({ value, onChange, options, placeholder = '请选择', className = '', disabled = false, searchable = false, sheetTitle = '' }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,6 +114,12 @@ export default function Select({ value, onChange, options, placeholder = '请选
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-gray-300" />
             </div>
+            {sheetTitle && (
+              <div className="flex items-center justify-between px-5 pb-3 pt-1 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">{sheetTitle}</h3>
+                <button type="button" onClick={() => setOpen(false)} className="text-xs text-gray-400">取消</button>
+              </div>
+            )}
             {searchable && (
               <div className="px-4 pb-2 shrink-0 border-b border-gray-100">
                 <input

@@ -12,8 +12,9 @@ import ImagePreviewModal from '@/components/ImagePreviewModal';
 import InventoryCategoryManager from '@/components/InventoryCategoryManager';
 import MaterialEditorModal, { type MaterialEditorDraft } from '@/components/MaterialEditorModal';
 import MaterialImage from '@/components/MaterialImage';
+import Select from '@/components/Select';
 import {
-  categoryPayload, ensureCategoryPath, getMaterialImageID, loadInventoryCategories,
+  categoryPayload, ensureCategoryPath, getMaterialImageID, inventoryErrorMessage, loadInventoryCategories,
   resolveMaterialCategory, saveCategoriesAndMigrateMaterials, saveInventoryCategories,
   type InventoryCategory, type MaterialRecord,
 } from '@/services/inventoryCategories';
@@ -115,7 +116,7 @@ export default function Materials() {
       setEditingItem(null);
       await fetchData();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : '保存失败');
+      alert(inventoryErrorMessage(error, '保存失败'));
     } finally {
       setSubmitting(false);
     }
@@ -129,7 +130,7 @@ export default function Materials() {
       setShowCategoryManager(false);
       await fetchData();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : '分类保存失败');
+      alert(inventoryErrorMessage(error, '分类保存失败'));
     } finally {
       setSavingCategories(false);
     }
@@ -212,12 +213,20 @@ export default function Materials() {
 
       <section className="overflow-hidden rounded-md border border-gray-100 bg-white">
         <div className="grid grid-cols-2 gap-2 border-b border-gray-100 p-3 md:grid-cols-[180px_180px_minmax(220px,1fr)_auto]">
-          <select value={primaryFilter} onChange={(event) => { setPrimaryFilter(event.target.value); setSecondaryFilter('all'); }} className="min-w-0 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-700 outline-none">
-            <option value="all">全部一级分类</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-          <select value={secondaryFilter} onChange={(event) => setSecondaryFilter(event.target.value)} className="min-w-0 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-700 outline-none">
-            <option value="all">全部二级分类</option>{(selectedPrimary?.children || categories.flatMap((category) => category.children)).map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}
-          </select>
+          <Select
+            value={primaryFilter}
+            onChange={(value) => { setPrimaryFilter(value); setSecondaryFilter('all'); }}
+            options={[{ value: 'all', label: '全部一级分类' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
+            sheetTitle="选择一级分类"
+            className="min-w-0"
+          />
+          <Select
+            value={secondaryFilter}
+            onChange={setSecondaryFilter}
+            options={[{ value: 'all', label: '全部二级分类' }, ...(selectedPrimary?.children || categories.flatMap((category) => category.children)).map((child) => ({ value: child.id, label: child.name }))]}
+            sheetTitle="选择二级分类"
+            className="min-w-0"
+          />
           <label className="relative col-span-2 md:col-span-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索型号、色号、品牌、备注" className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-gray-400" /></label>
           {isAdmin && <button onClick={() => setShowCategoryManager(true)} className="hidden rounded-md border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50 md:block">分类管理</button>}
         </div>

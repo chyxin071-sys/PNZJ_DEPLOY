@@ -10,7 +10,7 @@ import InventoryCategoryManager from '@/components/InventoryCategoryManager';
 import MaterialEditorModal, { type MaterialEditorDraft } from '@/components/MaterialEditorModal';
 import MaterialImage from '@/components/MaterialImage';
 import {
-  categoryPayload, ensureCategoryPath, getMaterialImageID, loadInventoryCategories,
+  categoryPayload, ensureCategoryPath, getMaterialImageID, inventoryErrorMessage, loadInventoryCategories,
   resolveMaterialCategory, saveCategoriesAndMigrateMaterials, saveInventoryCategories,
   type InventoryCategory, type MaterialRecord,
 } from '@/services/inventoryCategories';
@@ -76,7 +76,7 @@ export default function MaterialDetail() {
       setShowEdit(false);
       await fetchData();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : '保存失败');
+      alert(inventoryErrorMessage(error, '保存失败'));
     } finally { setSubmitting(false); }
   };
   const saveCategories = async (next: InventoryCategory[]) => {
@@ -85,7 +85,7 @@ export default function MaterialDetail() {
       setCategories(await saveCategoriesAndMigrateMaterials(categories, next, allMaterials));
       setShowCategoryManager(false);
       await fetchData();
-    } catch (error: unknown) { alert(error instanceof Error ? error.message : '分类保存失败'); }
+    } catch (error: unknown) { alert(inventoryErrorMessage(error, '分类保存失败')); }
     finally { setSavingCategories(false); }
   };
   const openInventory = (type: 'in' | 'out') => {

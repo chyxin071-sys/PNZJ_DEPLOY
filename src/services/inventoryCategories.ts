@@ -103,10 +103,15 @@ export async function loadInventoryCategories() {
 
 export async function saveInventoryCategories(categories: InventoryCategory[]) {
   const normalized = normalizeInventoryCategories(categories);
-  await systemConfigsAPI.doc(INVENTORY_CATEGORY_CONFIG_ID).set({
-    categories: normalized,
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    await systemConfigsAPI.doc(INVENTORY_CATEGORY_CONFIG_ID).set({
+      categories: normalized,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error: unknown) {
+    const detail = inventoryErrorMessage(error, '云数据库拒绝写入');
+    throw new Error(`分类配置无法保存，请确认云数据库已创建 system_configs 集合且管理员拥有读写权限。${detail}`);
+  }
   return normalized;
 }
 
@@ -116,20 +121,51 @@ export async function saveCategoriesAndMigrateMaterials(
   materials: MaterialCategorySource[],
 ) {
   const normalized = await saveInventoryCategories(categories);
-  await Promise.all(materials.map(async (material) => {
+  const updates = materials.flatMap((material) => {
     const oldPath = resolveMaterialCategory(material, previous);
     const primary = normalized.find((category) => category.id === oldPath.primaryId);
     const secondary = primary?.children.find((child) => child.id === oldPath.secondaryId);
-    if (!primary || !secondary) return;
+    if (!material._id || !primary || !secondary) return [];
+    if (oldPath.primaryName === primary.name && oldPath.secondaryName === secondary.name) return [];
     const nextPath = {
       primaryId: primary.id,
       primaryName: primary.name,
       secondaryId: secondary.id,
       secondaryName: secondary.name,
     };
-    if (material._id) await materialsAPI.update(material._id, categoryPayload(nextPath));
-  }));
+    return [{ id: material._id, payload: categoryPayload(nextPath) }];
+  });
+
+  const failed: unknown[] = [];
+  for (let index = 0; index < updates.length; index += 6) {
+    const batch = updates.slice(index, index + 6);
+    const results = await Promise.allSettled(batch.map(async (update) => {
+      try {
+        await materialsAPI.update(update.id, update.payload);
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 180));
+        await materialsAPI.update(update.id, update.payload);
+      }
+    }));
+    results.forEach((result) => {
+      if (result.status === 'rejected') failed.push(result.reason);
+    });
+  }
+  if (failed.length) {
+    const first = failed[0] as { message?: string; errMsg?: string } | undefined;
+    throw new Error(`分类已保存，但有 ${failed.length} 条材料同步失败：${first?.message || first?.errMsg || '云数据库请求失败'}`);
+  }
   return normalized;
+}
+
+export function inventoryErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object') {
+    const value = error as { message?: unknown; errMsg?: unknown; error?: unknown };
+    const detail = value.message || value.errMsg || value.error;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+  }
+  return fallback;
 }
 
 export function resolveMaterialCategory(
