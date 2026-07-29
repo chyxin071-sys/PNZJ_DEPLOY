@@ -72,8 +72,7 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
 
     try {
       if (isMiniProgramWebView()) {
-        const urls = await getTempFileURL([fileID]);
-        if (openNativeMediaPreview([{ url: urls[fileID] || fileID, type: 'image' }], 0)) return;
+        if (openNativeMediaPreview([{ url: fileID, type: 'image' }], 0)) return;
       }
 
       const previewUrl = import.meta.env.DEV && fileID.startsWith('cloud://')

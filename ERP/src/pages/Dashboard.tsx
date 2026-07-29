@@ -6,7 +6,7 @@ import {
   PieChart, Award, Star, Filter, HelpCircle, Plus, FileText, Receipt, BarChart3, User as UserIcon,
   CheckCircle2, Package, PenTool, HardHat, Grid3X3,
 } from 'lucide-react';
-import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI } from '@/db/api';
+import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI, contractsAPI, receiptsAPI, systemConfigsAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
 import { useBizStore } from '@/store/bizStore';
 import { getErpVisibleNavGroups, getErpVisibleBottomItems } from '@/components/navConfig';
@@ -33,6 +33,26 @@ const DASHBOARD_TODO_FIELDS = { _id: true, status: true, dueDate: true, createdA
 const DASHBOARD_PROJECT_FIELDS = { _id: true, status: true, lifecycleStatus: true, createdAt: true, manager: true, creatorName: true, progressSummary: true, startDate: true, plannedCompletionDate: true, actualCompletionDate: true, address: true, customerName: true, leadId: true };
 const DASHBOARD_USER_FIELDS = { _id: true, id: true, name: true, role: true, roles: true, status: true, disabled: true, isDisabled: true, enabled: true, department: true };
 const DASHBOARD_FOLLOW_UP_FIELDS = { _id: true, leadId: true, leadName: true, content: true, createdAt: true, creatorName: true, relatedPerson: true };
+const DASHBOARD_FINANCE_TARGET_CONFIG_ID = 'dashboard_finance_targets';
+
+type FinanceTargets = {
+  yearContract: number;
+  monthContract: number;
+  yearReceipt: number;
+  monthReceipt: number;
+};
+
+const EMPTY_FINANCE_TARGETS: FinanceTargets = {
+  yearContract: 0,
+  monthContract: 0,
+  yearReceipt: 0,
+  monthReceipt: 0,
+};
+
+function formatDashboardMoney(amount: number) {
+  const value = Number(amount || 0);
+  return `¥${value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`;
+}
 
 function getDateRange(year: number, monthFrom: number, monthTo: number) {
   return {
@@ -49,6 +69,7 @@ export default function Dashboard() {
   const roles = user?.roles;
   const userBizTypes = user?.bizTypes as any;
   const isAdmin = user?.role === 'admin';
+  const canOpenFinanceReports = isAdmin || role === 'finance' || (Array.isArray(roles) && roles.includes('finance'));
   const myName = user?.name || '';
   const ROLE_MAP: Record<string, string> = { admin: '管理', sales: '销售', designer: '设计', manager: '项目经理', finance: '财务', employee: '普通' };
   const includesPerson = (val: any, name: string): boolean => {
@@ -75,6 +96,10 @@ export default function Dashboard() {
   const [followUps, setFollowUps] = useState<any[]>([]);
   const [recentFollowUpsData, setRecentFollowUpsData] = useState<any[]>([]);
   const [projectLogs, setProjectLogs] = useState<any[]>([]);
+  const [financeContracts, setFinanceContracts] = useState<any[]>([]);
+  const [financeReceipts, setFinanceReceipts] = useState<any[]>([]);
+  const [financeTargets, setFinanceTargets] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
+  const [financeTargetForm, setFinanceTargetForm] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
   const [loading, setLoading] = useState(false);
   const [timeYear, setTimeYear] = useState(currentYear);
   const [timeMonthFrom, setTimeMonthFrom] = useState(1);
@@ -85,18 +110,36 @@ export default function Dashboard() {
   const [showManagerPerformanceModal, setShowManagerPerformanceModal] = useState(false);
   const [showTimeFilter, setShowTimeFilter] = useState(false);
   const [showAllFunctions, setShowAllFunctions] = useState(false);
+  const [showFinanceTargetModal, setShowFinanceTargetModal] = useState(false);
+
+  const normalizeFinanceTargets = (data: any): FinanceTargets => ({
+    yearContract: Number(data?.yearContract || 0),
+    monthContract: Number(data?.monthContract || 0),
+    yearReceipt: Number(data?.yearReceipt || 0),
+    monthReceipt: Number(data?.monthReceipt || 0),
+  });
+
+  const loadFinanceTargets = useCallback(async () => {
+    const doc = await systemConfigsAPI.doc(DASHBOARD_FINANCE_TARGET_CONFIG_ID).get();
+    const scopedTargets = doc?.targets?.[currentBizType] || doc?.[currentBizType] || null;
+    setFinanceTargets(normalizeFinanceTargets(scopedTargets));
+  }, [currentBizType]);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [leadsRes, todosRes, projectsRes, employeesRes] = await Promise.all([
+      const [leadsRes, todosRes, projectsRes, employeesRes, contractsRes, receiptsRes] = await Promise.all([
         leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
         todosAPI.toArray(DASHBOARD_TODO_FIELDS),
         projectsAPI.toArray(DASHBOARD_PROJECT_FIELDS),
         usersAPI.toArray(DASHBOARD_USER_FIELDS),
+        contractsAPI.toArray(),
+        receiptsAPI.toArray(),
       ]);
       setLeads(leadsRes); setTodos(todosRes); setProjects(projectsRes);
       setEmployees(employeesRes);
+      setFinanceContracts(contractsRes);
+      setFinanceReceipts(receiptsRes);
 
       const loadSecondary = async () => {
         const [followUpsRes, logsRes, recentFollowUpsRes] = await Promise.all([
@@ -119,6 +162,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { loadFinanceTargets(); }, [loadFinanceTargets]);
 
   // 窗口重新聚焦 / 标签页切回时自动刷新最新数据
   useEffect(() => {
@@ -150,6 +194,52 @@ export default function Dashboard() {
     const t = new Date(p.createdAt || 0).getTime();
     return t >= rangeStartMs && t <= rangeEndMs;
   }).filter(p => isAdmin || p.creatorName === myName || ((typeof p.manager === 'object') ? p.manager?.name : p.manager) === myName);
+
+  const nowForFinance = new Date();
+  const financeYear = nowForFinance.getFullYear();
+  const financeMonth = nowForFinance.getMonth();
+  const isValidDate = (value: any) => !Number.isNaN(new Date(value || 0).getTime());
+  const isThisYear = (value: any) => isValidDate(value) && new Date(value).getFullYear() === financeYear;
+  const isThisMonth = (value: any) => {
+    if (!isValidDate(value)) return false;
+    const date = new Date(value);
+    return date.getFullYear() === financeYear && date.getMonth() === financeMonth;
+  };
+  const scopedFinanceContracts = financeContracts.filter((contract) => contract.bizType === currentBizType);
+  const scopedFinanceReceipts = financeReceipts.filter((receipt) => receipt.bizType === currentBizType);
+  const yearContractAmount = scopedFinanceContracts
+    .filter((contract) => isThisYear(contract.signDate || contract.createdAt))
+    .reduce((sum, contract) => sum + Number(contract.contractAmount || 0), 0);
+  const monthContractAmount = scopedFinanceContracts
+    .filter((contract) => isThisMonth(contract.signDate || contract.createdAt))
+    .reduce((sum, contract) => sum + Number(contract.contractAmount || 0), 0);
+  const yearReceiptAmount = scopedFinanceReceipts
+    .filter((receipt) => isThisYear(receipt.receiptDate || receipt.createdAt))
+    .reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+  const monthReceiptAmount = scopedFinanceReceipts
+    .filter((receipt) => isThisMonth(receipt.receiptDate || receipt.createdAt))
+    .reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+
+  const saveFinanceTargets = async () => {
+    const next = normalizeFinanceTargets(financeTargetForm);
+    const currentDoc = await systemConfigsAPI.doc(DASHBOARD_FINANCE_TARGET_CONFIG_ID).get();
+    await systemConfigsAPI.doc(DASHBOARD_FINANCE_TARGET_CONFIG_ID).set({
+      ...(currentDoc || {}),
+      targets: {
+        ...(currentDoc?.targets || {}),
+        [currentBizType]: next,
+      },
+      updatedAt: new Date().toISOString(),
+      updatedBy: user?.name || '',
+    });
+    setFinanceTargets(next);
+    setShowFinanceTargetModal(false);
+  };
+
+  const openFinanceTargetSettings = () => {
+    setFinanceTargetForm(financeTargets);
+    setShowFinanceTargetModal(true);
+  };
 
   // ====== 核心统计 ======
   const totalLeads = filteredLeads.length;
@@ -548,6 +638,54 @@ export default function Dashboard() {
     else allMobileFunctions.push({ group: '系统设置', items: bm });
   }
 
+  const financeOverviewItems = [
+    { key: 'monthContract', title: '本月合同金额', value: monthContractAmount, target: financeTargets.monthContract, tone: 'text-gray-900' },
+    { key: 'monthReceipt', title: '本月回款金额', value: monthReceiptAmount, target: financeTargets.monthReceipt, tone: 'text-emerald-600' },
+    { key: 'yearContract', title: '本年合同金额', value: yearContractAmount, target: financeTargets.yearContract, tone: 'text-gray-900' },
+    { key: 'yearReceipt', title: '本年回款金额', value: yearReceiptAmount, target: financeTargets.yearReceipt, tone: 'text-emerald-600' },
+  ];
+
+  const FinanceOverviewCard = ({ item }: { item: typeof financeOverviewItems[number] }) => {
+    const progress = item.target > 0 ? Math.round((item.value / item.target) * 100) : 0;
+    const progressWidth = item.target > 0 ? Math.min(100, Math.max(0, (item.value / item.target) * 100)) : 0;
+    const content = (
+      <>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-gray-400">{item.title}</p>
+            <p className={`mt-1.5 break-words text-2xl font-bold leading-tight md:text-2xl ${item.tone}`}>{formatDashboardMoney(item.value)}</p>
+          </div>
+          {canOpenFinanceReports && <ArrowUpRight size={16} className="mt-0.5 shrink-0 text-gray-300" />}
+        </div>
+        <div className="mt-3">
+          <div className="mb-1.5 flex items-center justify-between text-[11px]">
+            <span className="text-gray-400">目标 {item.target > 0 ? formatDashboardMoney(item.target) : '未设置'}</span>
+            <span className={item.target > 0 && progress >= 100 ? 'font-semibold text-emerald-600' : 'text-gray-400'}>
+              {item.target > 0 ? `${progress}%` : '--'}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full bg-gray-900 transition-all" style={{ width: `${progressWidth}%` }} />
+          </div>
+        </div>
+      </>
+    );
+
+    if (!canOpenFinanceReports) {
+      return <div className="rounded-lg border border-gray-100 bg-white p-3.5 md:p-4">{content}</div>;
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => navigate('/reports')}
+        className="rounded-lg border border-gray-100 bg-white p-3.5 text-left transition-all hover:border-gray-300 hover:shadow-sm active:scale-[0.99] md:p-4"
+      >
+        {content}
+      </button>
+    );
+  };
+
   return (
     <div className="erp-page-spaced">
       {/* 标题行 + 时间筛选（统一一行） */}
@@ -682,6 +820,29 @@ export default function Dashboard() {
               </button>
             );
           })}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400">经营目标</h3>
+            <p className="mt-0.5 text-[11px] text-gray-400">{currentBizType} · 全员可见</p>
+          </div>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={openFinanceTargetSettings}
+              className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-900"
+            >
+              设置目标
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+          {financeOverviewItems.map((item) => (
+            <FinanceOverviewCard key={item.key} item={item} />
+          ))}
         </div>
       </section>
 
@@ -997,6 +1158,51 @@ export default function Dashboard() {
 
       {/* 管理员：全部功能弹窗 */}
       {isAdmin && (
+        <>
+        <Modal open={showFinanceTargetModal} onClose={() => setShowFinanceTargetModal(false)} title="设置经营目标" size="md">
+          <div className="space-y-4">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              当前业务：<span className="font-semibold text-gray-900">{currentBizType}</span>。目标只影响首页完成率展示，不修改合同或收款数据。
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {[
+                ['yearContract', '本年合同目标'],
+                ['monthContract', '本月合同目标'],
+                ['yearReceipt', '本年回款目标'],
+                ['monthReceipt', '本月回款目标'],
+              ].map(([key, label]) => (
+                <label key={key} className="block text-xs font-medium text-gray-500">
+                  {label}
+                  <input
+                    type="number"
+                    min="0"
+                    value={financeTargetForm[key as keyof FinanceTargets] || ''}
+                    onChange={(event) => setFinanceTargetForm((prev) => ({ ...prev, [key]: Number(event.target.value || 0) }))}
+                    className="mt-1.5 h-10 w-full rounded-md border border-gray-200 px-3 text-sm text-gray-900 outline-none transition-colors focus:border-gray-400"
+                    placeholder="请输入目标金额"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowFinanceTargetModal(false)}
+                className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={saveFinanceTargets}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+              >
+                保存目标
+              </button>
+            </div>
+          </div>
+        </Modal>
+
         <Modal open={showAllFunctions} onClose={() => setShowAllFunctions(false)} title="全部功能" size="lg">
           <div className="space-y-6">
             {allMobileFunctions.map((group) => {
@@ -1031,6 +1237,7 @@ export default function Dashboard() {
             })}
           </div>
         </Modal>
+        </>
       )}
 
       {/* 员工排名查看全部弹窗 */}
