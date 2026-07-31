@@ -48,6 +48,7 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/todos', icon: ListTodo, label: '团队待办', roles: ['admin', 'finance', 'sales', 'designer', 'manager'] },
       { path: '/leads', icon: Users, label: '客户管理', roles: ['admin', 'sales', 'designer', 'manager', 'employee'] },
+      { path: '/contracts', icon: FileText, label: '合同管理', roles: ['admin', 'finance'] },
       { path: '/projects-biz', icon: HardHat, label: '工地管理', roles: ['admin', 'sales', 'designer', 'manager', 'employee'] },
       { path: '/materials', icon: Package, label: '库存管理', roles: ['admin', 'manager'] },
     ],
@@ -57,7 +58,6 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
     icon: TrendingUp,
     items: [
       { path: '/reports', icon: BarChart3, label: '财务报表', roles: ['admin', 'finance'] },
-      { path: '/contracts', icon: FileText, label: '合同管理', roles: ['admin', 'finance'] },
       { path: '/income', icon: ArrowDownToLine, label: '收入管理', roles: ['admin', 'finance'], bizTypes: ['家装'] },
       { path: '/expense', icon: ArrowUpFromLine, label: '支出管理', roles: ['admin', 'finance'], bizTypes: ['家装'] },
       { path: '/projects', icon: Calculator, label: '项目成本', roles: ['admin', 'finance'], bizTypes: ['家装'] },
