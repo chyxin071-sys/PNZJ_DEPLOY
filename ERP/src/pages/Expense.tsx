@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { TrendingDown, DollarSign, FileText, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X } from 'lucide-react';
+import { TrendingDown, DollarSign, FileText, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X, Settings } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
@@ -14,9 +14,15 @@ import type { AttachmentValue } from '@/types';
 import { getAttachmentSummary, mergeAttachments, normalizeAttachments, openAttachment, uploadFinanceAttachments } from '@/utils/financeAttachments';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-
-const CATEGORIES = ['全部', '材料费', '人工费', '外包费', '管理费', '其他'] as const;
-const CATEGORY_OPTIONS = ['材料费', '人工费', '外包费', '管理费', '其他'] as const;
+import ExpenseCategoryManager from '@/components/ExpenseCategoryManager';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  expenseCategoryPayload,
+  loadExpenseCategories,
+  resolveExpenseCategory,
+  saveExpenseCategories,
+  type ExpenseCategory,
+} from '@/services/expenseCategories';
 
 const CATEGORY_BADGE: Record<string, string> = {
   '材料费': 'bg-blue-50 text-blue-600',
@@ -25,6 +31,8 @@ const CATEGORY_BADGE: Record<string, string> = {
   '管理费': 'bg-gray-100 text-gray-600',
   '其他': 'bg-slate-100 text-slate-600',
 };
+
+const categoryBadgeClass = (name: string) => CATEGORY_BADGE[name] || 'bg-gray-100 text-gray-600';
 
 export default function Expense() {
   const navigate = useNavigate();
@@ -46,9 +54,14 @@ export default function Expense() {
   const [filterMonthTo, setFilterMonthTo] = useState('12');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [savingCategories, setSavingCategories] = useState(false);
   const [form, setForm] = useState({
     contractId: '',
-    category: '材料费',
+    primaryCategoryId: DEFAULT_EXPENSE_CATEGORIES[0].id,
+    secondaryCategoryId: DEFAULT_EXPENSE_CATEGORIES[0].children[0].id,
+    category: DEFAULT_EXPENSE_CATEGORIES[0].children[0].name,
     amount: '',
     supplier: '',
     expenseDate: new Date().toISOString().slice(0, 10),
@@ -61,6 +74,22 @@ export default function Expense() {
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadExpenseCategories()
+      .then((categories) => setExpenseCategories(categories))
+      .catch((error) => {
+        console.error('加载支出类别失败', error);
+        setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+      });
+  }, []);
+
+  const selectedPrimaryCategory = useMemo(
+    () => expenseCategories.find((category) => category.id === form.primaryCategoryId) || expenseCategories[0],
+    [expenseCategories, form.primaryCategoryId],
+  );
+  const secondaryCategoryOptions = selectedPrimaryCategory?.children || [];
+  const activeCategories = useMemo(() => ['全部', ...expenseCategories.map((category) => category.name)], [expenseCategories]);
 
   useEffect(() => {
     if (searchParams.get('action') === 'create') {
@@ -97,7 +126,7 @@ export default function Expense() {
       );
       list = list.filter(e => matchedContractIds.has(e.contractId));
     }
-    if (activeTab !== '全部') list = list.filter((e) => e.category === activeTab);
+    if (activeTab !== '全部') list = list.filter((e) => resolveExpenseCategory(e, expenseCategories).primaryName === activeTab);
     // 非管理员只看自己创建的
     if (!canSeeAllFinancial) list = list.filter(e => e.createdBy === myName);
     if (sortField) {
@@ -111,7 +140,7 @@ export default function Expense() {
       list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
     return list;
-  }, [expenses, currentBizType, dateFrom, dateTo, filterYear, filterMonthFrom, filterMonthTo, search, contracts, activeTab, sortField, sortOrder, canSeeAllFinancial, myName]);
+  }, [expenses, currentBizType, dateFrom, dateTo, filterYear, filterMonthFrom, filterMonthTo, search, contracts, activeTab, sortField, sortOrder, canSeeAllFinancial, myName, expenseCategories]);
 
   const totalExpense = useMemo(() => filtered.reduce((s, e) => s + e.amount, 0), [filtered]);
 
@@ -130,10 +159,13 @@ export default function Expense() {
   };
 
   const openEditExpense = (row: Record<string, unknown>) => {
+    const path = resolveExpenseCategory(row as any, expenseCategories);
     setEditingId(row.id as string);
     setForm({
       contractId: (row.contractId as string) || '',
-      category: (row.category as string) || '材料费',
+      primaryCategoryId: path.primaryId || expenseCategories[0]?.id || '',
+      secondaryCategoryId: path.secondaryId || expenseCategories[0]?.children[0]?.id || '',
+      category: path.secondaryName || expenseCategories[0]?.children[0]?.name || '',
       amount: String(row.amount || ''),
       supplier: (row.supplier as string) || '',
       expenseDate: (row.expenseDate as string)?.slice(0, 10) || '',
@@ -162,6 +194,38 @@ export default function Expense() {
     setFilterMonthTo('12');
     setSearch('');
     setActiveTab('全部');
+  };
+
+  const handleCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      const previous = expenseCategories;
+      const normalized = await saveExpenseCategories(categories);
+      const updates = expenses.flatMap((expense: any) => {
+        const oldPath = resolveExpenseCategory(expense, previous);
+        const primary = normalized.find((category) => category.id === oldPath.primaryId);
+        const secondary = primary?.children.find((child) => child.id === oldPath.secondaryId);
+        if (!expense.id || !primary || !secondary) return [];
+        const nextPath = {
+          primaryId: primary.id,
+          primaryName: primary.name,
+          secondaryId: secondary.id,
+          secondaryName: secondary.name,
+        };
+        return [{ ...expense, ...expenseCategoryPayload(nextPath) }];
+      });
+      for (const update of updates) {
+        await updateExpense(update as any);
+      }
+      setExpenseCategories(normalized);
+      const activeStillExists = activeTab === '全部' || normalized.some((category) => category.name === activeTab);
+      if (!activeStillExists) setActiveTab('全部');
+      setShowCategoryManager(false);
+    } catch (error: any) {
+      alert(error?.message || '支出类别保存失败，请重试');
+    } finally {
+      setSavingCategories(false);
+    }
   };
 
   const filterCurrentMonth = () => {
@@ -211,12 +275,20 @@ export default function Expense() {
         }
       }
       const existingExpense = editingId ? expenses.find((item) => item.id === editingId) : undefined;
+      const primary = expenseCategories.find((category) => category.id === form.primaryCategoryId) || expenseCategories[0];
+      const secondary = primary?.children.find((child) => child.id === form.secondaryCategoryId) || primary?.children[0];
+      const categoryPath = {
+        primaryId: primary?.id || '',
+        primaryName: primary?.name || '',
+        secondaryId: secondary?.id || '',
+        secondaryName: secondary?.name || form.category || '其他支出',
+      };
       const payload: any = {
         id: editingId || generateId(),
         contractId: form.contractId,
         contractNo: selectedContract?.contractNo ?? '',
         bizType: currentBizType,
-        category: form.category as '材料费' | '人工费' | '外包费' | '管理费' | '其他',
+        ...expenseCategoryPayload(categoryPath),
         amount: Number(form.amount),
         supplier: form.supplier,
         payMethod: '银行转账',
@@ -233,7 +305,9 @@ export default function Expense() {
       setAttachmentFiles([]);
       setForm({
         contractId: '',
-        category: '材料费',
+        primaryCategoryId: expenseCategories[0]?.id || DEFAULT_EXPENSE_CATEGORIES[0].id,
+        secondaryCategoryId: expenseCategories[0]?.children[0]?.id || DEFAULT_EXPENSE_CATEGORIES[0].children[0].id,
+        category: expenseCategories[0]?.children[0]?.name || DEFAULT_EXPENSE_CATEGORIES[0].children[0].name,
         amount: '',
         supplier: '',
         expenseDate: new Date().toISOString().slice(0, 10),
@@ -257,11 +331,14 @@ export default function Expense() {
     {
       key: 'category', title: '类别',
       render: (row: Record<string, unknown>) => {
-        const cat = row.category as string;
+        const path = resolveExpenseCategory(row as any, expenseCategories);
         return (
-          <span className={`text-xs px-2 py-0.5 rounded font-medium ${CATEGORY_BADGE[cat] || 'bg-gray-100 text-gray-600'}`}>
-            {cat}
-          </span>
+          <div className="flex flex-col items-start gap-1">
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${categoryBadgeClass(path.primaryName)}`}>
+              {path.primaryName || '-'}
+            </span>
+            <span className="text-[11px] text-gray-400">{path.secondaryName || '-'}</span>
+          </div>
         );
       },
     },
@@ -361,8 +438,8 @@ export default function Expense() {
         <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="text-gray-400">支出类别</span>
-            <span className={`rounded px-2 py-0.5 font-medium ${CATEGORY_BADGE[row.category as string] || 'bg-gray-100 text-gray-600'}`}>
-              {(row.category as string) || '-'}
+            <span className={`rounded px-2 py-0.5 font-medium ${categoryBadgeClass(resolveExpenseCategory(row as any, expenseCategories).primaryName)}`}>
+              {resolveExpenseCategory(row as any, expenseCategories).primaryName || '-'} / {resolveExpenseCategory(row as any, expenseCategories).secondaryName || '-'}
             </span>
           </div>
           {row.remark ? (
@@ -381,12 +458,20 @@ export default function Expense() {
           <h1 className="text-base md:text-lg font-bold text-gray-900">支出管理</h1>
           <p className="text-gold-500 text-xs md:text-sm">管理所有支出记录</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="erp-btn-primary hidden md:inline-flex"
-        >
-          <Plus size={16} /> 新增支出
-        </button>
+        <div className="hidden items-center gap-2 md:flex">
+          <button
+            onClick={() => setShowCategoryManager(true)}
+            className="erp-btn-secondary"
+          >
+            <Settings size={15} /> 支出类别
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="erp-btn-primary"
+          >
+            <Plus size={16} /> 新增支出
+          </button>
+        </div>
       </div>
 
       {/* 汇总卡片 */}
@@ -405,7 +490,7 @@ export default function Expense() {
       {/* 分类Tab */}
       <div>
         <div className="flex flex-wrap items-center gap-0 border-b border-gray-200">
-          {CATEGORIES.map((cat) => (
+          {activeCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveTab(cat)}
@@ -449,6 +534,7 @@ export default function Expense() {
               className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
           )}
           <button onClick={() => setShowModal(true)} className="erp-btn-primary shrink-0"><Plus size={15} /> 支出</button>
+          <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary shrink-0 md:hidden"><Settings size={15} /> 类别</button>
         </div>
         <DataTable
             columns={columns}
@@ -486,9 +572,29 @@ export default function Expense() {
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">支出类别</label>
             <Select
-              value={form.category}
-              onChange={(v) => setForm({ ...form, category: v })}
-              options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))}
+              value={form.primaryCategoryId}
+              onChange={(v) => {
+                const primary = expenseCategories.find((category) => category.id === v) || expenseCategories[0];
+                const secondary = primary?.children[0];
+                setForm({
+                  ...form,
+                  primaryCategoryId: primary?.id || '',
+                  secondaryCategoryId: secondary?.id || '',
+                  category: secondary?.name || '',
+                });
+              }}
+              options={expenseCategories.map((category) => ({ value: category.id, label: category.name, description: `${category.children.length} 个二级分类` }))}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">二级类别</label>
+            <Select
+              value={form.secondaryCategoryId}
+              onChange={(v) => {
+                const secondary = secondaryCategoryOptions.find((child) => child.id === v);
+                setForm({ ...form, secondaryCategoryId: v, category: secondary?.name || form.category });
+              }}
+              options={secondaryCategoryOptions.map((child) => ({ value: child.id, label: child.name }))}
             />
           </div>
           <div>
@@ -575,6 +681,14 @@ export default function Expense() {
           </div>
         </div>
       </Modal>
+      <ExpenseCategoryManager
+        open={showCategoryManager}
+        categories={expenseCategories}
+        expenses={expenses}
+        saving={savingCategories}
+        onClose={() => setShowCategoryManager(false)}
+        onSave={handleCategorySave}
+      />
     </div>
   );
 }

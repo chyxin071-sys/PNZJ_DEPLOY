@@ -387,6 +387,7 @@ export default function ProjectsBiz() {
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterScope, setFilterScope] = useState<'related' | 'all'>(() => isAdmin ? 'all' : 'related');
   const [showFilter, setShowFilter] = useState(false);
+  const [timeSortOrder, setTimeSortOrder] = useState<'desc' | 'asc' | ''>('');
   const [stats, setStats] = useState({ total: 0, ongoing: 0, completed: 0, paused: 0 });
   const [leads, setLeads] = useState<any[]>([]);
   const [pendingAccessByProject, setPendingAccessByProject] = useState<Record<string, number>>({});
@@ -504,11 +505,20 @@ export default function ProjectsBiz() {
       return true;
     })
     .sort((a, b) => {
+      if (timeSortOrder) {
+        const aTime = new Date(a.startDate || a.createdAt || 0).getTime() || 0;
+        const bTime = new Date(b.startDate || b.createdAt || 0).getTime() || 0;
+        const diff = aTime - bTime;
+        if (diff !== 0) return timeSortOrder === 'asc' ? diff : -diff;
+      }
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     });
-  const projectListKey = [filterScope, statFilter, filterEmployee, search.trim().toLowerCase(), myName].join('|');
+  const toggleTimeSort = () => {
+    setTimeSortOrder((current) => current === '' ? 'desc' : current === 'desc' ? 'asc' : '');
+  };
+  const projectListKey = [filterScope, statFilter, filterEmployee, search.trim().toLowerCase(), myName, timeSortOrder].join('|');
   const {
     visibleItems: visibleProjects,
     visibleCount: visibleProjectCount,
@@ -1102,7 +1112,10 @@ export default function ProjectsBiz() {
               <span>工地信息</span>
               <span>负责人</span>
               <span>施工进度</span>
-              <span>时间</span>
+              <button type="button" onClick={toggleTimeSort} className="inline-flex items-center gap-1 text-left transition-colors hover:text-gray-800">
+                <span>时间</span>
+                {timeSortOrder === 'desc' ? <ChevronDown size={13} /> : timeSortOrder === 'asc' ? <ChevronUp size={13} /> : <span className="text-xs text-gray-300">↕</span>}
+              </button>
               <span className="text-right">操作</span>
             </div>
             {visibleProjects.map(p => {

@@ -7,6 +7,7 @@ import {
   ClipboardList, Loader2, ExternalLink, Building2, Mail, Hash, Eye, EyeOff,
   Plus, Trash2, Shield, BookOpen, GripVertical, ChevronLeft, Settings, Share2,
   Receipt, Tag, Folder, DollarSign, BarChart3, AlertTriangle, RotateCcw,
+  PlayCircle,
 } from 'lucide-react';
 import { projectsAPI, leadsAPI, usersAPI, contractsAPI, projectLogsAPI, projectInspectionsAPI, todosAPI } from '@/db/api';
 import type { ProjectLog, ProjectInspection } from '@/types';
@@ -50,6 +51,32 @@ const normalizeCloudMediaSource = (src: string) => {
     '636c-cloud1-8grodf5s3006f004-1421470557',
   );
 };
+
+const VIDEO_MEDIA_PATTERN = /\.(mp4|mov|avi|m4v|webm|mkv)(\?|$)/i;
+
+const mediaSourceOf = (item: any) => String(item?.fileID || item?.url || item || '');
+
+const isVideoMedia = (item: any) => {
+  const source = mediaSourceOf(item);
+  return item?.type === 'video' || /^video\//i.test(item?.mimeType || '') || VIDEO_MEDIA_PATTERN.test(source);
+};
+
+const toPreviewMedia = (item: any) => ({
+  fileID: mediaSourceOf(item),
+  type: isVideoMedia(item) ? 'video' : 'image',
+});
+
+function MediaThumb({ src, className }: { src: string; className?: string }) {
+  if (!isVideoMedia(src)) return <CloudImage src={src} className={className} />;
+  return (
+    <div className={`relative flex items-center justify-center bg-gray-100 text-gray-500 ${className || ''}`}>
+      <CloudImage src={src} className="absolute inset-0 h-full w-full object-cover opacity-40" />
+      <div className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm">
+        <PlayCircle className="h-5 w-5 text-gray-800" />
+      </div>
+    </div>
+  );
+}
 
 function UploadingMediaOverlay({
   item,
@@ -384,6 +411,8 @@ export default function ProjectBizDetail() {
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [newInspectionForm, setNewInspectionForm] = useState({ title: '', status: '合格', description: '', photos: [] as string[] });
   const inspectionFileInputRef = useRef<HTMLInputElement>(null);
+  const [swipedInspectionId, setSwipedInspectionId] = useState<string | null>(null);
+  const inspectionSwipeStartX = useRef<number | null>(null);
   
   const [showRectifyModal, setShowRectifyModal] = useState<ProjectInspection | null>(null);
   const [rectifyForm, setRectifyForm] = useState({ rectifyDescription: '', rectifyPhotos: [] as string[] });
@@ -1423,7 +1452,7 @@ export default function ProjectBizDetail() {
 
         const nativeOpened = openNativeMediaPreview(previewSources.map(item => ({
           url: item.source,
-          type: item.photo.type === 'video' || /\.(mp4|mov|avi)(\?|$)/i.test(item.rawUrl) ? 'video' : 'image',
+          type: item.photo.type === 'video' || VIDEO_MEDIA_PATTERN.test(item.rawUrl) ? 'video' : 'image',
         })), targetIndex);
 
         if (nativeOpened) {
@@ -1446,12 +1475,12 @@ export default function ProjectBizDetail() {
       for (const item of previewSources) {
         const p = item.photo;
         let finalUrl = item.source;
-        const isVideoSource = p.type === 'video' || /\.(mp4|mov|avi)(\?|$)/i.test(item.rawUrl);
+        const isVideoSource = p.type === 'video' || VIDEO_MEDIA_PATTERN.test(item.rawUrl);
         if (finalUrl.startsWith('cloud://')) {
           finalUrl = tempUrlMap[finalUrl] || finalUrl.replace(/^cloud:\/\/[^.]+\.([^/]+)\//, 'https://$1.tcb.qcloud.la/');
         }
         
-        const isVideo = isVideoSource || !!finalUrl.match(/\.(mp4|mov|avi)$/i);
+        const isVideo = isVideoSource || VIDEO_MEDIA_PATTERN.test(finalUrl);
         images.push({
           url: finalUrl,
           isVideo,
@@ -1739,6 +1768,39 @@ export default function ProjectBizDetail() {
     }
   };
 
+  const canDeleteInspection = (inspection: ProjectInspection) => {
+    if (isAdmin) return true;
+    const raw = inspection as any;
+    return raw.inspectorId === user?.id || raw.createdBy === user?.id || inspection.inspectorName === myName;
+  };
+
+  const handleDeleteInspection = async (inspection: ProjectInspection) => {
+    const inspectionId = String((inspection as any)._id || inspection.id || '');
+    if (!inspectionId) return;
+    if (!await confirmUser('删除后无法恢复。', { title: '确认删除这条工地巡检吗？', confirmStyle: 'danger', confirmText: '删除' })) return;
+    try {
+      await projectInspectionsAPI.delete(inspectionId);
+      void createNotificationEventSafely({
+        operationId: stableOperationId('project-inspection-deleted', id, inspectionId),
+        eventType: 'PROJECT_INSPECTION_DELETED',
+        actorUserId: user?.id || '',
+        recipientUserIds: await resolveProjectParticipantUserIds(project, lead),
+        recipientRoles: ['admin'],
+        category: 'project',
+        title: '工地巡检已删除',
+        content: `${myName}为“${project.customer || project.address || '工地'}”删除了一条工地巡检记录`,
+        link: `/projects-biz/${id}/inspections`,
+        relatedTo: { type: 'project', id: id || '', name: project.customer || project.address || '工地' },
+        channels: ['station', 'wechat'],
+      });
+      setSwipedInspectionId(null);
+      await loadLogsAndInspections();
+    } catch (error) {
+      console.error('delete project inspection failed', error);
+      alert('删除工地巡检失败，请稍后重试。');
+    }
+  };
+
   const handleSaveInspection = async () => {
     if (!newInspectionForm.title.trim() || isSubmittingInspection) return;
     if (project?.status === '已完工') {
@@ -1756,6 +1818,8 @@ export default function ProjectBizDetail() {
         description: newInspectionForm.description,
         photos: newInspectionForm.photos,
         inspectorName: myName,
+        inspectorId: user?.id || '',
+        createdBy: user?.id || myName,
         createdAt: new Date().toISOString(),
       });
       await addLeadAuditFollowUp({
@@ -3980,8 +4044,28 @@ export default function ProjectBizDetail() {
                   <p className="text-sm">暂无巡检记录</p>
                 </div>
               ) : (
-                inspections.map(ins => (
-                  <div key={ins.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col gap-3">
+                inspections.map((ins, index) => {
+                  const inspectionKey = String((ins as any)._id || ins.id || `inspection-${index}`);
+                  const canDeleteCurrentInspection = canDeleteInspection(ins);
+                  return (
+                  <div key={inspectionKey} className="relative overflow-hidden rounded-xl">
+                    {canDeleteCurrentInspection && (
+                      <div className="absolute inset-y-0 right-0 flex md:hidden">
+                        <button onClick={() => void handleDeleteInspection(ins)} className="w-20 bg-red-500 text-xs font-semibold text-white">删除</button>
+                      </div>
+                    )}
+                  <div
+                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col gap-3 transition-transform duration-200 ${swipedInspectionId === inspectionKey ? '-translate-x-20' : 'translate-x-0'} md:!translate-x-0`}
+                    onTouchStart={(event) => { inspectionSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
+                    onTouchEnd={(event) => {
+                      const startX = inspectionSwipeStartX.current;
+                      inspectionSwipeStartX.current = null;
+                      if (startX === null || !canDeleteCurrentInspection) return;
+                      const delta = (event.changedTouches[0]?.clientX ?? startX) - startX;
+                      if (delta < -44) setSwipedInspectionId(inspectionKey);
+                      if (delta > 24) setSwipedInspectionId(null);
+                    }}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-gray-900">{ins.title}</h4>
@@ -3992,7 +4076,14 @@ export default function ProjectBizDetail() {
                           'bg-blue-50 text-blue-600'
                         }`}>{ins.status}</span>
                       </div>
-                      <span className="text-xs text-gray-400">{formatDate(ins.createdAt)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">{formatDate(ins.createdAt)}</span>
+                        {canDeleteCurrentInspection && (
+                          <button type="button" onClick={() => void handleDeleteInspection(ins)} className="hidden rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 md:inline-flex" title="删除巡检">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="bg-gray-50 rounded-lg p-3">
@@ -4003,8 +4094,8 @@ export default function ProjectBizDetail() {
                       {ins.photos && ins.photos.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {ins.photos.map((photo, idx) => (
-                            <button key={idx} onClick={() => openPreview({ fileID: photo as string }, ins.photos.map(p => ({ fileID: p as string })))} className="w-14 h-14 rounded-md overflow-hidden border border-gray-200 bg-white">
-                              <CloudImage src={photo as string} className="w-full h-full object-cover" />
+                            <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), ins.photos.map(toPreviewMedia))} className="w-14 h-14 rounded-md overflow-hidden border border-gray-200 bg-white">
+                              <MediaThumb src={mediaSourceOf(photo)} className="w-full h-full object-cover" />
                             </button>
                           ))}
                         </div>
@@ -4022,8 +4113,8 @@ export default function ProjectBizDetail() {
                         {ins.rectifyPhotos && ins.rectifyPhotos.length > 0 && (
                           <div className="flex flex-wrap gap-2 mt-2">
                             {ins.rectifyPhotos.map((photo, idx) => (
-                              <button key={idx} onClick={() => openPreview({ fileID: photo as string }, (ins.rectifyPhotos || []).map(p => ({ fileID: p as string })))} className="w-14 h-14 rounded-md overflow-hidden border border-amber-200/50 bg-white">
-                                <CloudImage src={photo as string} className="w-full h-full object-cover" />
+                              <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), (ins.rectifyPhotos || []).map(toPreviewMedia))} className="w-14 h-14 rounded-md overflow-hidden border border-amber-200/50 bg-white">
+                                <MediaThumb src={mediaSourceOf(photo)} className="w-full h-full object-cover" />
                               </button>
                             ))}
                           </div>
@@ -4045,7 +4136,9 @@ export default function ProjectBizDetail() {
                       )}
                     </div>
                     </div>
-                ))
+                  </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -4757,12 +4850,12 @@ export default function ProjectBizDetail() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">现场照片</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">现场图片/视频</label>
                 <div className="flex flex-wrap gap-2">
                   {newInspectionForm.photos.map((p, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview({ fileID: p }, newInspectionForm.photos.map(fileID => ({ fileID })))} className="h-full w-full">
-                        <CloudImage src={p} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => openPreview(toPreviewMedia(p), newInspectionForm.photos.map(toPreviewMedia))} className="h-full w-full">
+                        <MediaThumb src={p} className="w-full h-full object-cover" />
                       </button>
                       <button type="button" onClick={() => setNewInspectionForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
@@ -4774,7 +4867,7 @@ export default function ProjectBizDetail() {
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
                 </div>
-                <input ref={inspectionFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                <input ref={inspectionFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length) return;
                   try {
@@ -4813,12 +4906,12 @@ export default function ProjectBizDetail() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">整改后照片</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">整改后图片/视频</label>
                 <div className="flex flex-wrap gap-2">
                   {rectifyForm.rectifyPhotos.map((p, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview({ fileID: p }, rectifyForm.rectifyPhotos.map(fileID => ({ fileID })))} className="h-full w-full">
-                        <CloudImage src={p} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => openPreview(toPreviewMedia(p), rectifyForm.rectifyPhotos.map(toPreviewMedia))} className="h-full w-full">
+                        <MediaThumb src={p} className="w-full h-full object-cover" />
                       </button>
                       <button type="button" onClick={() => setRectifyForm(prev => ({ ...prev, rectifyPhotos: prev.rectifyPhotos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
@@ -4830,7 +4923,7 @@ export default function ProjectBizDetail() {
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
                 </div>
-                <input ref={rectifyFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                <input ref={rectifyFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length) return;
                   try {

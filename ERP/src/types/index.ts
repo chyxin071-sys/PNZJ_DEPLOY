@@ -83,7 +83,11 @@ export interface Expense {
   contractId: string;
   contractNo: string;
   bizType: BizType;
-  category: '材料费' | '人工费' | '外包费' | '管理费' | '其他';
+  category: string;
+  primaryCategoryId?: string;
+  primaryCategory?: string;
+  secondaryCategoryId?: string;
+  secondaryCategory?: string;
   amount: number;
   supplier: string;
   payMethod: string;
@@ -328,6 +332,8 @@ export interface ProjectInspection {
   title: string;     // 巡检标题或简述
   status: '合格' | '需整改' | '整改待验收' | '整改通过'; // 巡检状态
   inspectorName: string; // 巡检人姓名（管理员/上级）
+  inspectorId?: string; // 巡检创建人ID
+  createdBy?: string; // 兼容旧数据中的创建人ID
   description: string;   // 巡检情况说明
   photos: AttachmentValue[]; // 巡检照片
   
