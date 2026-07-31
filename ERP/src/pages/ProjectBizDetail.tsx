@@ -1302,6 +1302,14 @@ export default function ProjectBizDetail() {
     nodeFileInputRef.current?.click();
   };
 
+  const getShortNodeName = (targetInfo: any) => {
+    const rawName = targetInfo?.nodeName || targetInfo?.sectionName || targetInfo?.subNode?.name || '施工节点';
+    return String(rawName)
+      .split(/\r?\n|[：:；;]/)[0]
+      .trim()
+      .slice(0, 20) || '施工节点';
+  };
+
   const handleSubNodePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !targetSubNodeId || !project) return;
@@ -1319,6 +1327,11 @@ export default function ProjectBizDetail() {
         (section.subNodes || []).map((sn: any) => ({ nodeName: node.name, sectionName: section.name, subNode: sn }))
       )
     ).find((item: any) => item.subNode?._id === subNodeId);
+    const projectName = project.address || project.customer || '工地';
+    const nodeName = getShortNodeName(targetInfo);
+    const uploadLabel = files.every((file) => file.type.startsWith('image/'))
+      ? `${files.length}张图片`
+      : `${files.length}个现场文件`;
 
     addUploadTasks(files.map(file => ({
       file,
@@ -1359,9 +1372,9 @@ export default function ProjectBizDetail() {
               recipientRoles: ['admin'],
               category: 'project',
               title: '工地节点上传资料',
-              content: `${myName}为“${targetInfo?.subNode?.name || '施工节点'}”上传了${files.length}个现场文件`,
+              content: `${myName}在“${projectName}”的“${nodeName}”上传了${uploadLabel}`,
               link: `/projects-biz/${projectDocId}`,
-              relatedTo: { type: 'project', id: projectDocId, name: project.address || project.customer || '工地' },
+              relatedTo: { type: 'project', id: projectDocId, name: projectName },
               channels: ['station', 'wechat'],
             });
             setProject((prev: any) => prev ? { ...prev, nodesData: newNodesData, progressSummary } : prev);
