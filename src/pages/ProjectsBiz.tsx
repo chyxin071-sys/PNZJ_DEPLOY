@@ -346,6 +346,26 @@ function getLeadSearchText(lead: any) {
   ].join(' ').toLowerCase();
 }
 
+function normalizeMatchText(value: any) {
+  return toText(value).trim().toLowerCase();
+}
+
+function getLeadProjectKey(lead: any) {
+  return [
+    normalizeMatchText(getLeadName(lead)),
+    normalizeMatchText(getLeadPhone(lead)),
+    normalizeMatchText(getLeadAddress(lead)),
+  ].join('|');
+}
+
+function getProjectLeadKey(project: any) {
+  return [
+    normalizeMatchText(project?.customer || project?.customerName),
+    normalizeMatchText(project?.phone || project?.customerPhone),
+    normalizeMatchText(project?.address || project?.houseAddress),
+  ].join('|');
+}
+
 const INIT_FORM = {
   customer: '', phone: '', address: '', sales: '', manager: '', designer: '',
   startDate: '', endDate: '', remark: '', leadId: '',
@@ -535,7 +555,22 @@ export default function ProjectsBiz() {
 
   const filteredLeads = useMemo(() => {
     const q = leadSearch.toLowerCase();
+    const usedLeadIds = new Set(
+      projects
+        .map((project: any) => normalizeMatchText(project.leadId || project.relatedCustomerId || project.customerId))
+        .filter(Boolean),
+    );
+    const usedLeadKeys = new Set(
+      projects
+        .map(getProjectLeadKey)
+        .filter((key) => key !== '||'),
+    );
     return leads
+      .filter((l: any) => {
+        const leadId = normalizeMatchText(l._id || l.id);
+        if (leadId && usedLeadIds.has(leadId)) return false;
+        return !usedLeadKeys.has(getLeadProjectKey(l));
+      })
       .filter((l: any) => !q || getLeadSearchText(l).includes(q))
       .sort((a: any, b: any) => {
         const signedDiff = Number(isSignedLead(b)) - Number(isSignedLead(a));
@@ -543,7 +578,7 @@ export default function ProjectsBiz() {
         return String(b.createdAt || b.updatedAt || '').localeCompare(String(a.createdAt || a.updatedAt || ''));
       })
       .slice(0, 30);
-  }, [leads, leadSearch]);
+  }, [leads, leadSearch, projects]);
 
   const isTemplateDirty = useMemo(() => (
     JSON.stringify(normalizeTemplateDataForSave(templateData)) !== templateSavedSnapshot
