@@ -322,6 +322,10 @@ export default function ReimbursementPage() {
   }, [location.pathname, location.search, navigate, user?.name]);
 
   const getNamesByIds = (ids?: string[]) => normalizeUserIds(ids).map((id) => userNameById.get(id) || id).join('、') || '-';
+  const getFlowActionText = (ids: string[] | undefined, action: string, emptyText: string) => {
+    const names = getNamesByIds(ids);
+    return names === '-' ? emptyText : `${names}${action}`;
+  };
   const getReimbursementStatus = (r: Reimbursement) => {
     if (r.status === '待审核') return '待一级审批';
     if (r.status === '已审核') return '待打款';
@@ -397,8 +401,8 @@ export default function ReimbursementPage() {
     { key: 'currentNode', title: '当前节点', render: (r: Reimbursement) => {
       const flow = getFlow(r);
       const status = getReimbursementStatus(r);
-      const text = status === '待一级审批' ? `待 ${getNamesByIds(flow.approver1Ids)} 审批`
-        : status === '待二级审批' ? `待 ${getNamesByIds(flow.approver2Ids)} 审批`
+      const text = status === '待一级审批' ? `待 ${getNamesByIds(flow.approver1Ids)} 审核`
+        : status === '待二级审批' ? `待 ${getNamesByIds(flow.approver2Ids)} 复核`
         : status === '待打款' ? `待 ${getNamesByIds(flow.payerIds)} 打款`
         : status;
       return <span className="text-xs text-gray-500">{text}</span>;
@@ -407,11 +411,11 @@ export default function ReimbursementPage() {
     { key: 'actions', title: '操作', render: (r: Reimbursement) => (
         <div className="flex min-w-[96px] items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {canApproveLevel1(r) && <>
-            <button onClick={() => handleApproveFlow(r, 1)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">一级通过</button>
+            <button onClick={() => handleApproveFlow(r, 1)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">审核通过</button>
             <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
           </>}
           {canApproveLevel2(r) && <>
-            <button onClick={() => handleApproveFlow(r, 2)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">二级通过</button>
+            <button onClick={() => handleApproveFlow(r, 2)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">复核通过</button>
             <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
           </>}
           {canPayReimbursement(r) && (
@@ -696,7 +700,7 @@ export default function ReimbursementPage() {
       payerIds: normalizeUserIds(approvalConfig.payerIds),
     };
     if (!flow.approver1Ids.length || !flow.approver2Ids.length || !flow.payerIds.length) {
-      await showAlert('请先让管理员配置审批人1、审批人2和打款人。');
+      await showAlert('请先让管理员配置一级审核人、复核人和打款人。');
       return;
     }
     setSubmitting(true);
@@ -965,22 +969,22 @@ export default function ReimbursementPage() {
               <div className="flex items-start gap-3">
                 <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-700">1</span>
                 <div>
-                  <div className="text-gray-900">审批人1审核</div>
-                  <div className="mt-0.5 text-xs text-gray-500">{getNamesByIds(approvalConfig.approver1Ids)}</div>
+                  <div className="text-gray-900">{getFlowActionText(approvalConfig.approver1Ids, '审核', '待配置一级审核人')}</div>
+                  <div className="mt-0.5 text-xs text-gray-500">一级审核</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">2</span>
                 <div>
-                  <div className="text-gray-900">审批人2审核</div>
-                  <div className="mt-0.5 text-xs text-gray-500">{getNamesByIds(approvalConfig.approver2Ids)}</div>
+                  <div className="text-gray-900">{getFlowActionText(approvalConfig.approver2Ids, '复核', '待配置复核人')}</div>
+                  <div className="mt-0.5 text-xs text-gray-500">复核确认</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700">3</span>
                 <div>
-                  <div className="text-gray-900">打款人打款</div>
-                  <div className="mt-0.5 text-xs text-gray-500">{getNamesByIds(approvalConfig.payerIds)}</div>
+                  <div className="text-gray-900">{getFlowActionText(approvalConfig.payerIds, '打款', '待配置打款人')}</div>
+                  <div className="mt-0.5 text-xs text-gray-500">财务打款</div>
                 </div>
               </div>
               <div className="border-t border-gray-200 pt-2 text-xs text-gray-500">
@@ -1054,18 +1058,18 @@ export default function ReimbursementPage() {
         <Modal open={showFlowModal} onClose={() => setShowFlowModal(false)} title="报销审批流程" size="lg">
           <div className="space-y-5">
             <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
-              报销提交后依次流转：审批人1通过 &gt; 审批人2通过 &gt; 打款人打款。抄送人只接收通知，不参与操作。
+              报销提交后依次流转：一级审核 &gt; 复核 &gt; 打款。抄送人只接收通知，不参与操作。
             </div>
             <div className="grid grid-cols-1 gap-4">
               <UserMultiSelect
-                label="审批人1"
+                label="一级审核人"
                 value={flowDraft.approver1Ids}
                 candidates={approvalCandidates}
                 userNameById={userNameById}
                 onChange={(next) => setFlowDraft((prev) => ({ ...prev, approver1Ids: next }))}
               />
               <UserMultiSelect
-                label="审批人2"
+                label="复核人"
                 value={flowDraft.approver2Ids}
                 candidates={approvalCandidates}
                 userNameById={userNameById}
@@ -1166,8 +1170,8 @@ export default function ReimbursementPage() {
             <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
               <div className="mb-2 font-medium text-gray-800">审批流程</div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div>审批人1：{getNamesByIds(getFlow(showDetail).approver1Ids)}</div>
-                <div>审批人2：{getNamesByIds(getFlow(showDetail).approver2Ids)}</div>
+                <div>一级审核：{getNamesByIds(getFlow(showDetail).approver1Ids)}</div>
+                <div>复核：{getNamesByIds(getFlow(showDetail).approver2Ids)}</div>
                 <div>打款人：{getNamesByIds(getFlow(showDetail).payerIds)}</div>
                 <div>抄送人：{getNamesByIds(getFlow(showDetail).ccUserIds)}</div>
               </div>
