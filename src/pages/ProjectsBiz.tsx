@@ -566,6 +566,7 @@ export default function ProjectsBiz() {
         .filter((key) => key !== '||'),
     );
     return leads
+      .filter((l: any) => isSignedLead(l))
       .filter((l: any) => {
         const leadId = normalizeMatchText(l._id || l.id);
         if (leadId && usedLeadIds.has(leadId)) return false;
@@ -573,8 +574,6 @@ export default function ProjectsBiz() {
       })
       .filter((l: any) => !q || getLeadSearchText(l).includes(q))
       .sort((a: any, b: any) => {
-        const signedDiff = Number(isSignedLead(b)) - Number(isSignedLead(a));
-        if (signedDiff) return signedDiff;
         return String(b.createdAt || b.updatedAt || '').localeCompare(String(a.createdAt || a.updatedAt || ''));
       })
       .slice(0, 30);
@@ -1423,7 +1422,7 @@ export default function ProjectsBiz() {
                   <label className="text-xs text-gray-500 mb-1 block">关联客户 *</label>
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="搜索客户姓名、地址或电话..." className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus />
+                    <input value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="搜索已签单客户姓名、地址或电话..." className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus />
                   </div>
                   {filteredLeads.length > 0 && (
                     <div className="mt-2 max-h-60 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
@@ -1440,6 +1439,11 @@ export default function ProjectsBiz() {
                           <ChevronRight size={14} className="text-gray-300 shrink-0" />
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {filteredLeads.length === 0 && (
+                    <div className="mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-center text-xs text-gray-400">
+                      暂无可关联的已签单客户
                     </div>
                   )}
                 </div>
