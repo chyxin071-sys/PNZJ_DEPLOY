@@ -126,7 +126,7 @@ export default function ReimbursementPage() {
   const navigate = useNavigate();
   const { reimbursements, contracts, addReimbursement, updateReimbursement, deleteReimbursement } = useFinanceStore();
   const { currentBizType } = useBizStore();
-  const { user, users } = useAuthStore();
+  const { user, users, loadUsers } = useAuthStore();
   const { addNotification } = useNotificationStore();
   const { showConfirm, showAlert } = useDialogStore();
   
@@ -169,8 +169,21 @@ export default function ReimbursementPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const payFileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
   const approvalCandidates = useMemo(
-    () => users.filter((u: any) => ['admin', 'finance'].includes(u.role || u.accessRole) && u.status !== 'inactive' && u.isActive !== false),
+    () => users.filter((u: any) => {
+      const roles = [
+        u.role,
+        u.accessRole,
+        ...(Array.isArray(u.roles) ? u.roles : []),
+      ].map((role) => String(role || '').trim());
+      return roles.some((role) => ['admin', 'finance'].includes(role))
+        && u.status !== 'inactive'
+        && u.isActive !== false;
+    }),
     [users]
   );
   const userNameById = useMemo(() => {
@@ -907,8 +920,8 @@ export default function ReimbursementPage() {
       {/* 提交报销 Modal */}
       <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title="提交报销申请" size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
+          <div className="grid grid-cols-1 gap-4">
+            <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">关联项目（可选）</label>
               <Select 
                 value={form.contractId} 
@@ -945,6 +958,35 @@ export default function ReimbursementPage() {
                 ))}
               </div>
             )}
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+            <div className="mb-3 text-sm font-medium text-gray-900">审批流程</div>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-start gap-3">
+                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-700">1</span>
+                <div>
+                  <div className="text-gray-900">审批人1审核</div>
+                  <div className="mt-0.5 text-xs text-gray-500">{getNamesByIds(approvalConfig.approver1Ids)}</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">2</span>
+                <div>
+                  <div className="text-gray-900">审批人2审核</div>
+                  <div className="mt-0.5 text-xs text-gray-500">{getNamesByIds(approvalConfig.approver2Ids)}</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700">3</span>
+                <div>
+                  <div className="text-gray-900">打款人打款</div>
+                  <div className="mt-0.5 text-xs text-gray-500">{getNamesByIds(approvalConfig.payerIds)}</div>
+                </div>
+              </div>
+              <div className="border-t border-gray-200 pt-2 text-xs text-gray-500">
+                抄送人：{getNamesByIds(approvalConfig.ccUserIds)}
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setShowSubmit(false)} className="erp-btn-secondary">取消</button>
@@ -1014,7 +1056,7 @@ export default function ReimbursementPage() {
             <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
               报销提交后依次流转：审批人1通过 &gt; 审批人2通过 &gt; 打款人打款。抄送人只接收通知，不参与操作。
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4">
               <UserMultiSelect
                 label="审批人1"
                 value={flowDraft.approver1Ids}
