@@ -290,6 +290,33 @@ function buildProjectProgressSummary(nodesData: any[] = []) {
   };
 }
 
+function isActiveSubNode(subNode: any) {
+  if (!subNode) return false;
+  if (subNode.status === 'current' || subNode.status === 'in_progress') return true;
+  if (subNode.status === 'completed') return false;
+  return Boolean(subNode.actualStartDate || subNode.startedAt || subNode.acceptanceRecord?.startedAt);
+}
+
+function applyDefaultNodeExpansion(nodesData: any[] = []) {
+  let hasActiveSubNode = false;
+  const activeMap = nodesData.map((node: any) => {
+    const sectionActive = (node.sections || []).map((section: any) => (
+      (section.subNodes || []).some(isActiveSubNode)
+    ));
+    if (sectionActive.some(Boolean)) hasActiveSubNode = true;
+    return sectionActive;
+  });
+
+  return nodesData.map((node: any, nodeIdx: number) => ({
+    ...node,
+    collapsed: hasActiveSubNode ? !activeMap[nodeIdx]?.some(Boolean) : true,
+    sections: (node.sections || []).map((section: any, secIdx: number) => ({
+      ...section,
+      collapsed: hasActiveSubNode ? !activeMap[nodeIdx]?.[secIdx] : true,
+    })),
+  }));
+}
+
 
 
 export default function ProjectBizDetail() {
@@ -583,7 +610,12 @@ export default function ProjectBizDetail() {
       }
       
       setProject((prev: any) => {
-        if (!prev) return p;
+        if (!prev) {
+          return {
+            ...p,
+            nodesData: applyDefaultNodeExpansion(p.nodesData || []),
+          };
+        }
         // Preserve collapsed state
         if (p.nodesData && prev.nodesData) {
           p.nodesData.forEach((node: any) => {
