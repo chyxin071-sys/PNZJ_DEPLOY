@@ -2682,14 +2682,19 @@ export default function ProjectBizDetail() {
               <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
             </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold text-gray-900">
+                <h1 className="text-base font-semibold text-gray-900 md:text-lg">
                   {standaloneSection === 'logs' ? '施工日志' : '工地巡检'}
                 </h1>
-                <div className="mt-1 text-sm text-gray-500 truncate">{project.address || '未命名工地'}</div>
+                <div className="mt-1 truncate text-xs text-gray-500 md:text-sm">{project.address || '未命名工地'}</div>
               </div>
               {standaloneSection === 'logs' && canEditSite && (
                 <button onClick={openNewLogModal} className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800">
                   <Plus size={16} /> 日志
+                </button>
+              )}
+              {standaloneSection === 'inspections' && isAdmin && !isProjectCompleted && (
+                <button onClick={() => setShowInspectionModal(true)} className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 md:text-sm">
+                  <Shield size={15} /> 发起巡检
                 </button>
               )}
             </div>
@@ -4028,6 +4033,7 @@ export default function ProjectBizDetail() {
         {/* ========== Tab: 工地巡检 ========== */}
         {activeTab === 'inspections' && (
           <div className="space-y-4">
+            {!standaloneSection && (
             <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-800">工地巡检</h3>
               {isAdmin && !isProjectCompleted && (
@@ -4036,6 +4042,7 @@ export default function ProjectBizDetail() {
                 </button>
               )}
             </div>
+            )}
             
             <div className="space-y-3">
               {inspections.length === 0 ? (
@@ -4066,9 +4073,9 @@ export default function ProjectBizDetail() {
                       if (delta > 24) setSwipedInspectionId(null);
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-gray-900">{ins.title}</h4>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h4 className="truncate text-sm font-semibold text-gray-900">{ins.title}</h4>
                         <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
                           ins.status === '合格' ? 'bg-emerald-50 text-emerald-600' :
                           ins.status === '需整改' ? 'bg-rose-50 text-rose-600' :
@@ -4086,15 +4093,15 @@ export default function ProjectBizDetail() {
                       </div>
                     </div>
                     
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-bold text-gray-500">巡检意见 · {ins.inspectorName}</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-gray-500">巡检意见 · {ins.inspectorName}</span>
                       </div>
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap">{ins.description}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">{ins.description}</p>
                       {ins.photos && ins.photos.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="flex flex-wrap gap-2 pt-1">
                           {ins.photos.map((photo, idx) => (
-                            <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), ins.photos.map(toPreviewMedia))} className="w-14 h-14 rounded-md overflow-hidden border border-gray-200 bg-white">
+                            <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), ins.photos.map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                               <MediaThumb src={mediaSourceOf(photo)} className="w-full h-full object-cover" />
                             </button>
                           ))}
@@ -4104,16 +4111,16 @@ export default function ProjectBizDetail() {
                     
                     {/* 整改信息区 */}
                     {(ins.status === '整改待验收' || ins.status === '整改通过') && ins.rectifyDescription && (
-                      <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-3">
+                      <div className="border-t border-gray-100 pt-3">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[11px] font-bold text-amber-700">整改反馈 · {ins.rectifyManagerName}</span>
                           <span className="text-[10px] text-amber-600/70">{formatDate(ins.rectifySubmittedAt || '')}</span>
                         </div>
-                        <p className="text-xs text-amber-900/80 whitespace-pre-wrap">{ins.rectifyDescription}</p>
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-amber-900/80">{ins.rectifyDescription}</p>
                         {ins.rectifyPhotos && ins.rectifyPhotos.length > 0 && (
                           <div className="flex flex-wrap gap-2 mt-2">
                             {ins.rectifyPhotos.map((photo, idx) => (
-                              <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), (ins.rectifyPhotos || []).map(toPreviewMedia))} className="w-14 h-14 rounded-md overflow-hidden border border-amber-200/50 bg-white">
+                              <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), (ins.rectifyPhotos || []).map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded-lg border border-amber-200/50 bg-white">
                                 <MediaThumb src={mediaSourceOf(photo)} className="w-full h-full object-cover" />
                               </button>
                             ))}
