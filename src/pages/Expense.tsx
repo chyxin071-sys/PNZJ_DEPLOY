@@ -15,6 +15,7 @@ import { getAttachmentSummary, mergeAttachments, normalizeAttachments, openAttac
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import ExpenseCategoryManager from '@/components/ExpenseCategoryManager';
+import ExpenseCategoryPicker from '@/components/ExpenseCategoryPicker';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
   expenseCategoryPayload,
@@ -84,11 +85,6 @@ export default function Expense() {
       });
   }, []);
 
-  const selectedPrimaryCategory = useMemo(
-    () => expenseCategories.find((category) => category.id === form.primaryCategoryId) || expenseCategories[0],
-    [expenseCategories, form.primaryCategoryId],
-  );
-  const secondaryCategoryOptions = selectedPrimaryCategory?.children || [];
   const activeCategories = useMemo(() => ['全部', ...expenseCategories.map((category) => category.name)], [expenseCategories]);
 
   useEffect(() => {
@@ -571,30 +567,16 @@ export default function Expense() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">支出类别</label>
-            <Select
-              value={form.primaryCategoryId}
-              onChange={(v) => {
-                const primary = expenseCategories.find((category) => category.id === v) || expenseCategories[0];
-                const secondary = primary?.children[0];
-                setForm({
-                  ...form,
-                  primaryCategoryId: primary?.id || '',
-                  secondaryCategoryId: secondary?.id || '',
-                  category: secondary?.name || '',
-                });
-              }}
-              options={expenseCategories.map((category) => ({ value: category.id, label: category.name, description: `${category.children.length} 个二级分类` }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">二级类别</label>
-            <Select
-              value={form.secondaryCategoryId}
-              onChange={(v) => {
-                const secondary = secondaryCategoryOptions.find((child) => child.id === v);
-                setForm({ ...form, secondaryCategoryId: v, category: secondary?.name || form.category });
-              }}
-              options={secondaryCategoryOptions.map((child) => ({ value: child.id, label: child.name }))}
+            <ExpenseCategoryPicker
+              categories={expenseCategories}
+              primaryId={form.primaryCategoryId}
+              secondaryId={form.secondaryCategoryId}
+              onChange={(selection) => setForm({
+                ...form,
+                primaryCategoryId: selection.primaryId,
+                secondaryCategoryId: selection.secondaryId,
+                category: selection.secondaryName,
+              })}
             />
           </div>
           <div>

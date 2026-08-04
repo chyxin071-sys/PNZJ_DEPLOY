@@ -125,12 +125,32 @@ export interface Reimbursement {
   contractId?: string; // 关联的合同ID（可选，非项目报销则为空）
   applicant: string;
   department: string;
-  type: '差旅费' | '采购费' | '交通费' | '业务招待费' | '其他';
+  type: string;
   amount: number;
   expenseDate: string;
   description: string;
   attachments: AttachmentValue[];
-  status: '待审核' | '已审核' | '已打款' | '已驳回';
+  status: '待一级审批' | '待二级审批' | '待打款' | '待审核' | '已审核' | '已打款' | '已驳回';
+  approvalFlow?: {
+    approver1Ids?: string[];
+    approver2Ids?: string[];
+    ccUserIds?: string[];
+    payerIds?: string[];
+  };
+  approvalRecords?: Array<{
+    level?: number;
+    action: string;
+    operatorId?: string;
+    operatorName?: string;
+    comment?: string;
+    operatedAt: string;
+  }>;
+  firstReviewer?: string;
+  firstReviewDate?: string;
+  secondReviewer?: string;
+  secondReviewDate?: string;
+  payerId?: string;
+  payerName?: string;
   reviewComment: string;
   reviewer: string;
   reviewDate: string;

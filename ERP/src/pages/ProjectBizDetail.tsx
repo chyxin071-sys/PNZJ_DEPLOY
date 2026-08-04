@@ -297,7 +297,78 @@ function isActiveSubNode(subNode: any) {
   return Boolean(subNode.actualStartDate || subNode.startedAt || subNode.acceptanceRecord?.startedAt);
 }
 
-function applyDefaultNodeExpansion(nodesData: any[] = []) {
+function normalizeStageText(value: any) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getActivityTime(activity: any) {
+  const raw = activity?.createdAt || activity?.updatedAt || activity?.rectifySubmittedAt || '';
+  const time = raw ? new Date(raw).getTime() : 0;
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function getActivityStageText(activity: any) {
+  return [
+    activity?.stage,
+    activity?.nodeName,
+    activity?.sectionName,
+    activity?.subNodeName,
+    activity?.title,
+    activity?.area,
+  ].map(normalizeStageText).filter(Boolean).join(' ');
+}
+
+function getLatestProjectActivity(logsData: any[] = [], inspectionsData: any[] = []) {
+  return [...logsData, ...inspectionsData]
+    .filter(Boolean)
+    .sort((a, b) => getActivityTime(b) - getActivityTime(a))[0] || null;
+}
+
+function findActivityNodeTarget(nodesData: any[] = [], activity: any) {
+  const activityText = getActivityStageText(activity);
+  if (!activityText) return null;
+
+  for (let nodeIdx = 0; nodeIdx < nodesData.length; nodeIdx += 1) {
+    const node = nodesData[nodeIdx];
+    const nodeName = normalizeStageText(node?.name);
+    if (nodeName && (activityText.includes(nodeName) || nodeName.includes(activityText))) {
+      return { nodeIdx, secIdx: null };
+    }
+
+    const sections = node?.sections || [];
+    for (let secIdx = 0; secIdx < sections.length; secIdx += 1) {
+      const section = sections[secIdx];
+      const sectionName = normalizeStageText(section?.name);
+      if (sectionName && (activityText.includes(sectionName) || sectionName.includes(activityText))) {
+        return { nodeIdx, secIdx };
+      }
+
+      const matchedSubNode = (section?.subNodes || []).some((subNode: any) => {
+        const subNodeName = normalizeStageText(subNode?.name);
+        return subNodeName && (activityText.includes(subNodeName) || subNodeName.includes(activityText));
+      });
+      if (matchedSubNode) return { nodeIdx, secIdx };
+    }
+  }
+
+  return null;
+}
+
+function applyDefaultNodeExpansion(nodesData: any[] = [], latestActivity?: any) {
+  const activityTarget = findActivityNodeTarget(nodesData, latestActivity);
+  if (activityTarget) {
+    return nodesData.map((node: any, nodeIdx: number) => ({
+      ...node,
+      collapsed: nodeIdx !== activityTarget.nodeIdx,
+      sections: (node.sections || []).map((section: any, secIdx: number) => ({
+        ...section,
+        collapsed: nodeIdx !== activityTarget.nodeIdx || (
+          activityTarget.secIdx !== null && secIdx !== activityTarget.secIdx
+        ),
+      })),
+    }));
+  }
+
   let hasActiveSubNode = false;
   const activeMap = nodesData.map((node: any) => {
     const sectionActive = (node.sections || []).map((section: any) => (
@@ -608,12 +679,17 @@ export default function ProjectBizDetail() {
           }
         });
       }
+      const [latestLogsData, latestInspectionsData] = await Promise.all([
+        projectLogsAPI.where({ projectId: id }).orderBy('createdAt', 'desc').toArray().catch(() => []),
+        projectInspectionsAPI.where({ projectId: id }).orderBy('createdAt', 'desc').toArray().catch(() => []),
+      ]);
+      const latestActivity = getLatestProjectActivity(latestLogsData.slice(0, 1), latestInspectionsData.slice(0, 1));
       
       setProject((prev: any) => {
         if (!prev) {
           return {
             ...p,
-            nodesData: applyDefaultNodeExpansion(p.nodesData || []),
+            nodesData: applyDefaultNodeExpansion(p.nodesData || [], latestActivity),
           };
         }
         // Preserve collapsed state

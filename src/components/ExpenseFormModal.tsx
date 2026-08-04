@@ -3,6 +3,7 @@ import { Search, X, Loader2 } from 'lucide-react';
 import Modal from '@/components/Modal';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
+import ExpenseCategoryPicker from '@/components/ExpenseCategoryPicker';
 import FormAttachmentList from '@/components/FormAttachmentList';
 import UploadProgressList, { createUploadProgressItem, type UploadProgressItem } from '@/components/UploadProgressList';
 import { formatMoney, generateId } from '@/utils/format';
@@ -12,10 +13,16 @@ import { useBizStore } from '@/store/bizStore';
 import { useAuthStore } from '@/store/authStore';
 import type { AttachmentValue } from '@/types';
 import { addLeadAuditFollowUp } from '@/utils/leadAudit';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  expenseCategoryPayload,
+  loadExpenseCategories,
+  resolveExpenseCategory,
+  type ExpenseCategory,
+} from '@/services/expenseCategories';
 
 type PendingUpload = UploadProgressItem & { file: File };
 
-const CATEGORY_OPTIONS = ['材料费', '人工费', '外包费', '管理费', '其他'];
 const PAY_METHOD_OPTIONS = ['银行转账', '微信', '支付宝', '现金', '其他'];
 
 function focusNextOnEnter(event: React.KeyboardEvent<HTMLElement>) {
@@ -46,11 +53,13 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
   const [submitting, setSubmitting] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [contractSearch, setContractSearch] = useState('');
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
 
   const blankForm = () => ({
     contractId: '',
-    category: '材料费',
-    customCategory: '',
+    primaryCategoryId: expenseCategories[0]?.id || DEFAULT_EXPENSE_CATEGORIES[0].id,
+    secondaryCategoryId: expenseCategories[0]?.children[0]?.id || DEFAULT_EXPENSE_CATEGORIES[0].children[0].id,
+    category: expenseCategories[0]?.children[0]?.name || DEFAULT_EXPENSE_CATEGORIES[0].children[0].name,
     amount: '',
     supplier: '',
     payMethod: '银行转账',
@@ -92,16 +101,26 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
   };
 
   useEffect(() => {
+    loadExpenseCategories()
+      .then((categories) => setExpenseCategories(categories))
+      .catch((error) => {
+        console.error('加载支出类别失败', error);
+        setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+      });
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     setSubmitting(false);
     setPendingUploads([]);
     if (editingExpense) {
-      const category = editingExpense.category || '材料费';
+      const categoryPath = resolveExpenseCategory(editingExpense, expenseCategories);
       const payMethod = editingExpense.payMethod || '银行转账';
       setForm({
         contractId: editingExpense.contractId || '',
-        category: CATEGORY_OPTIONS.includes(category) ? category : '其他',
-        customCategory: CATEGORY_OPTIONS.includes(category) ? '' : category,
+        primaryCategoryId: categoryPath.primaryId || expenseCategories[0]?.id || '',
+        secondaryCategoryId: categoryPath.secondaryId || expenseCategories[0]?.children[0]?.id || '',
+        category: categoryPath.secondaryName || expenseCategories[0]?.children[0]?.name || '',
         amount: String(editingExpense.amount || ''),
         supplier: editingExpense.supplier || '',
         payMethod: PAY_METHOD_OPTIONS.includes(payMethod) ? payMethod : '其他',
@@ -125,7 +144,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
     if (defaultContractId) {
       window.setTimeout(() => handleSelectContract(defaultContractId), 0);
     }
-  }, [open, defaultContractId, editingExpense?.id]);
+  }, [open, defaultContractId, editingExpense?.id, expenseCategories]);
 
   const handleSubmit = async () => {
     if (!form.amount || !form.supplier || submitting) return;
@@ -146,14 +165,22 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
         }
       }
 
-      const category = form.category === '其他' ? form.customCategory.trim() || '其他' : form.category;
+      const primary = expenseCategories.find((category) => category.id === form.primaryCategoryId) || expenseCategories[0];
+      const secondary = primary?.children.find((child) => child.id === form.secondaryCategoryId) || primary?.children[0];
+      const categoryPath = {
+        primaryId: primary?.id || '',
+        primaryName: primary?.name || '',
+        secondaryId: secondary?.id || '',
+        secondaryName: secondary?.name || form.category || '其他支出',
+      };
+      const category = categoryPath.secondaryName;
       const payMethod = form.payMethod === '其他' ? form.customPayMethod.trim() || '其他' : form.payMethod;
       const expenseData = {
         ...(editingExpense || {}),
         id: editingExpense?.id || generateId(),
         contractId: form.contractId,
         bizType: currentBizType,
-        category,
+        ...expenseCategoryPayload(categoryPath),
         amount: Number(form.amount),
         supplier: form.supplier,
         payMethod,
@@ -259,16 +286,18 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">支出类别</label>
-            <Select searchable value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={[
-              ...Array.from(new Set([...CATEGORY_OPTIONS, ...expenses.map(e => e.category).filter(Boolean)])).map((c) => ({ value: c, label: c })),
-            ]} />
+            <ExpenseCategoryPicker
+              categories={expenseCategories}
+              primaryId={form.primaryCategoryId}
+              secondaryId={form.secondaryCategoryId}
+              onChange={(selection) => setForm({
+                ...form,
+                primaryCategoryId: selection.primaryId,
+                secondaryCategoryId: selection.secondaryId,
+                category: selection.secondaryName,
+              })}
+            />
           </div>
-          {form.category === '其他' && (
-            <div>
-              <label className="block text-xs text-gray-500 mb-1.5 font-medium">自定义支出类别</label>
-              <input value={form.customCategory} onChange={(e) => setForm({ ...form, customCategory: e.target.value })} className="erp-input" />
-            </div>
-          )}
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">金额 *</label>
             <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="请输入金额" className="erp-input" />
