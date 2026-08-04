@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { DollarSign, TrendingUp, Receipt, Plus, Search, X, AlertTriangle, Loader2, Edit3, Trash2, Download } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, Plus, Search, X, AlertTriangle, Loader2, Edit3, RotateCcw, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
@@ -8,12 +8,16 @@ import Select from '@/components/Select';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useAuthStore } from '@/store/authStore';
+import { useDialogStore } from '@/store/dialogStore';
 import FormAttachmentList from '@/components/FormAttachmentList';
 import { formatMoney, formatDate, generateId } from '@/utils/format';
 import type { AttachmentValue, Receipt as ReceiptType } from '@/types';
 import { getAttachmentSummary, mergeAttachments, normalizeAttachments, openAttachment, uploadFinanceAttachments } from '@/utils/financeAttachments';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
+
+const isActiveReceipt = (receipt: any) => !['deleted', 'voided', 'reversed'].includes(receipt.lifecycleStatus);
 
 const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
 
@@ -28,7 +32,8 @@ export default function Income() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { receipts, contracts, addReceipt, updateReceipt } = useFinanceStore();
-  const { user } = useAuthStore();
+  const { user, users, loadUsers } = useAuthStore();
+  const { showConfirm, showAlert } = useDialogStore();
   const myName = user?.name || '';
   const isAdmin = user?.role === 'admin';
   const canSeeAllFinancial = isAdmin || user?.role === 'finance';
@@ -63,9 +68,20 @@ export default function Income() {
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [reverseReceipt, setReverseReceipt] = useState<ReceiptType | null>(null);
+  const [reverseReason, setReverseReason] = useState('');
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  const adminUserIds = useMemo(() => users
+    .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
+    .map((u: any) => String(u._id || u.id || '').trim())
+    .filter(Boolean), [users]);
 
   const filtered = useMemo(() => {
-    let list = [...receipts.filter(r => r.bizType === currentBizType)];
+    let list = [...receipts.filter(r => r.bizType === currentBizType && isActiveReceipt(r))];
     if (dateFrom) list = list.filter((r) => r.receiptDate >= dateFrom);
     if (dateTo) list = list.filter((r) => r.receiptDate <= dateTo);
     if (filterYear) {
@@ -101,11 +117,48 @@ export default function Income() {
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const monthIncome = useMemo(() => filtered.filter((r) => r.receiptDate >= monthStart).reduce((s, r) => s + r.amount, 0), [filtered, monthStart]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定删除这条收款记录吗？')) return;
+  const handleReverseReceipt = async () => {
+    if (!reverseReceipt) return;
+    const reason = reverseReason.trim();
+    if (!reason) {
+      await showAlert('收款冲销必须填写原因。');
+      return;
+    }
+    const confirmed = await showConfirm(
+      `客户：${reverseReceipt.customerName || '-'}\n金额：${formatMoney(reverseReceipt.amount || 0)}`,
+      { title: '确认冲销该收款记录吗？', confirmStyle: 'danger', confirmText: '确认冲销' },
+    );
+    if (!confirmed) return;
     try {
-      await useFinanceStore.getState().deleteReceipt(id);
-    } catch (e: any) { alert('删除失败：' + (e?.message || '未知错误')); }
+      const now = new Date().toISOString();
+      const next = { ...reverseReceipt, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason } as any;
+      await updateReceipt(next);
+      await recordFinanceAuditAction({
+        module: 'receipt',
+        action: 'reverse',
+        recordId: String(reverseReceipt._id || reverseReceipt.id),
+        recordName: `${reverseReceipt.customerName || '-'}-${reverseReceipt.stage || '收款'}`,
+        amount: reverseReceipt.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName: myName,
+        before: reverseReceipt,
+        after: next,
+      });
+      await notifyFinanceAuditAction({
+        module: 'receipt',
+        action: 'reverse',
+        recordId: String(reverseReceipt._id || reverseReceipt.id),
+        recordName: `${reverseReceipt.customerName || '-'}-${reverseReceipt.stage || '收款'}`,
+        amount: reverseReceipt.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName: myName,
+        recipientUserIds: adminUserIds,
+      });
+      setReverseReceipt(null);
+      setReverseReason('');
+    } catch (e: any) { await showAlert('冲销失败：' + (e?.message || '未知错误')); }
   };
 
   const openEditReceipt = (row: Record<string, unknown>) => {
@@ -312,8 +365,8 @@ export default function Income() {
           <button onClick={() => openEditReceipt(row)} className="p-1 text-gray-400 hover:text-gold-500 rounded" title="编辑">
             <Edit3 size={12} />
           </button>
-          <button onClick={() => handleDelete(row.id as string)} className="p-1 text-gray-400 hover:text-red-500 rounded" title="删除">
-            <Trash2 size={12} />
+          <button onClick={() => { setReverseReceipt(row as unknown as ReceiptType); setReverseReason(''); }} className="p-1 text-gray-400 hover:text-red-500 rounded" title="冲销">
+            <RotateCcw size={12} />
           </button>
         </div>
       ),
@@ -578,6 +631,40 @@ export default function Income() {
             </button>
           </div>
         </div>
+      </Modal>
+      <Modal
+        open={!!reverseReceipt}
+        onClose={() => { setReverseReceipt(null); setReverseReason(''); }}
+        title="冲销收款记录"
+      >
+        {reverseReceipt && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              已入账的收款不能直接删除。冲销后该记录不再计入收款汇总，但会保留原始记录和操作痕迹。
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              <div>客户：<span className="font-medium text-gray-900">{reverseReceipt.customerName || '-'}</span></div>
+              <div className="mt-1">金额：<span className="font-medium text-emerald-600">{formatMoney(reverseReceipt.amount || 0)}</span></div>
+              <div className="mt-1">阶段：<span className="font-medium text-gray-900">{reverseReceipt.stage || '-'}</span></div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">冲销原因</label>
+              <textarea
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                rows={3}
+                placeholder="请填写冲销原因，便于后续查账"
+                className="erp-input resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => { setReverseReceipt(null); setReverseReason(''); }} className="erp-btn-secondary">取消</button>
+              <button onClick={handleReverseReceipt} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+                确认冲销
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

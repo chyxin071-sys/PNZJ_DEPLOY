@@ -34,6 +34,7 @@ const ProjectCost = lazy(() => import('@/pages/ProjectCost'));
 const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'));
 const CashFlow = lazy(() => import('@/pages/CashFlow'));
 const Reimbursement = lazy(() => import('@/pages/Reimbursement'));
+const FinanceOperationLogs = lazy(() => import('@/pages/FinanceOperationLogs'));
 const Reports = lazy(() => import('@/pages/Reports'));
 const Leads = lazy(() => import('@/pages/Leads'));
 const LeadDetail = lazy(() => import('@/pages/LeadDetail'));
@@ -121,6 +122,7 @@ function FinanceGuard({ children }: { children: React.ReactNode }) {
     '/projects',
     '/cashflow',
     '/reimbursement',
+    '/finance-logs',
     '/reports',
     '/quotes-biz',
     '/quotation-builder',
@@ -422,6 +424,7 @@ function AppInit() {
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/cashflow" element={<CashFlow />} />
         <Route path="/reimbursement" element={<Reimbursement />} />
+        <Route path="/finance-logs" element={<FinanceOperationLogs />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/leads" element={<Leads />} />
         <Route path="/leads/:id" element={<LeadDetail />} />

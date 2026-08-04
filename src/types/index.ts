@@ -72,6 +72,12 @@ export interface Receipt {
   stage: string;
   remark: string;
   attachments: AttachmentValue[];
+  lifecycleStatus?: 'active' | 'deleted' | 'voided' | 'reversed';
+  reversedAt?: string;
+  reversedBy?: string;
+  reverseReason?: string;
+  deletedAt?: string;
+  deletedBy?: string;
   createdAt: string;
   createdBy?: string;   // 录入人姓名，用于权限过滤（可选，兼容存量数据）
 }
@@ -95,6 +101,16 @@ export interface Expense {
   status: '已付' | '未付';
   remark: string;
   attachments: AttachmentValue[];
+  lifecycleStatus?: 'active' | 'deleted' | 'voided' | 'reversed' | 'reversal';
+  deletedAt?: string;
+  deletedBy?: string;
+  voidedAt?: string;
+  voidedBy?: string;
+  voidReason?: string;
+  reversedAt?: string;
+  reversedBy?: string;
+  reverseReason?: string;
+  reversalOf?: string;
   createdAt: string;
   createdBy?: string;   // 录入人姓名，用于权限过滤（可选，兼容存量数据）
 }
@@ -130,7 +146,7 @@ export interface Reimbursement {
   expenseDate: string;
   description: string;
   attachments: AttachmentValue[];
-  status: '待一级审批' | '待二级审批' | '待打款' | '待审核' | '已审核' | '已打款' | '已驳回';
+  status: '待一级审批' | '待二级审批' | '待打款' | '待审核' | '已审核' | '已打款' | '已驳回' | '已作废' | '已冲销';
   approvalFlow?: {
     approver1Ids?: string[];
     approver2Ids?: string[];
@@ -156,6 +172,15 @@ export interface Reimbursement {
   reviewDate: string;
   paymentVoucher: string;
   paymentDate: string;
+  lifecycleStatus?: 'active' | 'deleted' | 'voided' | 'reversed';
+  deletedAt?: string;
+  deletedBy?: string;
+  voidedAt?: string;
+  voidedBy?: string;
+  voidReason?: string;
+  reversedAt?: string;
+  reversedBy?: string;
+  reverseReason?: string;
   createdAt: string;
 }
 

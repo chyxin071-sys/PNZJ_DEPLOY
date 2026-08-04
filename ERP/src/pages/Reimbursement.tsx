@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Upload, FileText, User, Building, Calendar, FileImage, Settings, Tag, DollarSign, CheckCircle, Trash2 } from 'lucide-react';
+import { Plus, Search, Upload, FileText, User, Building, Calendar, FileImage, Settings, Tag, DollarSign, CheckCircle, Trash2, Ban, RotateCcw } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
@@ -18,10 +18,11 @@ import { exportSheetsToExcel } from '@/utils/export';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { cloudDB } from '@/db/cloudbase';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
+import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
 
 const FLOW_CONFIG_DOC_ID = 'reimbursement_approval_flow';
 const TYPE_CONFIG_DOC_ID = 'reimbursement_types_v1';
-const TABS = ['全部', '待一级审批', '待二级审批', '待打款', '已打款', '已驳回'];
+const TABS = ['全部', '待一级审批', '待二级审批', '待打款', '已打款', '已驳回', '已作废', '已冲销'];
 const DEFAULT_REIMBURSEMENT_TYPES = ['差旅费', '采购费', '交通费', '业务招待费', '其他'];
 const INIT_FORM = { contractId: '', applicant: '', type: DEFAULT_REIMBURSEMENT_TYPES[0], amount: '', expenseDate: '', description: '' };
 const EMPTY_FLOW_CONFIG = { approver1Ids: [] as string[], approver2Ids: [] as string[], ccUserIds: [] as string[], payerIds: [] as string[] };
@@ -34,6 +35,8 @@ const statusBadge: Record<string, string> = {
   '已审核': 'bg-blue-50 text-blue-600',
   '已打款': 'bg-emerald-50 text-emerald-600',
   '已驳回': 'bg-red-50 text-red-500',
+  '已作废': 'bg-gray-100 text-gray-500',
+  '已冲销': 'bg-slate-100 text-slate-600',
 };
 
 function getDocId(record: any) {
@@ -124,7 +127,7 @@ export default function ReimbursementPage() {
   const location = useLocation();
   const [localPreviewIndex, setLocalPreviewIndex] = useState<number | null>(null);
   const navigate = useNavigate();
-  const { reimbursements, contracts, addReimbursement, updateReimbursement, deleteReimbursement } = useFinanceStore();
+  const { reimbursements, contracts, addReimbursement, updateReimbursement } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user, users, loadUsers } = useAuthStore();
   const { addNotification } = useNotificationStore();
@@ -142,9 +145,11 @@ export default function ReimbursementPage() {
   const [showSubmit, setShowSubmit] = useState(false);
   const [showPayModal, setShowPayModal] = useState<{ item: Reimbursement } | null>(null);
   const [showRejectModal, setShowRejectModal] = useState<{ item: Reimbursement } | null>(null);
+  const [controlAction, setControlAction] = useState<{ type: 'delete' | 'void' | 'reverse'; item: Reimbursement } | null>(null);
   const [showFlowModal, setShowFlowModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [controlReason, setControlReason] = useState('');
   const [showDetail, setShowDetail] = useState<Reimbursement | null>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [approvalConfig, setApprovalConfig] = useState(EMPTY_FLOW_CONFIG);
@@ -186,6 +191,10 @@ export default function ReimbursementPage() {
     }),
     [users]
   );
+  const adminUserIds = useMemo(() => users
+    .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
+    .map((u: any) => String(u._id || u.id || '').trim())
+    .filter(Boolean), [users]);
   const userNameById = useMemo(() => {
     const map = new Map<string, string>();
     users.forEach((u: any) => {
@@ -327,9 +336,24 @@ export default function ReimbursementPage() {
     return names === '-' ? emptyText : `${names}${action}`;
   };
   const getReimbursementStatus = (r: Reimbursement) => {
+    if ((r as any).lifecycleStatus === 'voided') return '已作废';
+    if ((r as any).lifecycleStatus === 'reversed') return '已冲销';
     if (r.status === '待审核') return '待一级审批';
     if (r.status === '已审核') return '待打款';
     return r.status;
+  };
+  const isVisibleReimbursement = (r: Reimbursement) => (r as any).lifecycleStatus !== 'deleted';
+  const getReimbursementControlType = (r: Reimbursement): 'delete' | 'void' | 'reverse' => {
+    const status = getReimbursementStatus(r);
+    if (status === '已打款') return 'reverse';
+    if (['待二级审批', '待打款'].includes(status)) return 'void';
+    return 'delete';
+  };
+  const getReimbursementControlLabel = (r: Reimbursement) => {
+    const type = getReimbursementControlType(r);
+    if (type === 'reverse') return '冲销';
+    if (type === 'void') return '作废';
+    return '删除';
   };
   const getFlow = (r?: Reimbursement) => ({
     approver1Ids: normalizeUserIds((r as any)?.approvalFlow?.approver1Ids || approvalConfig.approver1Ids),
@@ -374,9 +398,9 @@ export default function ReimbursementPage() {
   };
 
   // Employee sees only their own reimbursements
-  const dataSource = isEmployee
+  const dataSource = (isEmployee
     ? reimbursements.filter((r) => r.applicant === user?.name || '')
-    : reimbursements;
+    : reimbursements).filter(isVisibleReimbursement);
 
   const filtered = dataSource
     .filter((r) => {
@@ -424,24 +448,83 @@ export default function ReimbursementPage() {
         </div>
       )
     },
-    { key: 'delete', title: '删除', render: (r: Reimbursement) => (
+    { key: 'delete', title: '处理', render: (r: Reimbursement) => (
         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-          {!isEmployee && (
-            <button onClick={() => handleDelete(r)} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">删除</button>
+          {!isEmployee && !['已作废', '已冲销'].includes(getReimbursementStatus(r)) && (
+            <button onClick={() => openReimbursementControlAction(r)} className="inline-flex items-center gap-1 text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">
+              {getReimbursementControlType(r) === 'reverse' ? <RotateCcw size={12} /> : getReimbursementControlType(r) === 'void' ? <Ban size={12} /> : <Trash2 size={12} />}
+              {getReimbursementControlLabel(r)}
+            </button>
           )}
         </div>
       )
     },
   ];
 
-  const handleDelete = async (r: Reimbursement) => {
-    const confirmed = await showConfirm(`申请人：${r.applicant}\n金额：${formatMoney(r.amount)}`, { title: '确认删除该报销记录吗？', confirmStyle: 'danger', confirmText: '删除' });
+  const openReimbursementControlAction = (r: Reimbursement) => {
+    setControlAction({ type: getReimbursementControlType(r), item: r });
+    setControlReason('');
+  };
+
+  const handleReimbursementControlAction = async () => {
+    if (!controlAction) return;
+    const { type, item: r } = controlAction;
+    const reason = controlReason.trim();
+    if (type !== 'delete' && !reason) {
+      await showAlert(`${type === 'reverse' ? '冲销' : '作废'}必须填写原因。`);
+      return;
+    }
+    const actionLabel = type === 'reverse' ? '冲销' : type === 'void' ? '作废' : '删除';
+    const confirmed = await showConfirm(`申请人：${r.applicant}\n金额：${formatMoney(r.amount)}`, { title: `确认${actionLabel}该报销记录吗？`, confirmStyle: 'danger', confirmText: `确认${actionLabel}` });
     if (!confirmed) return;
     try {
-      await deleteReimbursement(r.id);
-      if (showDetail?.id === r.id) setShowDetail(null);
+      const now = new Date().toISOString();
+      const record = {
+        action: actionLabel,
+        operatorId: currentUserId,
+        operatorName: myName,
+        comment: reason,
+        operatedAt: now,
+      };
+      const next: Reimbursement = type === 'delete'
+        ? { ...r, lifecycleStatus: 'deleted', deletedAt: now, deletedBy: myName, approvalRecords: [...(((r as any).approvalRecords || [])), record] } as any
+        : type === 'void'
+          ? { ...r, status: '已作废' as any, lifecycleStatus: 'voided', voidedAt: now, voidedBy: myName, voidReason: reason, approvalRecords: [...(((r as any).approvalRecords || [])), record] } as any
+          : { ...r, status: '已冲销' as any, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason, approvalRecords: [...(((r as any).approvalRecords || [])), record] } as any;
+      await updateReimbursement(next);
+      await recordFinanceAuditAction({
+        module: 'reimbursement',
+        action: type,
+        recordId: getDocId(r),
+        recordName: `${r.applicant}-${r.type}`,
+        amount: r.amount,
+        reason,
+        operatorId: currentUserId,
+        operatorName: myName,
+        before: r,
+        after: next,
+      });
+      const applicantUser = users.find((u: any) => u.name === r.applicant);
+      await notifyFinanceAuditAction({
+        module: 'reimbursement',
+        action: type,
+        recordId: getDocId(r),
+        recordName: `${r.applicant}-${r.type}`,
+        amount: r.amount,
+        reason,
+        operatorId: currentUserId,
+        operatorName: myName,
+        recipientUserIds: [
+          ...adminUserIds,
+          (applicantUser as any)?._id || applicantUser?.id || '',
+        ],
+      });
+      if (showDetail?.id === r.id) setShowDetail(next);
+      if (type === 'delete') setShowDetail(null);
+      setControlAction(null);
+      setControlReason('');
     } catch (e: any) {
-      await showAlert(e?.message || '删除失败');
+      await showAlert(e?.message || `${actionLabel}失败`);
     }
   };
 
@@ -1095,6 +1178,49 @@ export default function ReimbursementPage() {
               <button onClick={saveApprovalConfig} className="erp-btn-primary">保存流程</button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {!isEmployee && (
+        <Modal
+          open={!!controlAction}
+          onClose={() => { setControlAction(null); setControlReason(''); }}
+          title={controlAction ? `${controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}报销记录` : '处理报销记录'}
+        >
+          {controlAction && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                {controlAction.type === 'reverse'
+                  ? '已打款的报销不能直接删除。冲销后该记录不再作为有效报销处理，但会保留付款与冲销痕迹。'
+                  : controlAction.type === 'void'
+                    ? '已进入审批流程的报销不能直接删除。作废后流程终止，并保留审批与作废痕迹。'
+                    : '未形成有效审批结果的报销可以删除，系统会保留操作日志。'}
+              </div>
+              <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+                <div>申请人：<span className="font-medium text-gray-900">{controlAction.item.applicant}</span></div>
+                <div className="mt-1">金额：<span className="font-medium text-emerald-600">{formatMoney(controlAction.item.amount)}</span></div>
+                <div className="mt-1">当前状态：<span className="font-medium text-gray-900">{getReimbursementStatus(controlAction.item)}</span></div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5 font-medium">
+                  {controlAction.type === 'reverse' ? '冲销原因' : controlAction.type === 'void' ? '作废原因' : '删除原因'}
+                </label>
+                <textarea
+                  value={controlReason}
+                  onChange={(e) => setControlReason(e.target.value)}
+                  rows={3}
+                  placeholder={controlAction.type === 'delete' ? '可填写删除原因，便于后续追溯' : '请填写原因，便于后续查账'}
+                  className="erp-input resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => { setControlAction(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
+                <button onClick={handleReimbursementControlAction} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+                  确认{controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 

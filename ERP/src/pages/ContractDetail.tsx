@@ -117,9 +117,7 @@ export default function ContractDetail() {
     updateContract,
     deleteContract,
     updateReceipt,
-    deleteReceipt,
     updateExpense,
-    deleteExpense,
     addInvoice,
     updateInvoice,
     deleteInvoice,
@@ -219,11 +217,15 @@ export default function ContractDetail() {
     const source = canViewFinance ? receipts : directReceipts;
     return source
       .filter((r) => r.contractId === id || r.contractId === contract?.id || r.contractId === (contract as any)?._id)
+      .filter((r) => !['deleted', 'voided', 'reversed'].includes((r as any).lifecycleStatus))
       .sort((a, b) => (b.receiptDate || b.createdAt).localeCompare(a.receiptDate || a.createdAt));
   }, [canViewFinance, contract, directReceipts, receipts, id]);
   const contractKeys = useMemo(() => [id, contract?.id, (contract as any)?._id].filter(Boolean), [contract, id]);
   const contractExpenses = useMemo(
-    () => expenses.filter((e) => contractKeys.includes(e.contractId)).sort((a, b) => (b.expenseDate || b.createdAt).localeCompare(a.expenseDate || a.createdAt)),
+    () => expenses
+      .filter((e) => contractKeys.includes(e.contractId))
+      .filter((e) => !['deleted', 'voided', 'reversed'].includes((e as any).lifecycleStatus))
+      .sort((a, b) => (b.expenseDate || b.createdAt).localeCompare(a.expenseDate || a.createdAt)),
     [expenses, contractKeys],
   );
   const contractInvoices = useMemo(
@@ -448,8 +450,12 @@ export default function ContractDetail() {
   const handleDeleteContract = async () => {
     if (!contract) return;
     const count = contractReceipts.length + contractExpenses.length;
-    const extraMsg = count > 0 
-      ? `\n\n该合同下有 ${contractReceipts.length} 条收款记录和 ${contractExpenses.length} 条支出记录，删除合同后这些记录也将一并被删除。`
+    if (count > 0) {
+      await showAlert(`该合同下有 ${contractReceipts.length} 条收款记录和 ${contractExpenses.length} 条支出记录。按财务规范，有财务记录的合同不能直接删除，请先按财务流程处理相关记录。`);
+      return;
+    }
+    const extraMsg = count > 0
+      ? `\n\n该合同下有 ${contractReceipts.length} 条收款记录和 ${contractExpenses.length} 条支出记录。按财务规范，有财务记录的合同不能直接删除。`
       : '';
     const confirmed = await showConfirm(`确定要删除合同「${contract.contractNo}」吗？此操作不可恢复。${extraMsg}`);
     if (!confirmed) return;
@@ -838,10 +844,6 @@ export default function ContractDetail() {
       render: (r: Receipt) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
-          <button onClick={async () => {
-            const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该收款记录吗？' });
-            if (confirmed) await deleteReceipt(r.id);
-          }} className="text-xs text-red-500 hover:text-red-600">删除</button>
         </div>
       ),
     },
@@ -887,10 +889,6 @@ export default function ContractDetail() {
           />
           <div className="flex items-center gap-3">
             <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
-            <button onClick={async () => {
-              const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该收款记录吗？' });
-              if (confirmed) await deleteReceipt(r.id);
-            }} className="text-xs font-medium text-red-500 hover:text-red-600">删除</button>
           </div>
         </div>
       ),
@@ -952,10 +950,6 @@ export default function ContractDetail() {
       render: (e: Expense) => (
         <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
           <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
-          <button onClick={async () => {
-            const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该支出记录吗？' });
-            if (confirmed) await deleteExpense(e.id);
-          }} className="text-xs text-red-500 hover:text-red-600">删除</button>
         </div>
       ),
     },
@@ -1004,10 +998,6 @@ export default function ContractDetail() {
           />
           <div className="flex items-center gap-3">
             <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
-            <button onClick={async () => {
-              const confirmed = await showConfirm('删除后不可恢复', { title: '确认删除该支出记录吗？' });
-              if (confirmed) await deleteExpense(e.id);
-            }} className="text-xs font-medium text-red-500 hover:text-red-600">删除</button>
           </div>
         </div>
       ),

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { TrendingDown, DollarSign, FileText, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X, Settings } from 'lucide-react';
+import { TrendingDown, DollarSign, FileText, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X, Settings, RotateCcw } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
@@ -8,6 +8,7 @@ import Select from '@/components/Select';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useAuthStore } from '@/store/authStore';
+import { useDialogStore } from '@/store/dialogStore';
 import FormAttachmentList from '@/components/FormAttachmentList';
 import { formatMoney, formatDate, generateId } from '@/utils/format';
 import type { AttachmentValue } from '@/types';
@@ -24,6 +25,7 @@ import {
   saveExpenseCategories,
   type ExpenseCategory,
 } from '@/services/expenseCategories';
+import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
 
 const CATEGORY_BADGE: Record<string, string> = {
   '材料费': 'bg-blue-50 text-blue-600',
@@ -35,12 +37,16 @@ const CATEGORY_BADGE: Record<string, string> = {
 
 const categoryBadgeClass = (name: string) => CATEGORY_BADGE[name] || 'bg-gray-100 text-gray-600';
 
+const isActiveExpense = (expense: any) => !['deleted', 'voided', 'reversed'].includes(expense.lifecycleStatus);
+const shouldReverseExpense = (expense: any) => expense.status === '已付';
+
 export default function Expense() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { expenses, contracts, addExpense, updateExpense, deleteExpense } = useFinanceStore();
+  const { expenses, contracts, addExpense, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
-  const { user } = useAuthStore();
+  const { user, users, loadUsers } = useAuthStore();
+  const { showConfirm, showAlert } = useDialogStore();
   const myName = user?.name || '';
   const isAdmin = user?.role === 'admin';
   const canSeeAllFinancial = isAdmin || user?.role === 'finance';
@@ -75,6 +81,17 @@ export default function Expense() {
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [controlAction, setControlAction] = useState<{ type: 'delete' | 'reverse'; item: any } | null>(null);
+  const [controlReason, setControlReason] = useState('');
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  const adminUserIds = useMemo(() => users
+    .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
+    .map((u: any) => String(u._id || u.id || '').trim())
+    .filter(Boolean), [users]);
 
   useEffect(() => {
     loadExpenseCategories()
@@ -101,7 +118,7 @@ export default function Expense() {
   }, [searchParams, setSearchParams, filteredContracts, currentBizType]);
 
   const filtered = useMemo(() => {
-    let list = [...expenses.filter(e => e.bizType === currentBizType)];
+    let list = [...expenses.filter(e => e.bizType === currentBizType && isActiveExpense(e))];
     if (dateFrom) list = list.filter((e) => e.expenseDate >= dateFrom);
     if (dateTo) list = list.filter((e) => e.expenseDate <= dateTo);
     if (filterYear) {
@@ -147,11 +164,57 @@ export default function Expense() {
     [filtered, monthStart],
   );
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定删除这条支出记录吗？')) return;
+  const openExpenseControlAction = (item: any) => {
+    setControlAction({ type: shouldReverseExpense(item) ? 'reverse' : 'delete', item });
+    setControlReason('');
+  };
+
+  const handleExpenseControlAction = async () => {
+    if (!controlAction) return;
+    const { type, item } = controlAction;
+    const reason = controlReason.trim();
+    if (type === 'reverse' && !reason) {
+      await showAlert('已付款支出冲销必须填写原因。');
+      return;
+    }
+    const title = type === 'reverse' ? '确认冲销该支出记录吗？' : '确认删除该支出记录吗？';
+    const confirmed = await showConfirm(
+      `收款方：${item.supplier || '-'}\n金额：${formatMoney(item.amount || 0)}`,
+      { title, confirmStyle: 'danger', confirmText: type === 'reverse' ? '确认冲销' : '确认删除' },
+    );
+    if (!confirmed) return;
     try {
-      await deleteExpense(id);
-    } catch (e: any) { alert('删除失败：' + (e?.message || '未知错误')); }
+      const now = new Date().toISOString();
+      const next = type === 'reverse'
+        ? { ...item, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason }
+        : { ...item, lifecycleStatus: 'deleted', deletedAt: now, deletedBy: myName, voidReason: reason };
+      await updateExpense(next as any);
+      await recordFinanceAuditAction({
+        module: 'expense',
+        action: type,
+        recordId: String(item._id || item.id),
+        recordName: item.supplier || item.contractNo || item.id,
+        amount: item.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName: myName,
+        before: item,
+        after: next,
+      });
+      await notifyFinanceAuditAction({
+        module: 'expense',
+        action: type,
+        recordId: String(item._id || item.id),
+        recordName: item.supplier || item.contractNo || item.id,
+        amount: item.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName: myName,
+        recipientUserIds: adminUserIds,
+      });
+      setControlAction(null);
+      setControlReason('');
+    } catch (e: any) { await showAlert((type === 'reverse' ? '冲销失败：' : '删除失败：') + (e?.message || '未知错误')); }
   };
 
   const openEditExpense = (row: Record<string, unknown>) => {
@@ -393,8 +456,12 @@ export default function Expense() {
           <button onClick={() => openEditExpense(row)} className="p-1 text-gray-400 hover:text-gold-500 rounded" title="编辑">
             <Edit3 size={12} />
           </button>
-          <button onClick={() => handleDelete(row.id as string)} className="p-1 text-gray-400 hover:text-red-500 rounded" title="删除">
-            <Trash2 size={12} />
+          <button
+            onClick={() => openExpenseControlAction(row)}
+            className="p-1 text-gray-400 hover:text-red-500 rounded"
+            title={shouldReverseExpense(row) ? '冲销' : '删除'}
+          >
+            {shouldReverseExpense(row) ? <RotateCcw size={12} /> : <Trash2 size={12} />}
           </button>
         </div>
       ),
@@ -662,6 +729,43 @@ export default function Expense() {
             </button>
           </div>
         </div>
+      </Modal>
+      <Modal
+        open={!!controlAction}
+        onClose={() => { setControlAction(null); setControlReason(''); }}
+        title={controlAction?.type === 'reverse' ? '冲销支出记录' : '删除支出记录'}
+      >
+        {controlAction && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              {controlAction.type === 'reverse'
+                ? '已付款的支出不能直接删除。冲销后该记录不再计入支出汇总，但会保留原始记录和操作痕迹。'
+                : '删除会从业务列表中移除该记录，并写入财务操作日志。'}
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              <div>收款方：<span className="font-medium text-gray-900">{controlAction.item.supplier || '-'}</span></div>
+              <div className="mt-1">金额：<span className="font-medium text-red-500">{formatMoney(controlAction.item.amount || 0)}</span></div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">
+                {controlAction.type === 'reverse' ? '冲销原因' : '删除原因'}
+              </label>
+              <textarea
+                value={controlReason}
+                onChange={(e) => setControlReason(e.target.value)}
+                rows={3}
+                placeholder={controlAction.type === 'reverse' ? '请填写冲销原因，便于后续查账' : '可填写删除原因，便于后续追溯'}
+                className="erp-input resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => { setControlAction(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
+              <button onClick={handleExpenseControlAction} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+                {controlAction.type === 'reverse' ? '确认冲销' : '确认删除'}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
       <ExpenseCategoryManager
         open={showCategoryManager}

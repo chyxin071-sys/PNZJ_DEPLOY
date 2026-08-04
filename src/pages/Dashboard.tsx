@@ -1156,9 +1156,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 管理员：全部功能弹窗 */}
+      {/* 全部功能弹窗 */}
+      <>
       {isAdmin && (
-        <>
         <Modal open={showFinanceTargetModal} onClose={() => setShowFinanceTargetModal(false)} title="设置经营目标" size="md">
           <div className="space-y-4">
             <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
@@ -1202,6 +1202,7 @@ export default function Dashboard() {
             </div>
           </div>
         </Modal>
+      )}
 
         <Modal open={showAllFunctions} onClose={() => setShowAllFunctions(false)} title="全部功能" size="lg">
           <div className="space-y-6">
@@ -1237,8 +1238,7 @@ export default function Dashboard() {
             })}
           </div>
         </Modal>
-        </>
-      )}
+      </>
 
       {/* 员工排名查看全部弹窗 */}
       <Modal open={showEmployeeRankingModal} onClose={() => setShowEmployeeRankingModal(false)} title="员工签约排名 (全部)" size="lg">

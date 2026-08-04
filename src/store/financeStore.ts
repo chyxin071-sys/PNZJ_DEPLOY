@@ -160,26 +160,17 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const state = get();
     const contract = findDoc(state.contracts, id);
     const contractDocId = docId(contract, id);
-    // 删除关联的收款记录
     const relatedContractIds = new Set([id, contract?.id, contract?._id].filter(Boolean));
     const relatedReceipts = state.receipts.filter(r => relatedContractIds.has(r.contractId));
-    for (const r of relatedReceipts) {
-      await receiptsAPI.delete(docId(r, r.id)).catch(() => {});
-    }
-    // 删除关联的支出记录
     const relatedExpenses = state.expenses.filter(e => relatedContractIds.has(e.contractId));
-    for (const e of relatedExpenses) {
-      await expensesAPI.delete(docId(e, e.id)).catch(() => {});
+    const relatedInvoices = state.invoices.filter(i => relatedContractIds.has(i.contractId));
+    if (relatedReceipts.length > 0 || relatedExpenses.length > 0 || relatedInvoices.length > 0) {
+      throw new Error('该合同下已有财务记录，请先按财务流程处理收款、支出或开票记录后再删除合同。');
     }
     // 删除关联的报价记录
     const relatedQuotations = state.quotations.filter(q => q.contractId ? relatedContractIds.has(q.contractId) : false);
     for (const q of relatedQuotations) {
       await quotationsAPI.delete(docId(q, q.id)).catch(() => {});
-    }
-    // 删除关联的开票记录
-    const relatedInvoices = state.invoices.filter(i => relatedContractIds.has(i.contractId));
-    for (const i of relatedInvoices) {
-      await invoicesAPI.delete(docId(i, i.id)).catch(() => {});
     }
     await contractsAPI.delete(contractDocId); 
     set(state => ({ 

@@ -99,6 +99,7 @@ export const COLLECTIONS = {
   generalExpenses: 'erp_generalExpenses',
   users: 'users',
   notifications: 'erp_notifications',
+  financeOperationLogs: 'erp_finance_operation_logs',
   quotations: 'erp_quotations',
   leads: 'leads',
   projects: 'projects',

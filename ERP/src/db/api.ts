@@ -437,6 +437,37 @@ export const notificationsAPI = {
   },
 };
 
+// ============ 财务操作日志 ============
+export const financeOperationLogsAPI = {
+  add: async (log: any): Promise<void> => {
+    await cloudDB.collection(COLLECTIONS.financeOperationLogs).add(sanitize(log));
+  },
+  toArray: async (): Promise<any[]> => {
+    try {
+      const { data } = await cloudDB.collection(COLLECTIONS.financeOperationLogs)
+        .orderBy('createdAt', 'desc')
+        .limit(1000)
+        .get();
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+  orderBy: (field: string, direction: 'asc' | 'desc') => ({
+    toArray: async (): Promise<any[]> => {
+      try {
+        const { data } = await cloudDB.collection(COLLECTIONS.financeOperationLogs)
+          .orderBy(field, direction)
+          .limit(1000)
+          .get();
+        return data || [];
+      } catch {
+        return [];
+      }
+    },
+  }),
+};
+
 // ============ 客户线索 ============
 export const leadsAPI = {
   toArray: async (fields?: Record<string, boolean>): Promise<any[]> => {

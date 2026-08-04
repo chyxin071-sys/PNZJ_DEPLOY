@@ -325,8 +325,8 @@ export function getHighestRole(roles: Role[]): Role {
 }
 
 export const menuPermissions: Record<Role, string[]> = {
-  admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/profile'],
-  finance: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/reports', '/todos', '/materials', '/inventory-records', '/notifications', '/profile'],
+  admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/profile'],
+  finance: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/todos', '/notifications', '/profile'],
   sales: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
   designer: ['/', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/quotes-biz', '/quotation-builder', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
   manager: ['/', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/reimbursement', '/income', '/expense', '/contracts', '/notifications', '/profile'],

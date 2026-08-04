@@ -6,6 +6,7 @@ import {
   ArrowUpFromLine,
   Calculator,
   ArrowLeftRight,
+  ClipboardList,
   FileSpreadsheet,
   BarChart3,
   Users,
@@ -63,6 +64,7 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
       { path: '/projects', icon: Calculator, label: '项目成本', roles: ['admin', 'finance'], bizTypes: ['家装'] },
       { path: '/cashflow', icon: ArrowLeftRight, label: '资金流水', roles: ['admin', 'finance'] },
       { path: '/reimbursement', icon: FileSpreadsheet, label: '费用报销', roles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'] },
+      { path: '/finance-logs', icon: ClipboardList, label: '操作日志', roles: ['admin', 'finance'] },
     ],
   },
   {
