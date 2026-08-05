@@ -264,7 +264,7 @@ export default function FinanceOperationLogs() {
   ];
 
   return (
-    <div className="erp-page-spaced">
+    <div className="erp-page-spaced erp-finance-log-page">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base md:text-lg font-bold text-gray-900">财务操作日志</h1>
@@ -288,18 +288,13 @@ export default function FinanceOperationLogs() {
       </div>
 
       <div className="erp-surface overflow-visible">
-        <div className="erp-finance-date-row">
+        <div className="erp-finance-log-filter-row">
           <DatePicker mode="single" value={dateFrom} onChange={setDateFrom} placeholder="开始日期" />
           <span className="shrink-0 text-xs text-gray-400">至</span>
           <DatePicker mode="single" value={dateTo} onChange={setDateTo} placeholder="结束日期" />
-          {(dateFrom || dateTo) && (
-            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="shrink-0 text-xs font-medium text-gold-500 hover:text-gold-600">清除</button>
-          )}
-        </div>
-        <div className="erp-finance-action-row">
           <Select value={moduleFilter} onChange={setModuleFilter} options={MODULE_OPTIONS} className="w-auto shrink-0" />
           <Select value={actionFilter} onChange={setActionFilter} options={ACTION_OPTIONS} className="w-auto shrink-0" />
-          <div className="relative min-w-[180px] flex-1">
+          <div className="erp-finance-log-search relative min-w-[180px] flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={search}
@@ -308,7 +303,7 @@ export default function FinanceOperationLogs() {
               className="erp-search-input pl-9"
             />
           </div>
-          {(search || moduleFilter !== '全部' || actionFilter !== '全部') && (
+          {(dateFrom || dateTo || search || moduleFilter !== '全部' || actionFilter !== '全部') && (
             <button onClick={clearFilters} className="shrink-0 text-xs font-medium text-gold-500 hover:text-gold-600">清除</button>
           )}
         </div>
@@ -376,4 +371,3 @@ function JsonBlock({ title, value }: { title: string; value: unknown }) {
     </div>
   );
 }
-

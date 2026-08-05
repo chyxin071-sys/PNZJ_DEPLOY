@@ -187,7 +187,71 @@ body {
     text-overflow: clip;
   }
 
+  .erp-finance-log-page .erp-finance-stats {
+    @apply grid-cols-4;
+  }
+
+  .erp-finance-log-page .erp-finance-date-row {
+    @apply top-auto flex-wrap md:flex-nowrap;
+    position: relative;
+  }
+
+  .erp-finance-log-page .erp-finance-action-row {
+    @apply flex-wrap md:flex-nowrap;
+  }
+
+  .erp-finance-log-page .erp-finance-action-row > .relative {
+    @apply min-w-[260px];
+  }
+
+  .erp-finance-log-filter-row {
+    @apply flex items-center gap-2 border-b border-gray-100 px-3 py-2;
+    background: rgba(255, 255, 255, 0.97);
+  }
+
+  .erp-finance-log-filter-row > .relative {
+    @apply min-w-0;
+  }
+
+  .erp-finance-log-filter-row > .relative:first-child,
+  .erp-finance-log-filter-row > .relative:nth-child(3) {
+    @apply w-[150px] shrink-0;
+  }
+
+  .erp-finance-log-filter-row > .erp-select {
+    @apply w-[132px] shrink-0;
+  }
+
+  .erp-finance-log-filter-row .erp-search-input {
+    @apply min-w-0;
+  }
+
   @media (max-width: 767px) {
+    .erp-finance-log-page .erp-finance-stats {
+      @apply grid-cols-1;
+    }
+
+    .erp-finance-log-filter-row {
+      @apply grid gap-2;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+
+    .erp-finance-log-filter-row > .relative:first-child,
+    .erp-finance-log-filter-row > .relative:nth-child(3),
+    .erp-finance-log-filter-row > .erp-select {
+      @apply w-full;
+    }
+
+    .erp-finance-log-filter-row > .erp-select,
+    .erp-finance-log-filter-row > .erp-finance-log-search,
+    .erp-finance-log-filter-row > button {
+      grid-column: 1 / -1;
+    }
+
+    .erp-finance-log-filter-row > button {
+      justify-self: end;
+    }
+
     .erp-finance-stats {
       @apply grid-cols-1 gap-2;
     }
