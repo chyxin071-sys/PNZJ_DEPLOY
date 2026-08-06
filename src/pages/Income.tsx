@@ -93,7 +93,11 @@ export default function Income() {
     }
     if (search) {
       const q = search.toLowerCase();
-      const matchedContractIds = new Set(contracts.filter(c => c.houseAddress.toLowerCase().includes(q) || c.customerName.toLowerCase().includes(q) || c.contractNo.toLowerCase().includes(q)).map(c => c.id));
+      const matchedContractIds = new Set(
+        contracts
+          .filter(c => c.houseAddress.toLowerCase().includes(q) || c.customerName.toLowerCase().includes(q) || c.contractNo.toLowerCase().includes(q))
+          .flatMap(c => [c.id, (c as any)._id].filter(Boolean) as string[])
+      );
       list = list.filter(r => matchedContractIds.has(r.contractId));
     }
     // 非管理员只看自己创建的

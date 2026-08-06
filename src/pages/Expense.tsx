@@ -151,7 +151,7 @@ export default function Expense() {
           c.houseAddress.toLowerCase().includes(q) || 
           c.customerName.toLowerCase().includes(q) ||
           c.contractNo.toLowerCase().includes(q)
-        ).map(c => c.id)
+        ).flatMap(c => [c.id, (c as any)._id].filter(Boolean) as string[])
       );
       list = list.filter(e => matchedContractIds.has(e.contractId));
     }

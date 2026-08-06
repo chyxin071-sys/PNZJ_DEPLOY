@@ -217,6 +217,11 @@ export default function CashFlow() {
     exportToExcel(data, [], `资金流水明细${dateSuffix}`);
   };
 
+  const getControlRoute = (row: FlowItem) => {
+    const target = encodeURIComponent(row.sourceId);
+    return row.id.startsWith('receipt-') ? `/income?focus=${target}` : `/expense?focus=${target}`;
+  };
+
   const columns = [
     {
       key: 'date',
@@ -285,18 +290,20 @@ export default function CashFlow() {
       title: '处理',
       width: '108px',
       render: (row: FlowItem) => (
-        row.type === '支出' ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`/expense?focus=${encodeURIComponent(row.sourceId)}`);
-            }}
-            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
-          >
-            去支出页
-          </button>
-        ) : <span className="text-xs text-gray-300">-</span>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            navigate(getControlRoute(row));
+          }}
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
+            row.id.startsWith('receipt-')
+              ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+              : 'bg-red-50 text-red-600 hover:bg-red-100'
+          }`}
+        >
+          去处理
+        </button>
       ),
     },
     {
@@ -535,19 +542,16 @@ export default function CashFlow() {
                 专业处理方式：未付款的测试支出可以删除；已付款支出不建议直接删除，应做冲销，系统会保留原记录和冲销痕迹，且不再计入资金流水汇总。
               </div>
             ) : null}
-            {selectedFlow.type === '支出' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const target = selectedFlow.sourceId;
-                  setSelectedFlow(null);
-                  navigate(`/expense?focus=${encodeURIComponent(target)}`);
-                }}
-                className="erp-btn-secondary w-full justify-center"
-              >
-                去支出页处理
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFlow(null);
+                navigate(getControlRoute(selectedFlow));
+              }}
+              className="erp-btn-secondary w-full justify-center"
+            >
+              去对应页面处理
+            </button>
             {selectedFlow.contractId ? (
               <button
                 type="button"
