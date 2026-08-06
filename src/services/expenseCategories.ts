@@ -1,5 +1,6 @@
 import { systemConfigsAPI } from '@/db/api';
 import { generateId } from '@/utils/format';
+import type { BizType } from '@/types';
 
 export type ExpenseSubcategory = {
   id: string;
@@ -20,6 +21,8 @@ export type ExpenseCategoryPath = {
 };
 
 export type ExpenseCategorySource = {
+  bizType?: BizType;
+  lifecycleStatus?: string;
   primaryCategoryId?: string;
   primaryCategory?: string;
   secondaryCategoryId?: string;
@@ -31,6 +34,9 @@ type RawCategory = { id?: unknown; name?: unknown; children?: unknown };
 type RawSubcategory = { id?: unknown; name?: unknown };
 
 export const EXPENSE_CATEGORY_CONFIG_ID = 'expense_categories_v1';
+export const expenseCategoryConfigId = (bizType?: BizType) => (
+  bizType ? `${EXPENSE_CATEGORY_CONFIG_ID}_${bizType}` : EXPENSE_CATEGORY_CONFIG_ID
+);
 
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   {
@@ -110,15 +116,18 @@ export function normalizeExpenseCategories(value: unknown): ExpenseCategory[] {
   return categories.length ? categories : cloneCategories(DEFAULT_EXPENSE_CATEGORIES);
 }
 
-export async function loadExpenseCategories() {
-  const doc = await systemConfigsAPI.doc(EXPENSE_CATEGORY_CONFIG_ID).get();
-  return normalizeExpenseCategories(doc?.categories);
+export async function loadExpenseCategories(bizType?: BizType) {
+  const scopedDoc = bizType ? await systemConfigsAPI.doc(expenseCategoryConfigId(bizType)).get() : null;
+  if (scopedDoc?.categories) return normalizeExpenseCategories(scopedDoc.categories);
+  const legacyDoc = await systemConfigsAPI.doc(EXPENSE_CATEGORY_CONFIG_ID).get();
+  return normalizeExpenseCategories(legacyDoc?.categories);
 }
 
-export async function saveExpenseCategories(categories: ExpenseCategory[]) {
+export async function saveExpenseCategories(categories: ExpenseCategory[], bizType?: BizType) {
   const normalized = normalizeExpenseCategories(categories);
-  await systemConfigsAPI.doc(EXPENSE_CATEGORY_CONFIG_ID).set({
+  await systemConfigsAPI.doc(expenseCategoryConfigId(bizType)).set({
     categories: normalized,
+    bizType: bizType || '',
     updatedAt: new Date().toISOString(),
   });
   return normalized;

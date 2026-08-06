@@ -94,13 +94,14 @@ export default function Expense() {
     .filter(Boolean), [users]);
 
   useEffect(() => {
-    loadExpenseCategories()
+    loadExpenseCategories(currentBizType)
       .then((categories) => setExpenseCategories(categories))
       .catch((error) => {
         console.error('加载支出类别失败', error);
         setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
       });
-  }, []);
+    setActiveTab('全部');
+  }, [currentBizType]);
 
   const activeCategories = useMemo(() => ['全部', ...expenseCategories.map((category) => category.name)], [expenseCategories]);
 
@@ -194,6 +195,7 @@ export default function Expense() {
         action: type,
         recordId: String(item._id || item.id),
         recordName: item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
         amount: item.amount,
         reason,
         operatorId: user?.id,
@@ -206,6 +208,7 @@ export default function Expense() {
         action: type,
         recordId: String(item._id || item.id),
         recordName: item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
         amount: item.amount,
         reason,
         operatorId: user?.id,
@@ -259,8 +262,9 @@ export default function Expense() {
     setSavingCategories(true);
     try {
       const previous = expenseCategories;
-      const normalized = await saveExpenseCategories(categories);
+      const normalized = await saveExpenseCategories(categories, currentBizType);
       const updates = expenses.flatMap((expense: any) => {
+        if (expense.bizType !== currentBizType || !isActiveExpense(expense)) return [];
         const oldPath = resolveExpenseCategory(expense, previous);
         const primary = normalized.find((category) => category.id === oldPath.primaryId);
         const secondary = primary?.children.find((child) => child.id === oldPath.secondaryId);
@@ -770,7 +774,7 @@ export default function Expense() {
       <ExpenseCategoryManager
         open={showCategoryManager}
         categories={expenseCategories}
-        expenses={expenses}
+        expenses={expenses.filter((expense: any) => expense.bizType === currentBizType && isActiveExpense(expense))}
         saving={savingCategories}
         onClose={() => setShowCategoryManager(false)}
         onSave={handleCategorySave}

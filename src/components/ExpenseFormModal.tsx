@@ -101,13 +101,13 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
   };
 
   useEffect(() => {
-    loadExpenseCategories()
+    loadExpenseCategories(currentBizType)
       .then((categories) => setExpenseCategories(categories))
       .catch((error) => {
         console.error('加载支出类别失败', error);
         setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
       });
-  }, []);
+  }, [currentBizType]);
 
   useEffect(() => {
     if (!open) return;

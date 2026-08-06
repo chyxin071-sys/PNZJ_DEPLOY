@@ -7,6 +7,7 @@ import Select from '@/components/Select';
 import StatCard from '@/components/StatCard';
 import { financeOperationLogsAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
+import { useBizStore } from '@/store/bizStore';
 import { formatDate, formatMoney } from '@/utils/format';
 
 type FinanceOperationLog = {
@@ -18,6 +19,7 @@ type FinanceOperationLog = {
   actionLabel?: string;
   recordId?: string;
   recordName?: string;
+  bizType?: string;
   amount?: number;
   reason?: string;
   operatorId?: string;
@@ -80,6 +82,7 @@ function safeJson(value: unknown) {
 
 export default function FinanceOperationLogs() {
   const { user } = useAuthStore();
+  const { currentBizType } = useBizStore();
   const isAdmin = user?.role === 'admin';
   const [logs, setLogs] = useState<FinanceOperationLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,11 +109,12 @@ export default function FinanceOperationLogs() {
   }, []);
 
   const scopedLogs = useMemo(() => {
-    if (isAdmin) return logs;
+    const bizLogs = logs.filter((log) => log.bizType === currentBizType);
+    if (isAdmin) return bizLogs;
     const userId = String(user?.id || '');
     const userName = String(user?.name || '');
-    return logs.filter((log) => String(log.operatorId || '') === userId || String(log.operatorName || '') === userName);
-  }, [isAdmin, logs, user?.id, user?.name]);
+    return bizLogs.filter((log) => String(log.operatorId || '') === userId || String(log.operatorName || '') === userName);
+  }, [currentBizType, isAdmin, logs, user?.id, user?.name]);
 
   const filtered = useMemo(() => {
     let list = [...scopedLogs];
@@ -268,7 +272,7 @@ export default function FinanceOperationLogs() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-base md:text-lg font-bold text-gray-900">财务操作日志</h1>
-          <p className="text-gold-500 text-xs md:text-sm">{isAdmin ? '查看所有财务处理记录' : '查看本人财务处理记录'}</p>
+          <p className="text-gold-500 text-xs md:text-sm">{currentBizType} · {isAdmin ? '查看所有财务处理记录' : '查看本人财务处理记录'}</p>
         </div>
       </div>
 

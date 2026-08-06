@@ -263,9 +263,9 @@ export default function FinanceImportModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    loadExpenseCategories().then(setExpenseCategories).catch(() => setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES));
+    loadExpenseCategories(currentBizType).then(setExpenseCategories).catch(() => setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES));
     if (users.length === 0) void loadUsers().catch(() => {});
-  }, [loadUsers, open, users.length]);
+  }, [currentBizType, loadUsers, open, users.length]);
 
   const existingContractNos = useMemo(
     () => new Set(contracts.map((contract) => contract.contractNo).filter(Boolean)),

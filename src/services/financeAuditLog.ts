@@ -1,5 +1,6 @@
 import { financeOperationLogsAPI } from '@/db/api';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
+import type { BizType } from '@/types';
 
 type FinanceAuditAction = 'delete' | 'void' | 'reverse' | 'edit' | 'create';
 type FinanceAuditModule = 'receipt' | 'expense' | 'reimbursement';
@@ -9,6 +10,7 @@ type FinanceAuditInput = {
   action: FinanceAuditAction;
   recordId: string;
   recordName?: string;
+  bizType?: BizType;
   amount?: number;
   reason?: string;
   operatorId?: string;
