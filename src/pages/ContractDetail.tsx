@@ -9,6 +9,7 @@ import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
+import FinanceImportModal from '@/components/FinanceImportModal';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { leadsAPI, contractsAPI, receiptsAPI } from '@/db/api';
 import { exportSheetsToExcel } from '@/utils/export';
@@ -284,6 +285,7 @@ export default function ContractDetail() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
   const [pendingInvoiceUploads, setPendingInvoiceUploads] = useState<PendingUpload[]>([]);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
@@ -1183,10 +1185,11 @@ export default function ContractDetail() {
               导出明细
             </button>
           )}
-          <label className="hidden h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
-            导入
-            <input type="file" className="hidden" accept=".xlsx,.xls,.csv" />
-          </label>
+          {canViewFinance && (
+            <button onClick={() => setShowImportModal(true)} className="hidden h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
+              导入
+            </button>
+          )}
         </div>
       </div>
 
@@ -1711,6 +1714,7 @@ export default function ContractDetail() {
           </div>
         </div>
       </Modal>
+      <FinanceImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
 
       {/* 编辑合同 Modal */}
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="编辑合同" size="sm">
