@@ -159,6 +159,16 @@ function getCategoryRows(categories: ExpenseCategory[]) {
   return categories.flatMap((category) => category.children.map((child) => [category.name, child.name]));
 }
 
+function getImportCategoryOptionRows(categories: ExpenseCategory[]) {
+  const incomeRows = [
+    ['工程款项', '合同款'],
+    ['工程款项', '定金'],
+    ['工程款项', '中期款'],
+    ['工程款项', '尾款'],
+  ];
+  return [...incomeRows, ...getCategoryRows(categories)];
+}
+
 function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = []) {
   sheet['!cols'] = Array.from({ length: headerCount }, () => ({ wch: 16 }));
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
@@ -206,21 +216,22 @@ function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[]
   excel.utils.book_append_sheet(workbook, contractSheet, CONTRACT_SHEET);
 
   const categoryRows = getCategoryRows(categories);
+  const optionCategoryRows = getImportCategoryOptionRows(categories);
   const firstCategory = categoryRows[0] || ['材料费', '主材采购'];
   const flowRows = [
     flowHeaders,
-    ['2024-01-21', '收入', '示例-导入前删除', '核城家园2区3-1-502', '定金收款', '收入', '定金', 1000, DEFAULT_ACCOUNTS[0], '张三', departments[0] || '财务部', '马金莲', '', '示例行，正式导入前请整行删除'],
+    ['2024-01-21', '收入', '示例-导入前删除', '核城家园2区3-1-502', '定金收款', '工程款项', '定金', 1000, DEFAULT_ACCOUNTS[0], '张三', departments[0] || '财务部', '马金莲', '', '示例行，正式导入前请整行删除'],
     ['2024-02-28', '支出', '示例-导入前删除', '核城家园2区3-1-502', '项目支出示例', firstCategory[0], firstCategory[1], 12347, DEFAULT_ACCOUNTS[0], '李四', departments[0] || '财务部', '供应商A', firstCategory[1], '示例行，正式导入前请整行删除'],
   ];
   const flowSheet = excel.utils.aoa_to_sheet(flowRows);
   applyWorksheetBasics(flowSheet, flowHeaders.length, [1, 2]);
   excel.utils.book_append_sheet(workbook, flowSheet, FLOW_SHEET);
 
-  const optionLength = Math.max(categoryRows.length, DEFAULT_ACCOUNTS.length, departments.length, validContractStatuses.size);
+  const optionLength = Math.max(optionCategoryRows.length, DEFAULT_ACCOUNTS.length, departments.length, validContractStatuses.size);
   const statuses = Array.from(validContractStatuses);
   const options = Array.from({ length: optionLength }, (_, index) => [
-    categoryRows[index]?.[0] || '',
-    categoryRows[index]?.[1] || '',
+    optionCategoryRows[index]?.[0] || '',
+    optionCategoryRows[index]?.[1] || '',
     DEFAULT_ACCOUNTS[index] || '',
     departments[index] || '',
     statuses[index] || '',
@@ -240,7 +251,8 @@ function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[]
     ['记账日期/签约日期', '必填', '统一 yyyy-mm-dd。'],
     ['收支类型', '必填', '只能填“收入”或“支出”。'],
     ['合同状态', '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
-    ['二级分类', '必填', '收入填合同收款阶段；支出填 ERP 支出类别管理里的二级分类。'],
+    ['一级分类', '必填', '收入建议填“工程款项”；支出填 ERP 支出类别管理里的一级分类。'],
+    ['二级分类', '必填', '收入填合同收款阶段，如合同款/定金/中期款/尾款；支出填 ERP 支出类别管理里的二级分类。'],
     ['示例行', '导入前删除', '红色字体为示例数据，正式导入前请整行删除。'],
   ];
   const fieldGuideSheet = excel.utils.aoa_to_sheet(fieldGuide);
