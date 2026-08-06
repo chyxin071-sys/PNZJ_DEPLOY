@@ -120,7 +120,13 @@ export async function loadExpenseCategories(bizType?: BizType) {
   const scopedDoc = bizType ? await systemConfigsAPI.doc(expenseCategoryConfigId(bizType)).get() : null;
   if (scopedDoc?.categories) return normalizeExpenseCategories(scopedDoc.categories);
   const legacyDoc = await systemConfigsAPI.doc(EXPENSE_CATEGORY_CONFIG_ID).get();
-  return normalizeExpenseCategories(legacyDoc?.categories);
+  const categories = normalizeExpenseCategories(legacyDoc?.categories);
+  if (bizType) {
+    await saveExpenseCategories(categories, bizType).catch((error) => {
+      console.error('初始化支出分类配置失败', error);
+    });
+  }
+  return categories;
 }
 
 export async function saveExpenseCategories(categories: ExpenseCategory[], bizType?: BizType) {
