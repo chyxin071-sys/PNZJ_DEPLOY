@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, Loader2, Upload, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Modal from '@/components/Modal';
@@ -6,6 +6,13 @@ import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useAuthStore } from '@/store/authStore';
 import { useDialogStore } from '@/store/dialogStore';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  expenseCategoryPayload,
+  loadExpenseCategories,
+  resolveExpenseCategory,
+  type ExpenseCategory,
+} from '@/services/expenseCategories';
 import { generateId } from '@/utils/format';
 import type { Contract, Expense, Receipt } from '@/types';
 
@@ -70,7 +77,16 @@ const flowHeaders = [
 const requiredContractHeaders = ['合同编号', '归属项目', '客户名称', '签约日期', '合同金额'];
 const requiredFlowHeaders = ['记账日期', '收支类型', '合同编号', '归属项目', '摘要/用途说明', '一级分类', '二级分类', '记账金额'];
 const validFlowTypes = new Set(['收入', '支出']);
-const validContractStatuses = new Set(['已签约', '进行中', '已完工', '已结清', '暂停', '作废']);
+const validContractStatuses = new Set(['进行中', '已完工', '已结算']);
+const DEFAULT_ACCOUNTS = ['银行账户', '现金', '微信', '支付宝', '对公账户'];
+const ROLE_DEPT: Record<string, string> = {
+  admin: '管理组',
+  sales: '销售部',
+  designer: '设计部',
+  manager: '工程部',
+  finance: '财务部',
+  employee: '普通',
+};
 
 const trimValue = (value: unknown) => String(value ?? '').trim();
 
@@ -118,8 +134,59 @@ function buildPaymentStages(row: ImportRow, amount: number) {
   return stages.length > 0 ? stages : [{ name: '合同款', amount, ratio: 1 }];
 }
 
-function buildTemplateWorkbook() {
-  const workbook = XLSX.utils.book_new();
+function uniqueValues(values: Array<string | undefined | null>) {
+  return Array.from(new Set(values.map((value) => trimValue(value)).filter(Boolean)));
+}
+
+function getEmployeeDepartment(employee: any) {
+  return trimValue(employee?.department) || ROLE_DEPT[String(employee?.role || '')] || '';
+}
+
+function getDepartments(users: any[], currentUser: any) {
+  const departments = uniqueValues([
+    currentUser?.department,
+    ...users.map(getEmployeeDepartment),
+    '财务部',
+    '销售部',
+    '设计部',
+    '工程部',
+    '管理组',
+  ]);
+  return departments;
+}
+
+function getCategoryRows(categories: ExpenseCategory[]) {
+  return categories.flatMap((category) => category.children.map((child) => [category.name, child.name]));
+}
+
+function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = []) {
+  sheet['!cols'] = Array.from({ length: headerCount }, () => ({ wch: 16 }));
+  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
+  for (let column = range.s.c; column <= range.e.c; column += 1) {
+    const cell = sheet[XLSX.utils.encode_cell({ r: 0, c: column })];
+    if (cell) {
+      cell.s = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '166534' } },
+        alignment: { horizontal: 'center' },
+      };
+    }
+  }
+  sampleRows.forEach((rowIndex) => {
+    for (let column = range.s.c; column <= range.e.c; column += 1) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: rowIndex, c: column })];
+      if (cell) {
+        cell.s = {
+          ...(cell.s || {}),
+          font: { ...(cell.s?.font || {}), color: { rgb: 'FF0000' } },
+        };
+      }
+    }
+  });
+}
+
+function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[], departments: string[]) {
+  const workbook = excel.utils.book_new();
 
   const flowGuide = [
     ['步骤', '要做什么', '说明'],
@@ -128,30 +195,42 @@ function buildTemplateWorkbook() {
     ['3', '整理流水', '每笔流水必须填写合同编号和归属项目。'],
     ['4', '上传导入', '系统会先导入合同，再导入收入/支出流水。'],
   ];
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(flowGuide), '导入流程');
+  excel.utils.book_append_sheet(workbook, excel.utils.aoa_to_sheet(flowGuide), '导入流程');
 
   const contractRows = [
     contractHeaders,
-    ['HT2024-001', '核城家园2区3-1-502', '马金莲', '13800000000', '核城家园2区3-1-502装修合同', '2024-01-15', 58000, '核城家园2区3-1-502', '进行中', '张三', '工程部', '2024-01-20', '', '定金', 10000, '中期款', 28000, '尾款', 20000, '示例行，正式导入前可删除'],
+    ['示例-导入前删除', '核城家园2区3-1-502', '马金莲', '13800000000', '核城家园2区3-1-502装修合同', '2024-01-15', 58000, '核城家园2区3-1-502', '进行中', '张三', departments[0] || '工程部', '2024-01-20', '', '定金', 10000, '中期款', 28000, '尾款', 20000, '示例行，正式导入前请整行删除'],
   ];
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(contractRows), CONTRACT_SHEET);
+  const contractSheet = excel.utils.aoa_to_sheet(contractRows);
+  applyWorksheetBasics(contractSheet, contractHeaders.length, [1]);
+  excel.utils.book_append_sheet(workbook, contractSheet, CONTRACT_SHEET);
 
+  const categoryRows = getCategoryRows(categories);
+  const firstCategory = categoryRows[0] || ['材料费', '主材采购'];
   const flowRows = [
     flowHeaders,
-    ['2024-01-21', '收入', 'HT2024-001', '核城家园2区3-1-502', '制订金', '工程款项', '工程合同收款', 1000, '银行账户', '张三', '财务部', '马金莲', '', '示例行，正式导入前可删除'],
-    ['2024-02-28', '支出', 'HT2024-001', '核城家园2区3-1-502', '全屋定制货款', '定制', '定制货款', 12347, '银行账户', '李四', '采购部', '供应商A', '全屋定制', '示例行，正式导入前可删除'],
+    ['2024-01-21', '收入', '示例-导入前删除', '核城家园2区3-1-502', '定金收款', '收入', '定金', 1000, DEFAULT_ACCOUNTS[0], '张三', departments[0] || '财务部', '马金莲', '', '示例行，正式导入前请整行删除'],
+    ['2024-02-28', '支出', '示例-导入前删除', '核城家园2区3-1-502', '项目支出示例', firstCategory[0], firstCategory[1], 12347, DEFAULT_ACCOUNTS[0], '李四', departments[0] || '财务部', '供应商A', firstCategory[1], '示例行，正式导入前请整行删除'],
   ];
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(flowRows), FLOW_SHEET);
+  const flowSheet = excel.utils.aoa_to_sheet(flowRows);
+  applyWorksheetBasics(flowSheet, flowHeaders.length, [1, 2]);
+  excel.utils.book_append_sheet(workbook, flowSheet, FLOW_SHEET);
 
-  const options = [
+  const optionLength = Math.max(categoryRows.length, DEFAULT_ACCOUNTS.length, departments.length, validContractStatuses.size);
+  const statuses = Array.from(validContractStatuses);
+  const options = Array.from({ length: optionLength }, (_, index) => [
+    categoryRows[index]?.[0] || '',
+    categoryRows[index]?.[1] || '',
+    DEFAULT_ACCOUNTS[index] || '',
+    departments[index] || '',
+    statuses[index] || '',
+  ]);
+  const optionSheet = excel.utils.aoa_to_sheet([
     ['一级分类', '二级分类', '收支账户', '归属部门', '合同状态'],
-    ['工程款项', '工程合同收款', '银行账户', '财务部', '已签约'],
-    ['定制', '定制货款', '现金', '工程部', '进行中'],
-    ['瓷砖', '瓷砖货款', '微信', '采购部', '已完工'],
-    ['售后/礼品', '礼品', '支付宝', '销售部', '已结清'],
-    ['其他', '小件材料', '对公账户', '管理部', '暂停'],
-  ];
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(options), '下拉选项');
+    ...options,
+  ]);
+  applyWorksheetBasics(optionSheet, 5);
+  excel.utils.book_append_sheet(workbook, optionSheet, '下拉选项');
 
   const fieldGuide = [
     ['字段', '是否必填', '规则'],
@@ -160,9 +239,13 @@ function buildTemplateWorkbook() {
     ['记账金额/合同金额', '必填', '必须是大于 0 的数字，不要填正负号。'],
     ['记账日期/签约日期', '必填', '统一 yyyy-mm-dd。'],
     ['收支类型', '必填', '只能填“收入”或“支出”。'],
-    ['二级分类', '必填', '收入建议填收款阶段，支出填成本/费用明细分类。'],
+    ['合同状态', '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
+    ['二级分类', '必填', '收入填合同收款阶段；支出填 ERP 支出类别管理里的二级分类。'],
+    ['示例行', '导入前删除', '红色字体为示例数据，正式导入前请整行删除。'],
   ];
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(fieldGuide), '字段说明');
+  const fieldGuideSheet = excel.utils.aoa_to_sheet(fieldGuide);
+  applyWorksheetBasics(fieldGuideSheet, 3);
+  excel.utils.book_append_sheet(workbook, fieldGuideSheet, '字段说明');
 
   return workbook;
 }
@@ -171,19 +254,32 @@ export default function FinanceImportModal({ open, onClose }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { contracts, receipts, expenses, addContract, addReceipt, addExpense, _refreshSilent } = useFinanceStore();
   const { currentBizType } = useBizStore();
-  const { user } = useAuthStore();
+  const { user, users, loadUsers } = useAuthStore();
   const { showAlert, showConfirm } = useDialogStore();
   const [selectedFileName, setSelectedFileName] = useState('');
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [importing, setImporting] = useState(false);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+
+  useEffect(() => {
+    if (!open) return;
+    loadExpenseCategories().then(setExpenseCategories).catch(() => setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES));
+    if (users.length === 0) void loadUsers().catch(() => {});
+  }, [loadUsers, open, users.length]);
 
   const existingContractNos = useMemo(
     () => new Set(contracts.map((contract) => contract.contractNo).filter(Boolean)),
     [contracts],
   );
+  const departments = useMemo(() => getDepartments(users, user), [user, users]);
 
-  const downloadTemplate = () => {
-    XLSX.writeFile(buildTemplateWorkbook(), `ERP财务数据导入模板_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const downloadTemplate = async () => {
+    const XLSXStyle = await import('xlsx-js-style');
+    XLSXStyle.writeFile(
+      buildTemplateWorkbook(XLSXStyle as typeof XLSX, expenseCategories, departments),
+      `ERP财务数据导入模板_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      { cellStyles: true },
+    );
   };
 
   const parseWorkbook = async (file: File) => {
@@ -219,7 +315,8 @@ export default function FinanceImportModal({ open, onClose }: Props) {
       }
       templateContractNos.add(contractNo);
       if (!validContractStatuses.has(status)) {
-        warnings.push(`合同项目导入第 ${index + 2} 行合同状态“${status}”不是推荐值`);
+        errors.push(`合同项目导入第 ${index + 2} 行合同状态“${status}”不在 ERP 状态中，只能填：进行中、已完工、已结算`);
+        return;
       }
       if (existingContractNos.has(contractNo)) {
         warnings.push(`合同 ${contractNo} 已存在于 ERP，合同主档跳过，仅用于匹配流水`);
@@ -282,6 +379,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
         warnings.push(`流水导入第 ${index + 2} 行归属项目与合同项目不完全一致：${projectName}`);
       }
       const secondaryCategory = trimValue(row['二级分类']);
+      const primaryCategory = trimValue(row['一级分类']);
       const remark = trimValue(row['备注']) || summary;
       const flowKey = `${type}|${contractNo}|${date}|${amount}|${secondaryCategory || summary}|${remark}`;
       if (templateFlowKeys.has(flowKey)) {
@@ -314,12 +412,24 @@ export default function FinanceImportModal({ open, onClose }: Props) {
           createdBy: user?.name || 'ERP导入',
         });
       } else {
+        const categoryPath = resolveExpenseCategory({
+          primaryCategory,
+          secondaryCategory,
+          category: secondaryCategory,
+        }, expenseCategories);
+        if (primaryCategory && categoryPath.primaryName && primaryCategory !== categoryPath.primaryName) {
+          warnings.push(`流水导入第 ${index + 2} 行一级分类“${primaryCategory}”与 ERP 分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
+        }
+        if (secondaryCategory && categoryPath.secondaryName && secondaryCategory !== categoryPath.secondaryName) {
+          warnings.push(`流水导入第 ${index + 2} 行二级分类“${secondaryCategory}”与 ERP 分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
+        }
         parsedExpenses.push({
           id: generateId(),
           contractId: contract.id,
           contractNo,
           bizType: currentBizType,
-          category: secondaryCategory || trimValue(row['一级分类']) || summary,
+          category: categoryPath.secondaryName || secondaryCategory || primaryCategory || summary,
+          ...expenseCategoryPayload(categoryPath),
           amount,
           supplier: trimValue(row['对方单位']) || trimValue(row['货品/服务名称']) || projectName,
           payMethod: trimValue(row['收支账户']) || '银行账户',
