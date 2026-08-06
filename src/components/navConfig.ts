@@ -59,8 +59,8 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
     icon: TrendingUp,
     items: [
       { path: '/reports', icon: BarChart3, label: '财务报表', roles: ['admin', 'finance'] },
-      { path: '/income', icon: ArrowDownToLine, label: '收入管理', roles: ['admin', 'finance'], bizTypes: ['家装'] },
-      { path: '/expense', icon: ArrowUpFromLine, label: '支出管理', roles: ['admin', 'finance'], bizTypes: ['家装'] },
+      { path: '/income', icon: ArrowDownToLine, label: '收入管理', roles: ['admin', 'finance'] },
+      { path: '/expense', icon: ArrowUpFromLine, label: '支出管理', roles: ['admin', 'finance'] },
       { path: '/projects', icon: Calculator, label: '项目成本', roles: ['admin', 'finance'], bizTypes: ['家装'] },
       { path: '/cashflow', icon: ArrowLeftRight, label: '资金流水', roles: ['admin', 'finance'] },
       { path: '/reimbursement', icon: FileSpreadsheet, label: '费用报销', roles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'] },

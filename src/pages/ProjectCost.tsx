@@ -5,6 +5,7 @@ import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatPercent } from '@/utils/format';
 import DataTable from '@/components/DataTable';
 import { useNavigate } from 'react-router-dom';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 
 const ROLE_COLORS: Record<string, string> = {
   sales: 'bg-blue-50 text-blue-600',
@@ -80,7 +81,7 @@ export default function ProjectCost() {
     const contractIds = new Set(enriched.map((p) => p.id));
     const map = new Map<string, number>();
     expenses
-      .filter((e) => e.bizType === currentBizType && contractIds.has(e.contractId))
+      .filter((e) => e.bizType === currentBizType && contractIds.has(e.contractId) && isActiveFinanceRecord(e))
       .forEach((e) => {
         const key = e.category || '未分类';
         map.set(key, (map.get(key) || 0) + (e.amount || 0));
@@ -94,7 +95,7 @@ export default function ProjectCost() {
   const recentRecords = useMemo(() => {
     const visibleIds = new Set(filtered.map((p) => p.id));
     return expenses
-      .filter((e) => e.bizType === currentBizType && visibleIds.has(e.contractId))
+      .filter((e) => e.bizType === currentBizType && visibleIds.has(e.contractId) && isActiveFinanceRecord(e))
       .map((e) => {
         const contract = contractMap.get(e.contractId);
         return {

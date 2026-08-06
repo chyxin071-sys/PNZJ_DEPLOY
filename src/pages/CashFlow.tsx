@@ -15,6 +15,7 @@ import FinanceImportModal from '@/components/FinanceImportModal';
 import { useIncrementalList } from '@/hooks/useListViewportState';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AttachmentValue } from '@/types';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 
 interface FlowItem {
   id: string;
@@ -34,8 +35,6 @@ interface FlowItem {
   remark?: string;
   attachments?: AttachmentValue[];
 }
-
-const isActiveFinanceRecord = (record: any) => !['deleted', 'voided', 'reversed'].includes(record.lifecycleStatus);
 
 export default function CashFlow() {
   const navigate = useNavigate();

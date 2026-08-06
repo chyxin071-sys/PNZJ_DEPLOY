@@ -9,6 +9,7 @@ import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatDate } from '@/utils/format';
 import type { Receipt, Expense, AttachmentValue } from '@/types';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
 import { useParams } from 'react-router-dom';
@@ -79,11 +80,11 @@ export default function ProjectDetail() {
   }, [contract, id]);
   const projectReceipts = useMemo(() => {
     if (contractIds.length === 0) return [];
-    return receipts.filter((r) => contractIds.includes(r.contractId) && r.bizType === currentBizType);
+    return receipts.filter((r) => contractIds.includes(r.contractId) && r.bizType === currentBizType && isActiveFinanceRecord(r));
   }, [receipts, contractIds, currentBizType]);
   const projectExpenses = useMemo(() => {
     if (contractIds.length === 0) return [];
-    return expenses.filter((e) => contractIds.includes(e.contractId) && e.bizType === currentBizType);
+    return expenses.filter((e) => contractIds.includes(e.contractId) && e.bizType === currentBizType && isActiveFinanceRecord(e));
   }, [expenses, contractIds, currentBizType]);
 
   const totalReceived = useMemo(() => projectReceipts.reduce((s, r) => s + r.amount, 0), [projectReceipts]);

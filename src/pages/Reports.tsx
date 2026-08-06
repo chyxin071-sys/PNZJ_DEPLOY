@@ -10,6 +10,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import Select from '@/components/Select';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 import { systemConfigsAPI } from '@/db/api';
 import { formatMoney } from '@/utils/format';
 import { usePageScrollRestore } from '@/hooks/useListViewportState';
@@ -105,8 +106,8 @@ export default function ReportsPage() {
     return () => { cancelled = true; };
   }, [currentBizType]);
 
-  const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
-  const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
+  const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType && isActiveFinanceRecord(r)), [receipts, currentBizType]);
+  const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType && isActiveFinanceRecord(e)), [expenses, currentBizType]);
   const filteredContracts = useMemo(() => contracts.filter(c => c.bizType === currentBizType), [contracts, currentBizType]);
   const filteredInvoices = useMemo(() => supportsInvoices ? invoices.filter(i => i.bizType === currentBizType) : [], [invoices, currentBizType, supportsInvoices]);
   const ledgerBelongsToCurrentBiz = (item: { bizType?: string }) => {

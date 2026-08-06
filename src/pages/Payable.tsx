@@ -6,6 +6,7 @@ import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useNavigate } from 'react-router-dom';
 import { formatMoney, formatDate } from '@/utils/format';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 
 const STATUS_TABS = ['全部', '已付', '未付'] as const;
 
@@ -22,7 +23,7 @@ export default function Payable() {
   const { expenses, contracts } = useFinanceStore();
   const { currentBizType } = useBizStore();
 
-  const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
+  const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType && isActiveFinanceRecord(e)), [expenses, currentBizType]);
 
   const [statusTab, setStatusTab] = useState<string>('全部');
   const [search, setSearch] = useState('');

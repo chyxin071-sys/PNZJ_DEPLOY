@@ -6,6 +6,7 @@ import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney } from '@/utils/format';
 import { useNavigate } from 'react-router-dom';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 
 export default function Receivable() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function Receivable() {
 
   const receivableData = useMemo(() => {
     return filteredContracts.map((c) => {
-      const contractReceipts = receipts.filter((r) => r.contractId === c.id);
+      const contractReceipts = receipts.filter((r) => r.contractId === c.id && isActiveFinanceRecord(r));
       const receivedAmount = contractReceipts.reduce((s, r) => s + r.amount, 0);
       const balance = c.contractAmount - receivedAmount;
       const progress = c.contractAmount > 0 ? receivedAmount / c.contractAmount : 0;
