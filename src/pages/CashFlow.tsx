@@ -18,6 +18,7 @@ import type { AttachmentValue } from '@/types';
 
 interface FlowItem {
   id: string;
+  sourceId: string;
   date: string;
   type: '收款' | '支出';
   amount: number;
@@ -33,6 +34,8 @@ interface FlowItem {
   remark?: string;
   attachments?: AttachmentValue[];
 }
+
+const isActiveFinanceRecord = (record: any) => !['deleted', 'voided', 'reversed'].includes(record.lifecycleStatus);
 
 export default function CashFlow() {
   const navigate = useNavigate();
@@ -92,8 +95,14 @@ export default function CashFlow() {
     return [{ value: '', label: '全部年份' }, ...Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)).map(y => ({ value: y, label: y }))];
   }, [receipts, expenses]);
 
-  const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
-  const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
+  const filteredReceipts = useMemo(
+    () => receipts.filter(r => r.bizType === currentBizType && isActiveFinanceRecord(r)),
+    [receipts, currentBizType],
+  );
+  const filteredExpenses = useMemo(
+    () => expenses.filter(e => e.bizType === currentBizType && isActiveFinanceRecord(e)),
+    [expenses, currentBizType],
+  );
 
   const getContractByNo = (contractNo: string) => contracts.find((ct) => ct.contractNo === contractNo);
   const getContractId = (contractId: string | undefined, contractNo: string) => {
@@ -107,7 +116,8 @@ export default function CashFlow() {
   const flowList = useMemo(() => {
     const flows: FlowItem[] = [
       ...filteredReceipts.map((r) => ({
-        id: r.id,
+        id: `receipt-${r._id || r.id}`,
+        sourceId: r._id || r.id,
         date: r.receiptDate,
         type: '收款' as const,
         amount: r.amount,
@@ -122,7 +132,8 @@ export default function CashFlow() {
         summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
       })),
       ...filteredExpenses.map((e) => ({
-        id: e.id,
+        id: `expense-${e._id || e.id}`,
+        sourceId: e._id || e.id,
         date: e.expenseDate,
         type: '支出' as const,
         amount: e.amount,
@@ -268,6 +279,25 @@ export default function CashFlow() {
         <span className="block max-w-[260px] truncate text-gray-600" title={row.summary || '-'}>
           {row.summary || '-'}
         </span>
+      ),
+    },
+    {
+      key: 'recordAction',
+      title: '处理',
+      width: '108px',
+      render: (row: FlowItem) => (
+        row.type === '支出' ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(`/expense?focus=${encodeURIComponent(row.sourceId)}`);
+            }}
+            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+          >
+            去支出页
+          </button>
+        ) : <span className="text-xs text-gray-300">-</span>
       ),
     },
     {
@@ -501,6 +531,24 @@ export default function CashFlow() {
               <DetailItem label="备注" value={selectedFlow.remark || '-'} wide />
             </div>
             <AttachmentSection attachments={selectedFlow.attachments || []} />
+            {selectedFlow.type === '支出' ? (
+              <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                专业处理方式：未付款的测试支出可以删除；已付款支出不建议直接删除，应做冲销，系统会保留原记录和冲销痕迹，且不再计入资金流水汇总。
+              </div>
+            ) : null}
+            {selectedFlow.type === '支出' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const target = selectedFlow.sourceId;
+                  setSelectedFlow(null);
+                  navigate(`/expense?focus=${encodeURIComponent(target)}`);
+                }}
+                className="erp-btn-secondary w-full justify-center"
+              >
+                去支出页处理
+              </button>
+            ) : null}
             {selectedFlow.contractId ? (
               <button
                 type="button"

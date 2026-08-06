@@ -38,7 +38,7 @@ const CATEGORY_BADGE: Record<string, string> = {
 const categoryBadgeClass = (name: string) => CATEGORY_BADGE[name] || 'bg-gray-100 text-gray-600';
 
 const isActiveExpense = (expense: any) => !['deleted', 'voided', 'reversed'].includes(expense.lifecycleStatus);
-const shouldReverseExpense = (expense: any) => expense.status === '已付';
+const shouldReverseExpense = (expense: any) => ['已付', '已付款'].includes(String(expense.status || '').trim());
 
 export default function Expense() {
   const navigate = useNavigate();
@@ -118,6 +118,21 @@ export default function Expense() {
     }
   }, [searchParams, setSearchParams, filteredContracts, currentBizType]);
 
+  useEffect(() => {
+    const focusId = searchParams.get('focus');
+    if (!focusId) return;
+    const target = expenses.find((expense: any) => expense.id === focusId || expense._id === focusId);
+    if (!target) return;
+    setActiveTab('全部');
+    setFilterYear('');
+    setDateFrom('');
+    setDateTo('');
+    setSearch(target.contractNo || target.supplier || '');
+    const next = new URLSearchParams(searchParams);
+    next.delete('focus');
+    setSearchParams(next, { replace: true });
+  }, [expenses, searchParams, setSearchParams]);
+
   const filtered = useMemo(() => {
     let list = [...expenses.filter(e => e.bizType === currentBizType && isActiveExpense(e))];
     if (dateFrom) list = list.filter((e) => e.expenseDate >= dateFrom);
@@ -190,6 +205,8 @@ export default function Expense() {
         ? { ...item, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason }
         : { ...item, lifecycleStatus: 'deleted', deletedAt: now, deletedBy: myName, voidReason: reason };
       await updateExpense(next as any);
+      setControlAction(null);
+      setControlReason('');
       await recordFinanceAuditAction({
         module: 'expense',
         action: type,
@@ -215,8 +232,6 @@ export default function Expense() {
         operatorName: myName,
         recipientUserIds: adminUserIds,
       });
-      setControlAction(null);
-      setControlReason('');
     } catch (e: any) { await showAlert((type === 'reverse' ? '冲销失败：' : '删除失败：') + (e?.message || '未知错误')); }
   };
 
