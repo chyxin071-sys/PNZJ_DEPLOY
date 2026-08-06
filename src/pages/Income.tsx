@@ -240,6 +240,20 @@ export default function Income() {
     }
   }, [searchParams, setSearchParams, handleSelectContract]);
 
+  useEffect(() => {
+    const focusId = searchParams.get('focus');
+    if (!focusId) return;
+    const target = receipts.find((receipt: any) => receipt.id === focusId || receipt._id === focusId);
+    if (!target) return;
+    setFilterYear('');
+    setDateFrom('');
+    setDateTo('');
+    setSearch(target.contractNo || target.customerName || '');
+    const next = new URLSearchParams(searchParams);
+    next.delete('focus');
+    setSearchParams(next, { replace: true });
+  }, [receipts, searchParams, setSearchParams]);
+
   const getAmountWarning = () => {
     if (!contractPaymentInfo || !form.stage || !form.amount) return null;
     const stage = contractPaymentInfo.stages.find(s => s.name === form.stage);

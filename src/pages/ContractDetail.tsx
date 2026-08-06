@@ -842,10 +842,19 @@ export default function ContractDetail() {
     {
       key: 'actions',
       title: '操作',
-      width: '110px',
+      width: '150px',
       render: (r: Receipt) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
+          {canViewFinance ? (
+            <button
+              onClick={() => navigate(`/income?focus=${encodeURIComponent(String((r as any)._id || r.id))}`)}
+              className="text-xs text-red-500 hover:text-red-600"
+              title="到收入管理页冲销"
+            >
+              去处理
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -891,6 +900,14 @@ export default function ContractDetail() {
           />
           <div className="flex items-center gap-3">
             <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            {canViewFinance ? (
+              <button
+                onClick={() => navigate(`/income?focus=${encodeURIComponent(String((r as any)._id || r.id))}`)}
+                className="text-xs font-medium text-red-500 hover:text-red-600"
+              >
+                去处理
+              </button>
+            ) : null}
           </div>
         </div>
       ),
@@ -948,10 +965,19 @@ export default function ContractDetail() {
     {
       key: 'actions',
       title: '操作',
-      width: '110px',
+      width: '150px',
       render: (e: Expense) => (
         <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
           <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
+          {canViewFinance ? (
+            <button
+              onClick={() => navigate(`/expense?focus=${encodeURIComponent(String((e as any)._id || e.id))}`)}
+              className="text-xs text-red-500 hover:text-red-600"
+              title="到支出管理页删除或冲销"
+            >
+              去处理
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -1000,6 +1026,14 @@ export default function ContractDetail() {
           />
           <div className="flex items-center gap-3">
             <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            {canViewFinance ? (
+              <button
+                onClick={() => navigate(`/expense?focus=${encodeURIComponent(String((e as any)._id || e.id))}`)}
+                className="text-xs font-medium text-red-500 hover:text-red-600"
+              >
+                去处理
+              </button>
+            ) : null}
           </div>
         </div>
       ),
