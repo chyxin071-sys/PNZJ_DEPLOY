@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip, Upload } from 'lucide-react';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatDate } from '@/utils/format';
@@ -11,6 +11,7 @@ import DataTable from '@/components/DataTable';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
+import FinanceImportModal from '@/components/FinanceImportModal';
 import { useIncrementalList } from '@/hooks/useListViewportState';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AttachmentValue } from '@/types';
@@ -48,6 +49,7 @@ export default function CashFlow() {
   const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedFlow, setSelectedFlow] = useState<FlowItem | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
 
@@ -345,13 +347,22 @@ export default function CashFlow() {
           <h1 className="text-base md:text-lg font-bold text-gray-900">资金流水</h1>
           <p className="text-gold-500 text-xs md:text-sm">所有收付款记录汇总</p>
         </div>
-        <button
-          onClick={handleExport}
-          className="erp-btn-secondary"
-        >
-          <Download size={14} />
-          导出Excel
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="erp-btn-primary"
+          >
+            <Upload size={14} />
+            导入
+          </button>
+          <button
+            onClick={handleExport}
+            className="erp-btn-secondary"
+          >
+            <Download size={14} />
+            导出Excel
+          </button>
+        </div>
       </div>
 
       {/* 汇总卡片 */}
@@ -506,6 +517,7 @@ export default function CashFlow() {
           </div>
         )}
       </Modal>
+      <FinanceImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
     </div>
   );
 }
