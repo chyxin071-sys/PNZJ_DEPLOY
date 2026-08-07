@@ -75,7 +75,7 @@ const flowHeaders = [
 ];
 
 const requiredContractHeaders = ['合同编号', '归属项目', '客户名称', '签约日期', '合同金额'];
-const requiredFlowHeaders = ['记账日期', '收支类型', '合同编号', '归属项目', '摘要/用途说明', '一级分类', '二级分类', '记账金额'];
+const requiredFlowHeaders = ['记账日期', '收支类型', '合同编号', '一级分类', '二级分类', '记账金额'];
 const validFlowTypes = new Set(['收入', '支出']);
 const validContractStatuses = new Set(['进行中', '已完工', '已结算']);
 const DEFAULT_ACCOUNTS = ['银行账户', '现金', '微信', '支付宝', '对公账户'];
@@ -97,6 +97,15 @@ function numberValue(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isBlank(value: unknown) {
+  return trimValue(value) === '';
+}
+
+function isValidMoney(value: unknown) {
+  if (isBlank(value)) return false;
+  return numberValue(value) > 0;
+}
+
 function dateValue(value: unknown) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
   if (typeof value === 'number') {
@@ -106,7 +115,13 @@ function dateValue(value: unknown) {
   const text = trimValue(value).replace(/\//g, '-');
   if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(text)) {
     const [y, m, d] = text.split('-');
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day) {
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
   }
   return '';
 }
@@ -169,15 +184,17 @@ function getImportCategoryOptionRows(categories: ExpenseCategory[]) {
   return [...incomeRows, ...getCategoryRows(categories)];
 }
 
-function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = []) {
+function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = [], requiredHeaders: string[] = []) {
   sheet['!cols'] = Array.from({ length: headerCount }, () => ({ wch: 16 }));
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
+  const requiredSet = new Set(requiredHeaders);
   for (let column = range.s.c; column <= range.e.c; column += 1) {
     const cell = sheet[XLSX.utils.encode_cell({ r: 0, c: column })];
     if (cell) {
+      const required = requiredSet.has(String(cell.v || ''));
       cell.s = {
         font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '166534' } },
+        fill: { fgColor: { rgb: required ? 'DC2626' : '166534' } },
         alignment: { horizontal: 'center' },
       };
     }
@@ -212,7 +229,7 @@ function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[]
     ['示例-导入前删除', '核城家园2区3-1-502', '马金莲', '13800000000', '核城家园2区3-1-502装修合同', '2024-01-15', 58000, '核城家园2区3-1-502', '进行中', '张三', departments[0] || '工程部', '2024-01-20', '', '定金', 10000, '中期款', 28000, '尾款', 20000, '示例行，正式导入前请整行删除'],
   ];
   const contractSheet = excel.utils.aoa_to_sheet(contractRows);
-  applyWorksheetBasics(contractSheet, contractHeaders.length, [1]);
+  applyWorksheetBasics(contractSheet, contractHeaders.length, [1], requiredContractHeaders);
   excel.utils.book_append_sheet(workbook, contractSheet, CONTRACT_SHEET);
 
   const categoryRows = getCategoryRows(categories);
@@ -224,7 +241,7 @@ function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[]
     ['2024-02-28', '支出', '示例-导入前删除', '核城家园2区3-1-502', '项目支出示例', firstCategory[0], firstCategory[1], 12347, DEFAULT_ACCOUNTS[0], '李四', departments[0] || '财务部', '供应商A', firstCategory[1], '示例行，正式导入前请整行删除'],
   ];
   const flowSheet = excel.utils.aoa_to_sheet(flowRows);
-  applyWorksheetBasics(flowSheet, flowHeaders.length, [1, 2]);
+  applyWorksheetBasics(flowSheet, flowHeaders.length, [1, 2], requiredFlowHeaders);
   excel.utils.book_append_sheet(workbook, flowSheet, FLOW_SHEET);
 
   const optionLength = Math.max(optionCategoryRows.length, DEFAULT_ACCOUNTS.length, departments.length, validContractStatuses.size);
@@ -248,11 +265,12 @@ function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[]
     ['合同编号', '必填', '必须唯一；流水通过合同编号关联项目。'],
     ['归属项目', '必填', '合同页和流水页应保持一致。'],
     ['记账金额/合同金额', '必填', '必须是大于 0 的数字，不要填正负号。'],
-    ['记账日期/签约日期', '必填', '统一 yyyy-mm-dd。'],
+    ['记账日期/签约日期', '必填', '支持 yyyy-mm-dd、yyyy/m/d、Excel 日期，如 2026-04-23 或 2026/4/23。'],
     ['收支类型', '必填', '只能填“收入”或“支出”。'],
     ['合同状态', '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
     ['一级分类', '必填', '收入建议填“工程款项”；支出填 ERP 支出类别管理里的一级分类。'],
     ['二级分类', '必填', '收入填合同收款阶段，如合同款/定金/中期款/尾款；支出填 ERP 支出类别管理里的二级分类。'],
+    ['归属项目/摘要', '选填', '有合同编号即可关联项目；摘要为空时系统会用二级分类或备注兜底。'],
     ['示例行', '导入前删除', '红色字体为示例数据，正式导入前请整行删除。'],
   ];
   const fieldGuideSheet = excel.utils.aoa_to_sheet(fieldGuide);
@@ -373,13 +391,19 @@ export default function FinanceImportModal({ open, onClose }: Props) {
       const date = dateValue(row['记账日期']);
       const amount = numberValue(row['记账金额']);
       const summary = trimValue(row['摘要/用途说明']);
-      if (!type && !contractNo && !projectName && !summary) return;
-      if (!date || !type || !contractNo || !projectName || !summary || !amount) {
-        errors.push(`流水导入第 ${index + 2} 行缺少必填字段或金额/日期格式不正确`);
-        return;
-      }
-      if (!validFlowTypes.has(type)) {
-        errors.push(`流水导入第 ${index + 2} 行收支类型只能填写“收入”或“支出”`);
+      const secondaryCategory = trimValue(row['二级分类']);
+      const primaryCategory = trimValue(row['一级分类']);
+      if (!type && !contractNo && !projectName && !summary && !primaryCategory && !secondaryCategory && !amount) return;
+      const rowErrors: string[] = [];
+      if (!date) rowErrors.push('记账日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
+      if (!type) rowErrors.push('收支类型未填，正确值：收入、支出');
+      if (type && !validFlowTypes.has(type)) rowErrors.push(`收支类型“${type}”不正确，只能填：收入、支出`);
+      if (!contractNo) rowErrors.push('合同编号未填，必须和 ERP 或“合同项目导入”页中的合同编号一致');
+      if (!primaryCategory) rowErrors.push('一级分类未填，收入建议填“工程款项”，支出填 ERP 支出类别管理里的一级分类');
+      if (!secondaryCategory) rowErrors.push('二级分类未填，收入填收款阶段，支出填 ERP 支出类别管理里的二级分类');
+      if (!isValidMoney(row['记账金额'])) rowErrors.push('记账金额未填或格式不正确，必须是大于 0 的数字，例如：1000、12347.50');
+      if (rowErrors.length > 0) {
+        errors.push(`流水导入第 ${index + 2} 行：${rowErrors.join('；')}`);
         return;
       }
       const contract = availableContracts.get(contractNo);
@@ -390,9 +414,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
       if (contract.houseAddress && projectName && contract.houseAddress !== projectName) {
         warnings.push(`流水导入第 ${index + 2} 行归属项目与合同项目不完全一致：${projectName}`);
       }
-      const secondaryCategory = trimValue(row['二级分类']);
-      const primaryCategory = trimValue(row['一级分类']);
-      const remark = trimValue(row['备注']) || summary;
+      const remark = trimValue(row['备注']) || summary || secondaryCategory;
       const flowKey = `${type}|${contractNo}|${date}|${amount}|${secondaryCategory || summary}|${remark}`;
       if (templateFlowKeys.has(flowKey)) {
         errors.push(`流水导入第 ${index + 2} 行与模板内其他流水重复`);
