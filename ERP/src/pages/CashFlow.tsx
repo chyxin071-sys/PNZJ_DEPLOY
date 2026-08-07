@@ -1,22 +1,28 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip, Upload } from 'lucide-react';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
+import { useAuthStore } from '@/store/authStore';
+import { useDialogStore } from '@/store/dialogStore';
 import { formatMoney, formatDate } from '@/utils/format';
 import { exportToExcel } from '@/utils/export';
 import { downloadAttachment, normalizeAttachments } from '@/utils/financeAttachments';
+import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
 import dayjs from 'dayjs';
 import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
+import FinanceImportModal from '@/components/FinanceImportModal';
 import { useIncrementalList } from '@/hooks/useListViewportState';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AttachmentValue } from '@/types';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 
 interface FlowItem {
   id: string;
+  sourceId: string;
   date: string;
   type: '收款' | '支出';
   amount: number;
@@ -31,13 +37,19 @@ interface FlowItem {
   status?: string;
   remark?: string;
   attachments?: AttachmentValue[];
+  source?: any;
 }
+
+const shouldReverseExpense = (expense: any) => ['已付', '已付款'].includes(String(expense?.status || '').trim());
 
 export default function CashFlow() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { receipts, expenses, contracts } = useFinanceStore();
+  const { receipts, expenses, contracts, updateReceipt, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
+  const { user, users, loadUsers } = useAuthStore();
+  const { showConfirm, showAlert } = useDialogStore();
+  const myName = user?.name || '';
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [flowType, setFlowType] = useState<'全部' | '收款' | '支出'>('全部');
@@ -48,8 +60,20 @@ export default function CashFlow() {
   const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedFlow, setSelectedFlow] = useState<FlowItem | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [controlFlow, setControlFlow] = useState<FlowItem | null>(null);
+  const [controlReason, setControlReason] = useState('');
 
   const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
+
+  useEffect(() => {
+    if (users.length === 0) void loadUsers().catch(() => {});
+  }, [loadUsers, users.length]);
+
+  const adminUserIds = useMemo(() => users
+    .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
+    .map((u: any) => String(u._id || u.id || '').trim())
+    .filter(Boolean), [users]);
 
   useEffect(() => {
     const yearParam = searchParams.get('year');
@@ -90,8 +114,14 @@ export default function CashFlow() {
     return [{ value: '', label: '全部年份' }, ...Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)).map(y => ({ value: y, label: y }))];
   }, [receipts, expenses]);
 
-  const filteredReceipts = useMemo(() => receipts.filter(r => r.bizType === currentBizType), [receipts, currentBizType]);
-  const filteredExpenses = useMemo(() => expenses.filter(e => e.bizType === currentBizType), [expenses, currentBizType]);
+  const filteredReceipts = useMemo(
+    () => receipts.filter(r => r.bizType === currentBizType && isActiveFinanceRecord(r)),
+    [receipts, currentBizType],
+  );
+  const filteredExpenses = useMemo(
+    () => expenses.filter(e => e.bizType === currentBizType && isActiveFinanceRecord(e)),
+    [expenses, currentBizType],
+  );
 
   const getContractByNo = (contractNo: string) => contracts.find((ct) => ct.contractNo === contractNo);
   const getContractId = (contractId: string | undefined, contractNo: string) => {
@@ -105,7 +135,8 @@ export default function CashFlow() {
   const flowList = useMemo(() => {
     const flows: FlowItem[] = [
       ...filteredReceipts.map((r) => ({
-        id: r.id,
+        id: `receipt-${r._id || r.id}`,
+        sourceId: r._id || r.id,
         date: r.receiptDate,
         type: '收款' as const,
         amount: r.amount,
@@ -117,10 +148,12 @@ export default function CashFlow() {
         paymentMethod: r.paymentMethod,
         remark: r.remark,
         attachments: r.attachments || [],
+        source: r,
         summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
       })),
       ...filteredExpenses.map((e) => ({
-        id: e.id,
+        id: `expense-${e._id || e.id}`,
+        sourceId: e._id || e.id,
         date: e.expenseDate,
         type: '支出' as const,
         amount: e.amount,
@@ -133,6 +166,7 @@ export default function CashFlow() {
         status: e.status,
         remark: e.remark,
         attachments: e.attachments || [],
+        source: e,
         summary: `${e.category}${e.remark ? ' - ' + e.remark : ''}`,
       })),
     ];
@@ -193,16 +227,109 @@ export default function CashFlow() {
   };
 
   const handleExport = () => {
-    const data = filtered.map((f) => ({
-      日期: formatDate(f.date),
-      类型: f.type,
-      金额: f.amount,
-      合同编号: f.contractNo,
-      关联方: f.relatedParty,
-      说明: f.summary,
-    }));
+    const data = filtered.map((f) => currentBizType === '工装'
+      ? {
+        记账日期: formatDate(f.date),
+        收支类型: f.type,
+        记账金额: f.amount,
+        合同编号: f.contractNo,
+        项目名称: f.address || '',
+        '甲方/收款方': f.relatedParty,
+        收款阶段或支出类别: f.stage || f.category || '',
+        收支账户: f.paymentMethod || '',
+        说明: f.summary,
+      }
+      : {
+        记账日期: formatDate(f.date),
+        收支类型: f.type,
+        记账金额: f.amount,
+        合同编号: f.contractNo,
+        归属项目: f.address || '',
+        客户或收款方: f.relatedParty,
+        收款阶段或支出类别: f.stage || f.category || '',
+        收支账户: f.paymentMethod || '',
+        说明: f.summary,
+      });
     const dateSuffix = dateFrom || dateTo ? `_${dateFrom || '起'}至${dateTo || '今'}` : '';
-    exportToExcel(data, [], `资金流水明细${dateSuffix}`);
+    exportToExcel(data, [], `${currentBizType}资金流水明细${dateSuffix}`);
+  };
+
+  const getControlType = (row: FlowItem) => {
+    if (row.type === '收款') return 'reverse';
+    return shouldReverseExpense(row.source) ? 'reverse' : 'delete';
+  };
+
+  const getControlLabel = (row: FlowItem) => {
+    if (row.type === '收款') return '冲销';
+    return getControlType(row) === 'reverse' ? '冲销' : '删除';
+  };
+
+  const openFlowControl = (row: FlowItem) => {
+    setSelectedFlow(null);
+    setControlFlow(row);
+    setControlReason('');
+  };
+
+  const handleFlowControl = async () => {
+    if (!controlFlow?.source) return;
+    const action = getControlType(controlFlow);
+    const reason = controlReason.trim();
+    if (action === 'reverse' && !reason) {
+      await showAlert(`${controlFlow.type === '收款' ? '收款' : '已付款支出'}冲销必须填写原因。`);
+      return;
+    }
+    const confirmed = await showConfirm(
+      `${controlFlow.type === '收款' ? '客户' : '收款方'}：${controlFlow.relatedParty || '-'}\n金额：${formatMoney(controlFlow.amount || 0)}`,
+      { title: `确认${getControlLabel(controlFlow)}该${controlFlow.type}记录吗？`, confirmStyle: 'danger', confirmText: `确认${getControlLabel(controlFlow)}` },
+    );
+    if (!confirmed) return;
+    try {
+      const now = new Date().toISOString();
+      const item = controlFlow.source;
+      const next = controlFlow.type === '收款'
+        ? { ...item, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason }
+        : action === 'reverse'
+          ? { ...item, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason }
+          : { ...item, lifecycleStatus: 'deleted', deletedAt: now, deletedBy: myName, voidReason: reason };
+      if (controlFlow.type === '收款') {
+        await updateReceipt(next as any);
+      } else {
+        await updateExpense(next as any);
+      }
+      setControlFlow(null);
+      setControlReason('');
+      await recordFinanceAuditAction({
+        module: controlFlow.type === '收款' ? 'receipt' : 'expense',
+        action,
+        recordId: String(item._id || item.id),
+        recordName: controlFlow.type === '收款'
+          ? `${item.customerName || '-'}-${item.stage || '收款'}`
+          : item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
+        amount: item.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName: myName,
+        before: item,
+        after: next,
+      });
+      await notifyFinanceAuditAction({
+        module: controlFlow.type === '收款' ? 'receipt' : 'expense',
+        action,
+        recordId: String(item._id || item.id),
+        recordName: controlFlow.type === '收款'
+          ? `${item.customerName || '-'}-${item.stage || '收款'}`
+          : item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
+        amount: item.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName: myName,
+        recipientUserIds: adminUserIds,
+      });
+    } catch (error: any) {
+      await showAlert(`${getControlLabel(controlFlow)}失败：${error?.message || '未知错误'}`);
+    }
   };
 
   const columns = [
@@ -266,6 +393,27 @@ export default function CashFlow() {
         <span className="block max-w-[260px] truncate text-gray-600" title={row.summary || '-'}>
           {row.summary || '-'}
         </span>
+      ),
+    },
+    {
+      key: 'recordAction',
+      title: '处理',
+      width: '108px',
+      render: (row: FlowItem) => (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            openFlowControl(row);
+          }}
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
+            row.id.startsWith('receipt-')
+              ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+              : 'bg-red-50 text-red-600 hover:bg-red-100'
+          }`}
+        >
+          {getControlLabel(row)}
+        </button>
       ),
     },
     {
@@ -345,13 +493,22 @@ export default function CashFlow() {
           <h1 className="text-base md:text-lg font-bold text-gray-900">资金流水</h1>
           <p className="text-gold-500 text-xs md:text-sm">所有收付款记录汇总</p>
         </div>
-        <button
-          onClick={handleExport}
-          className="erp-btn-secondary"
-        >
-          <Download size={14} />
-          导出Excel
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="erp-btn-primary"
+          >
+            <Upload size={14} />
+            导入
+          </button>
+          <button
+            onClick={handleExport}
+            className="erp-btn-secondary"
+          >
+            <Download size={14} />
+            导出Excel
+          </button>
+        </div>
       </div>
 
       {/* 汇总卡片 */}
@@ -490,6 +647,20 @@ export default function CashFlow() {
               <DetailItem label="备注" value={selectedFlow.remark || '-'} wide />
             </div>
             <AttachmentSection attachments={selectedFlow.attachments || []} />
+            {selectedFlow.type === '支出' ? (
+              <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                专业处理方式：未付款的测试支出可以删除；已付款支出不建议直接删除，应做冲销，系统会保留原记录和冲销痕迹，且不再计入资金流水汇总。
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                openFlowControl(selectedFlow);
+              }}
+              className="erp-btn-secondary w-full justify-center"
+            >
+              {getControlLabel(selectedFlow)}该记录
+            </button>
             {selectedFlow.contractId ? (
               <button
                 type="button"
@@ -506,6 +677,48 @@ export default function CashFlow() {
           </div>
         )}
       </Modal>
+      <Modal
+        open={!!controlFlow}
+        onClose={() => { setControlFlow(null); setControlReason(''); }}
+        title={controlFlow ? `${getControlLabel(controlFlow)}${controlFlow.type}记录` : '处理流水'}
+      >
+        {controlFlow && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              {controlFlow.type === '收款'
+                ? '收款记录不直接删除。冲销后该记录不再计入收入和资金流水汇总，但会保留原始记录、冲销原因和操作日志。'
+                : getControlType(controlFlow) === 'reverse'
+                  ? '已付款支出不直接删除。冲销后该记录不再计入支出和资金流水汇总，但会保留原始记录、冲销原因和操作日志。'
+                  : '未付款或测试类支出可删除。删除后该记录不再出现在业务列表中，并写入财务操作日志。'}
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              <div>{controlFlow.type === '收款' ? '客户' : '收款方'}：<span className="font-medium text-gray-900">{controlFlow.relatedParty || '-'}</span></div>
+              <div className="mt-1">合同编号：<span className="font-medium text-gray-900">{controlFlow.contractNo || '-'}</span></div>
+              <div className="mt-1">金额：<span className={`font-medium ${controlFlow.type === '收款' ? 'text-emerald-600' : 'text-red-500'}`}>{formatMoney(controlFlow.amount || 0)}</span></div>
+              <div className="mt-1">说明：<span className="font-medium text-gray-900">{controlFlow.summary || '-'}</span></div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                {getControlLabel(controlFlow)}原因{getControlType(controlFlow) === 'reverse' ? ' *' : ''}
+              </label>
+              <textarea
+                value={controlReason}
+                onChange={(event) => setControlReason(event.target.value)}
+                rows={3}
+                placeholder={getControlType(controlFlow) === 'reverse' ? '请填写冲销原因，便于后续查账' : '可填写删除原因，便于后续追溯'}
+                className="erp-input resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => { setControlFlow(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
+              <button type="button" onClick={handleFlowControl} className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
+                确认{getControlLabel(controlFlow)}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+      <FinanceImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
     </div>
   );
 }

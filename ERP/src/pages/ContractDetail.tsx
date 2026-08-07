@@ -9,6 +9,7 @@ import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
+import FinanceImportModal from '@/components/FinanceImportModal';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { leadsAPI, contractsAPI, receiptsAPI } from '@/db/api';
 import { exportSheetsToExcel } from '@/utils/export';
@@ -284,6 +285,7 @@ export default function ContractDetail() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
   const [pendingInvoiceUploads, setPendingInvoiceUploads] = useState<PendingUpload[]>([]);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
@@ -687,22 +689,40 @@ export default function ContractDetail() {
 
   const handleExportContract = () => {
     if (!contract) return;
+    const isCommercial = contract.bizType === '工装' || currentBizType === '工装';
     
     // 基本信息 sheet
-    const infoData = [{
-      合同编号: contract.contractNo,
-      客户姓名: contract.customerName,
-      项目地址: normalizeAddress(contract.houseAddress),
-      合同金额: contract.contractAmount,
-      已收金额: totalReceived,
-      未收尾款: pendingBalance,
-      工期: (contract as any).durationDays || '',
-      签订日期: formatDate(contract.signDate),
-      预计开工: formatDate((contract as any).startDate || ''),
-      面积: (contract as any).area || '',
-      状态: contract.status,
-      备注: contract.remark || ''
-    }];
+    const infoData = [isCommercial
+      ? {
+        合同编号: contract.contractNo,
+        项目名称: normalizeAddress(contract.houseAddress),
+        甲方: contract.customerName,
+        乙方: contract.partyB || contract.customerPhone || '',
+        丙方: contract.partyC || '',
+        合同金额: contract.contractAmount,
+        已收金额: totalReceived,
+        未收金额: pendingBalance,
+        签订日期: formatDate(contract.signDate),
+        预计开工: formatDate((contract as any).startDate || ''),
+        预计完工: formatDate(contract.expectedEndDate || ''),
+        负责人: contract.projectManager || '',
+        状态: contract.status,
+        备注: contract.remark || ''
+      }
+      : {
+        合同编号: contract.contractNo,
+        客户姓名: contract.customerName,
+        项目地址: normalizeAddress(contract.houseAddress),
+        合同金额: contract.contractAmount,
+        已收金额: totalReceived,
+        未收尾款: pendingBalance,
+        工期: (contract as any).durationDays || '',
+        签订日期: formatDate(contract.signDate),
+        预计开工: formatDate((contract as any).startDate || ''),
+        面积: (contract as any).area || '',
+        状态: contract.status,
+        备注: contract.remark || ''
+      }];
 
     // 收款记录 sheet
     const receiptData = contractReceipts.map(r => ({
@@ -739,7 +759,7 @@ export default function ContractDetail() {
         { name: '支出明细', rows: expenseData },
         { name: '报价单', rows: quotationData }
       ],
-      `${contract.customerName}_${contract.contractNo}_结算明细`
+      `${isCommercial ? '工装' : '家装'}_${contract.customerName}_${contract.contractNo}_结算明细`
     );
   };
 
@@ -840,10 +860,19 @@ export default function ContractDetail() {
     {
       key: 'actions',
       title: '操作',
-      width: '110px',
+      width: '150px',
       render: (r: Receipt) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
+          {canViewFinance ? (
+            <button
+              onClick={() => navigate(`/income?focus=${encodeURIComponent(String((r as any)._id || r.id))}`)}
+              className="text-xs text-red-500 hover:text-red-600"
+              title="到收入管理页冲销"
+            >
+              去处理
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -889,6 +918,14 @@ export default function ContractDetail() {
           />
           <div className="flex items-center gap-3">
             <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            {canViewFinance ? (
+              <button
+                onClick={() => navigate(`/income?focus=${encodeURIComponent(String((r as any)._id || r.id))}`)}
+                className="text-xs font-medium text-red-500 hover:text-red-600"
+              >
+                去处理
+              </button>
+            ) : null}
           </div>
         </div>
       ),
@@ -946,10 +983,19 @@ export default function ContractDetail() {
     {
       key: 'actions',
       title: '操作',
-      width: '110px',
+      width: '150px',
       render: (e: Expense) => (
         <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
           <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
+          {canViewFinance ? (
+            <button
+              onClick={() => navigate(`/expense?focus=${encodeURIComponent(String((e as any)._id || e.id))}`)}
+              className="text-xs text-red-500 hover:text-red-600"
+              title="到支出管理页删除或冲销"
+            >
+              去处理
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -998,6 +1044,14 @@ export default function ContractDetail() {
           />
           <div className="flex items-center gap-3">
             <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            {canViewFinance ? (
+              <button
+                onClick={() => navigate(`/expense?focus=${encodeURIComponent(String((e as any)._id || e.id))}`)}
+                className="text-xs font-medium text-red-500 hover:text-red-600"
+              >
+                去处理
+              </button>
+            ) : null}
           </div>
         </div>
       ),
@@ -1183,10 +1237,11 @@ export default function ContractDetail() {
               导出明细
             </button>
           )}
-          <label className="hidden h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
-            导入
-            <input type="file" className="hidden" accept=".xlsx,.xls,.csv" />
-          </label>
+          {canViewFinance && (
+            <button onClick={() => setShowImportModal(true)} className="hidden h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
+              导入
+            </button>
+          )}
         </div>
       </div>
 
@@ -1711,6 +1766,7 @@ export default function ContractDetail() {
           </div>
         </div>
       </Modal>
+      <FinanceImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
 
       {/* 编辑合同 Modal */}
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="编辑合同" size="sm">

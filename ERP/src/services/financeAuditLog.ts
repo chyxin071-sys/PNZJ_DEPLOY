@@ -1,5 +1,6 @@
 import { financeOperationLogsAPI } from '@/db/api';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
+import type { BizType } from '@/types';
 
 type FinanceAuditAction = 'delete' | 'void' | 'reverse' | 'edit' | 'create';
 type FinanceAuditModule = 'receipt' | 'expense' | 'reimbursement';
@@ -9,6 +10,7 @@ type FinanceAuditInput = {
   action: FinanceAuditAction;
   recordId: string;
   recordName?: string;
+  bizType?: BizType;
   amount?: number;
   reason?: string;
   operatorId?: string;
@@ -47,29 +49,33 @@ export async function recordFinanceAuditAction(input: FinanceAuditInput) {
 export async function notifyFinanceAuditAction(input: FinanceAuditInput & {
   recipientUserIds: string[];
 }) {
-  const recipients = [...new Set(input.recipientUserIds.map(String).filter(Boolean))];
-  if (!recipients.length) return;
+  try {
+    const recipients = [...new Set(input.recipientUserIds.map(String).filter(Boolean))];
+    if (!recipients.length) return;
 
-  const moduleLabel = MODULE_LABEL[input.module];
-  const actionLabel = ACTION_LABEL[input.action];
-  const name = input.recordName || input.recordId;
-  const reason = input.reason ? `，原因：${input.reason}` : '';
+    const moduleLabel = MODULE_LABEL[input.module];
+    const actionLabel = ACTION_LABEL[input.action];
+    const name = input.recordName || input.recordId;
+    const reason = input.reason ? `，原因：${input.reason}` : '';
 
-  await createNotificationEventSafely({
-    operationId: stableOperationId('finance-audit', input.module, input.action, input.recordId, Date.now()),
-    eventType: `finance-${input.module}-${input.action}`,
-    actorUserId: input.operatorId || '',
-    recipientUserIds: recipients,
-    category: 'system',
-    title: `${moduleLabel}${actionLabel}`,
-    content: `${input.operatorName || '财务人员'}${actionLabel}了${moduleLabel}「${name}」${reason}`,
-    link: input.module === 'expense' ? '/expense' : input.module === 'receipt' ? '/income' : '/reimbursement',
-    miniProgramPage: input.module === 'expense'
-      ? '/pages/index/index?erpPath=%2Fexpense'
-      : input.module === 'receipt'
-        ? '/pages/index/index?erpPath=%2Fincome'
-        : '/pages/index/index?erpPath=%2Freimbursement',
-    relatedTo: { type: input.module, id: input.recordId, name },
-    channels: ['station', 'wechat'],
-  });
+    await createNotificationEventSafely({
+      operationId: stableOperationId('finance-audit', input.module, input.action, input.recordId, Date.now()),
+      eventType: `finance-${input.module}-${input.action}`,
+      actorUserId: input.operatorId || '',
+      recipientUserIds: recipients,
+      category: 'system',
+      title: `${moduleLabel}${actionLabel}`,
+      content: `${input.operatorName || '财务人员'}${actionLabel}了${moduleLabel}「${name}」${reason}`,
+      link: input.module === 'expense' ? '/expense' : input.module === 'receipt' ? '/income' : '/reimbursement',
+      miniProgramPage: input.module === 'expense'
+        ? '/pages/index/index?erpPath=%2Fexpense'
+        : input.module === 'receipt'
+          ? '/pages/index/index?erpPath=%2Fincome'
+          : '/pages/index/index?erpPath=%2Freimbursement',
+      relatedTo: { type: input.module, id: input.recordId, name },
+      channels: ['station', 'wechat'],
+    });
+  } catch (error) {
+    console.error('[finance-audit] notify failed', input.module, input.action, error);
+  }
 }
