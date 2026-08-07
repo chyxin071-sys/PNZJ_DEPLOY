@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
-import type { ExpenseCategory, ExpenseCategorySource } from '@/services/expenseCategories';
+import type { ExpenseCategory, ExpenseCategorySource, FinanceCategoryKind } from '@/services/expenseCategories';
 import { resolveExpenseCategory } from '@/services/expenseCategories';
 import { generateId } from '@/utils/format';
 
 type Props = {
   open: boolean;
   categories: ExpenseCategory[];
+  incomeCategories?: ExpenseCategory[];
   expenses: ExpenseCategorySource[];
+  incomes?: ExpenseCategorySource[];
+  initialKind?: FinanceCategoryKind;
   saving?: boolean;
   onClose: () => void;
   onSave: (categories: ExpenseCategory[]) => Promise<void>;
+  onSaveIncome?: (categories: ExpenseCategory[]) => Promise<void>;
 };
 
-export default function ExpenseCategoryManager({ open, categories, expenses, saving, onClose, onSave }: Props) {
+export default function ExpenseCategoryManager({ open, categories, incomeCategories, expenses, incomes = [], initialKind = 'expense', saving, onClose, onSave, onSaveIncome }: Props) {
+  const [kind, setKind] = useState<FinanceCategoryKind>(initialKind);
   const [draft, setDraft] = useState<ExpenseCategory[]>([]);
   const [selectedPrimaryId, setSelectedPrimaryId] = useState('');
   const [newPrimary, setNewPrimary] = useState('');
@@ -22,25 +27,34 @@ export default function ExpenseCategoryManager({ open, categories, expenses, sav
 
   useEffect(() => {
     if (!open) return;
-    const next = categories.map((category) => ({ ...category, children: category.children.map((child) => ({ ...child })) }));
+    setKind(initialKind);
+  }, [open, initialKind]);
+
+  const activeCategories = kind === 'income' ? (incomeCategories || categories) : categories;
+  const activeRecords = kind === 'income' ? incomes : expenses;
+  const activeLabel = kind === 'income' ? '收入' : '支出';
+
+  useEffect(() => {
+    if (!open) return;
+    const next = activeCategories.map((category) => ({ ...category, children: category.children.map((child) => ({ ...child })) }));
     setDraft(next);
     setSelectedPrimaryId(next[0]?.id || '');
     setNewPrimary('');
     setNewSecondary('');
     setError('');
-  }, [open, categories]);
+  }, [open, activeCategories, kind]);
 
   const selected = draft.find((category) => category.id === selectedPrimaryId) || draft[0];
   const usage = useMemo(() => {
     const primary = new Map<string, number>();
     const secondary = new Map<string, number>();
-    expenses.forEach((expense) => {
-      const path = resolveExpenseCategory(expense, categories);
+    activeRecords.forEach((expense) => {
+      const path = resolveExpenseCategory(expense, activeCategories);
       if (path.primaryId) primary.set(path.primaryId, (primary.get(path.primaryId) || 0) + 1);
       if (path.secondaryId) secondary.set(path.secondaryId, (secondary.get(path.secondaryId) || 0) + 1);
     });
     return { primary, secondary };
-  }, [categories, expenses]);
+  }, [activeCategories, activeRecords]);
 
   if (!open) return null;
 
@@ -74,7 +88,7 @@ export default function ExpenseCategoryManager({ open, categories, expenses, sav
 
   const deletePrimary = (category: ExpenseCategory) => {
     if (usage.primary.get(category.id)) {
-      setError(`“${category.name}”下已有支出记录，需先调整支出分类后才能删除`);
+      setError(`“${category.name}”下已有${activeLabel}记录，需先调整${activeLabel}分类后才能删除`);
       return;
     }
     const next = draft.filter((item) => item.id !== category.id);
@@ -84,7 +98,7 @@ export default function ExpenseCategoryManager({ open, categories, expenses, sav
 
   const deleteSecondary = (id: string, name: string) => {
     if (usage.secondary.get(id)) {
-      setError(`“${name}”下已有支出记录，需先调整支出分类后才能删除`);
+      setError(`“${name}”下已有${activeLabel}记录，需先调整${activeLabel}分类后才能删除`);
       return;
     }
     setDraft((current) => current.map((category) => category.id === selected?.id
@@ -122,7 +136,8 @@ export default function ExpenseCategoryManager({ open, categories, expenses, sav
       return;
     }
     setError('');
-    await onSave(normalized);
+    if (kind === 'income') await (onSaveIncome || onSave)(normalized);
+    else await onSave(normalized);
   };
 
   return (
@@ -130,10 +145,23 @@ export default function ExpenseCategoryManager({ open, categories, expenses, sav
       <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-3xl md:rounded-lg" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-base font-bold text-gray-900">支出类别管理</h2>
-            <p className="mt-0.5 text-xs text-gray-400">一级用于费用大类归集，二级用于录入和明细分析</p>
+            <h2 className="text-base font-bold text-gray-900">收支类别管理</h2>
+            <p className="mt-0.5 text-xs text-gray-400">收入和支出分开维护，一级用于归集，二级用于录入和明细分析</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭支出类别管理"><X size={18} /></button>
+          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭收支类别管理"><X size={18} /></button>
+        </div>
+
+        <div className="flex gap-2 border-b border-gray-100 px-5 py-3">
+          {(['income', 'expense'] as FinanceCategoryKind[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setKind(item)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${kind === item ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+            >
+              {item === 'income' ? '收入类别' : '支出类别'}
+            </button>
+          ))}
         </div>
 
         <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[260px_1fr] md:overflow-hidden">
@@ -147,7 +175,7 @@ export default function ExpenseCategoryManager({ open, categories, expenses, sav
                 <div key={category.id} className={`flex items-center gap-1 rounded-md border px-2 py-1.5 ${selected?.id === category.id ? 'border-gray-900 bg-gray-50' : 'border-transparent'}`}>
                   <button type="button" onClick={() => setSelectedPrimaryId(category.id)} className="min-w-0 flex-1 text-left">
                     <input value={category.name} onClick={(event) => event.stopPropagation()} onChange={(event) => updatePrimaryName(category.id, event.target.value)} className="w-full bg-transparent text-sm font-medium text-gray-800 outline-none" aria-label="一级分类名称" />
-                    <span className="text-[11px] text-gray-400">{category.children.length} 个二级分类 · {usage.primary.get(category.id) || 0} 笔支出</span>
+                    <span className="text-[11px] text-gray-400">{category.children.length} 个二级分类 · {usage.primary.get(category.id) || 0} 笔{activeLabel}</span>
                   </button>
                   <Pencil size={13} className="text-gray-300" />
                   <button type="button" onClick={() => deletePrimary(category)} className="p-1.5 text-gray-300 hover:text-red-500" aria-label="删除一级分类"><Trash2 size={14} /></button>

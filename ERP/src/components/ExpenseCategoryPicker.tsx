@@ -10,6 +10,7 @@ interface ExpenseCategoryPickerProps {
   categories: ExpenseCategory[];
   primaryId: string;
   secondaryId: string;
+  kind?: 'income' | 'expense';
   onChange: (selection: CategorySelection) => void;
 }
 
@@ -17,6 +18,7 @@ export default function ExpenseCategoryPicker({
   categories,
   primaryId,
   secondaryId,
+  kind = 'expense',
   onChange,
 }: ExpenseCategoryPickerProps) {
   const primary = categories.find((category) => category.id === primaryId) || categories[0];
@@ -43,6 +45,10 @@ export default function ExpenseCategoryPicker({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-500">一级分类</span>
+        <span className="text-[11px] text-gray-400">{kind === 'income' ? '用于收入大类归集' : '用于费用大类归集'}</span>
+      </div>
       <div className="flex flex-wrap gap-2">
         {categories.map((category) => (
           <button
@@ -60,7 +66,12 @@ export default function ExpenseCategoryPicker({
         ))}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+      <div className="mt-3 border-t border-gray-100 pt-2">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs font-medium text-gray-500">二级分类</span>
+          <span className="text-[11px] text-gray-400">{kind === 'income' ? '用于具体收入明细' : '用于具体支出明细'}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
         {secondaryOptions.length > 0 ? (
           secondaryOptions.map((child) => (
             <button
@@ -77,8 +88,9 @@ export default function ExpenseCategoryPicker({
             </button>
           ))
         ) : (
-          <span className="text-xs text-gray-400">请先在支出类别管理中添加二级分类</span>
+          <span className="text-xs text-gray-400">请先在类别管理中添加二级分类</span>
         )}
+        </div>
       </div>
     </div>
   );

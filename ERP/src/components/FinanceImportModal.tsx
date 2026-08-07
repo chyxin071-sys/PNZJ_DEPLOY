@@ -8,7 +8,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useDialogStore } from '@/store/dialogStore';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
+  DEFAULT_INCOME_CATEGORIES,
   expenseCategoryPayload,
+  loadIncomeCategories,
   loadExpenseCategories,
   resolveExpenseCategory,
   type ExpenseCategory,
@@ -231,22 +233,8 @@ function getCategoryRows(categories: ExpenseCategory[]) {
   return categories.flatMap((category) => category.children.map((child) => [category.name, child.name]));
 }
 
-function getImportCategoryOptionRows(categories: ExpenseCategory[], bizType: BizType) {
-  const incomeRows = bizType === '工装'
-    ? [
-      ['工程款项', '回款'],
-      ['工程款项', '预付款'],
-      ['工程款项', '进度款'],
-      ['工程款项', '尾款'],
-      ['工程款项', '质保金'],
-    ]
-    : [
-      ['工程款项', '合同款'],
-      ['工程款项', '定金'],
-      ['工程款项', '中期款'],
-      ['工程款项', '尾款'],
-    ];
-  return [...incomeRows, ...getCategoryRows(categories)];
+function getImportCategoryOptionRows(expenseCategories: ExpenseCategory[], incomeCategories: ExpenseCategory[]) {
+  return [...getCategoryRows(incomeCategories), ...getCategoryRows(expenseCategories)];
 }
 
 function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = [], requiredHeaders: string[] = []) {
@@ -277,7 +265,7 @@ function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sample
   });
 }
 
-function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[], departments: string[], bizType: BizType) {
+function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCategory[], incomeCategories: ExpenseCategory[], departments: string[], bizType: BizType) {
   const workbook = excel.utils.book_new();
   const isCommercial = bizType === '工装';
   const contractHeaders = isCommercial ? commercialContractHeaders : homeContractHeaders;
@@ -302,8 +290,8 @@ function buildTemplateWorkbook(excel: typeof XLSX, categories: ExpenseCategory[]
   applyWorksheetBasics(contractSheet, contractHeaders.length, [1], requiredContractHeaders);
   excel.utils.book_append_sheet(workbook, contractSheet, CONTRACT_SHEET);
 
-  const categoryRows = getCategoryRows(categories);
-  const optionCategoryRows = getImportCategoryOptionRows(categories, bizType);
+  const categoryRows = getCategoryRows(expenseCategories);
+  const optionCategoryRows = getImportCategoryOptionRows(expenseCategories, incomeCategories);
   const firstCategory = categoryRows[0] || ['材料费', '主材采购'];
   const flowRows = isCommercial
     ? [
@@ -368,10 +356,12 @@ export default function FinanceImportModal({ open, onClose }: Props) {
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [importing, setImporting] = useState(false);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [incomeCategories, setIncomeCategories] = useState<ExpenseCategory[]>(DEFAULT_INCOME_CATEGORIES);
 
   useEffect(() => {
     if (!open) return;
     loadExpenseCategories(currentBizType).then(setExpenseCategories).catch(() => setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES));
+    loadIncomeCategories(currentBizType).then(setIncomeCategories).catch(() => setIncomeCategories(DEFAULT_INCOME_CATEGORIES));
     if (users.length === 0) void loadUsers().catch(() => {});
   }, [currentBizType, loadUsers, open, users.length]);
 
@@ -384,7 +374,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
   const downloadTemplate = async () => {
     const XLSXStyle = await import('xlsx-js-style');
     XLSXStyle.writeFile(
-      buildTemplateWorkbook(XLSXStyle as typeof XLSX, expenseCategories, departments, currentBizType),
+      buildTemplateWorkbook(XLSXStyle as typeof XLSX, expenseCategories, incomeCategories, departments, currentBizType),
       `ERP_${currentBizType}_财务数据导入模板_${new Date().toISOString().slice(0, 10)}.xlsx`,
       { cellStyles: true },
     );
@@ -517,6 +507,11 @@ export default function FinanceImportModal({ open, onClose }: Props) {
         return;
       }
       if (type === '收入') {
+        const categoryPath = resolveExpenseCategory({
+          primaryCategory,
+          secondaryCategory,
+          category: secondaryCategory,
+        }, incomeCategories);
         if (!contract.paymentStages.some((stage) => stage.name === secondaryCategory)) {
           warnings.push(`流水导入第 ${index + 2} 行收入阶段“${secondaryCategory}”不在合同收款阶段中`);
         }
@@ -530,6 +525,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
           paymentMethod: trimValue(row['收支账户']) || '银行账户',
           receiptDate: date,
           stage: secondaryCategory || summary,
+          ...expenseCategoryPayload(categoryPath),
           remark,
           attachments: [],
           lifecycleStatus: 'active',

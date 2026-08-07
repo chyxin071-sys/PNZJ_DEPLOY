@@ -18,10 +18,13 @@ import dayjs from 'dayjs';
 import ExpenseCategoryManager from '@/components/ExpenseCategoryManager';
 import ExpenseCategoryPicker from '@/components/ExpenseCategoryPicker';
 import {
+  DEFAULT_INCOME_CATEGORIES,
   DEFAULT_EXPENSE_CATEGORIES,
   expenseCategoryPayload,
+  loadIncomeCategories,
   loadExpenseCategories,
   resolveExpenseCategory,
+  saveIncomeCategories,
   saveExpenseCategories,
   type ExpenseCategory,
 } from '@/services/expenseCategories';
@@ -38,12 +41,12 @@ const CATEGORY_BADGE: Record<string, string> = {
 const categoryBadgeClass = (name: string) => CATEGORY_BADGE[name] || 'bg-gray-100 text-gray-600';
 
 const isActiveExpense = (expense: any) => !['deleted', 'voided', 'reversed'].includes(expense.lifecycleStatus);
-const shouldReverseExpense = (expense: any) => expense.status === '已付';
+const shouldReverseExpense = (expense: any) => ['已付', '已付款'].includes(String(expense.status || '').trim());
 
 export default function Expense() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { expenses, contracts, addExpense, updateExpense } = useFinanceStore();
+  const { receipts, expenses, contracts, addExpense, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user, users, loadUsers } = useAuthStore();
   const { showConfirm, showAlert } = useDialogStore();
@@ -63,6 +66,7 @@ export default function Expense() {
   const [showModal, setShowModal] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [incomeCategories, setIncomeCategories] = useState<ExpenseCategory[]>(DEFAULT_INCOME_CATEGORIES);
   const [savingCategories, setSavingCategories] = useState(false);
   const [form, setForm] = useState({
     contractId: '',
@@ -94,13 +98,20 @@ export default function Expense() {
     .filter(Boolean), [users]);
 
   useEffect(() => {
-    loadExpenseCategories()
+    loadExpenseCategories(currentBizType)
       .then((categories) => setExpenseCategories(categories))
       .catch((error) => {
         console.error('加载支出类别失败', error);
         setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
       });
-  }, []);
+    loadIncomeCategories(currentBizType)
+      .then(setIncomeCategories)
+      .catch((error) => {
+        console.error('加载收入类别失败', error);
+        setIncomeCategories(DEFAULT_INCOME_CATEGORIES);
+      });
+    setActiveTab('全部');
+  }, [currentBizType]);
 
   const activeCategories = useMemo(() => ['全部', ...expenseCategories.map((category) => category.name)], [expenseCategories]);
 
@@ -116,6 +127,21 @@ export default function Expense() {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams, filteredContracts, currentBizType]);
+
+  useEffect(() => {
+    const focusId = searchParams.get('focus');
+    if (!focusId) return;
+    const target = expenses.find((expense: any) => expense.id === focusId || expense._id === focusId);
+    if (!target) return;
+    setActiveTab('全部');
+    setFilterYear('');
+    setDateFrom('');
+    setDateTo('');
+    setSearch(target.contractNo || target.supplier || '');
+    const next = new URLSearchParams(searchParams);
+    next.delete('focus');
+    setSearchParams(next, { replace: true });
+  }, [expenses, searchParams, setSearchParams]);
 
   const filtered = useMemo(() => {
     let list = [...expenses.filter(e => e.bizType === currentBizType && isActiveExpense(e))];
@@ -135,7 +161,7 @@ export default function Expense() {
           c.houseAddress.toLowerCase().includes(q) || 
           c.customerName.toLowerCase().includes(q) ||
           c.contractNo.toLowerCase().includes(q)
-        ).map(c => c.id)
+        ).flatMap(c => [c.id, (c as any)._id].filter(Boolean) as string[])
       );
       list = list.filter(e => matchedContractIds.has(e.contractId));
     }
@@ -189,11 +215,14 @@ export default function Expense() {
         ? { ...item, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason }
         : { ...item, lifecycleStatus: 'deleted', deletedAt: now, deletedBy: myName, voidReason: reason };
       await updateExpense(next as any);
+      setControlAction(null);
+      setControlReason('');
       await recordFinanceAuditAction({
         module: 'expense',
         action: type,
         recordId: String(item._id || item.id),
         recordName: item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
         amount: item.amount,
         reason,
         operatorId: user?.id,
@@ -206,14 +235,13 @@ export default function Expense() {
         action: type,
         recordId: String(item._id || item.id),
         recordName: item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
         amount: item.amount,
         reason,
         operatorId: user?.id,
         operatorName: myName,
         recipientUserIds: adminUserIds,
       });
-      setControlAction(null);
-      setControlReason('');
     } catch (e: any) { await showAlert((type === 'reverse' ? '冲销失败：' : '删除失败：') + (e?.message || '未知错误')); }
   };
 
@@ -259,8 +287,9 @@ export default function Expense() {
     setSavingCategories(true);
     try {
       const previous = expenseCategories;
-      const normalized = await saveExpenseCategories(categories);
+      const normalized = await saveExpenseCategories(categories, currentBizType);
       const updates = expenses.flatMap((expense: any) => {
+        if (expense.bizType !== currentBizType || !isActiveExpense(expense)) return [];
         const oldPath = resolveExpenseCategory(expense, previous);
         const primary = normalized.find((category) => category.id === oldPath.primaryId);
         const secondary = primary?.children.find((child) => child.id === oldPath.secondaryId);
@@ -282,6 +311,19 @@ export default function Expense() {
       setShowCategoryManager(false);
     } catch (error: any) {
       alert(error?.message || '支出类别保存失败，请重试');
+    } finally {
+      setSavingCategories(false);
+    }
+  };
+
+  const handleIncomeCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      const normalized = await saveIncomeCategories(categories, currentBizType);
+      setIncomeCategories(normalized);
+      setShowCategoryManager(false);
+    } catch (error: any) {
+      alert(error?.message || '收入类别保存失败，请重试');
     } finally {
       setSavingCategories(false);
     }
@@ -769,11 +811,15 @@ export default function Expense() {
       </Modal>
       <ExpenseCategoryManager
         open={showCategoryManager}
+        initialKind="expense"
         categories={expenseCategories}
-        expenses={expenses}
+        incomeCategories={incomeCategories}
+        expenses={expenses.filter((expense: any) => expense.bizType === currentBizType && isActiveExpense(expense))}
+        incomes={receipts.filter((receipt: any) => receipt.bizType === currentBizType && isActiveExpense(receipt))}
         saving={savingCategories}
         onClose={() => setShowCategoryManager(false)}
         onSave={handleCategorySave}
+        onSaveIncome={handleIncomeCategorySave}
       />
     </div>
   );
