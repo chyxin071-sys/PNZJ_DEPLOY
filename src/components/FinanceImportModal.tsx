@@ -12,8 +12,8 @@ import {
   expenseCategoryPayload,
   loadExpenseCategories,
   loadIncomeCategories,
-  resolveExpenseCategory,
   type ExpenseCategory,
+  type ExpenseCategoryPath,
 } from '@/services/expenseCategories';
 import { generateId } from '@/utils/format';
 import type { BizType, Contract, Expense, Receipt } from '@/types';
@@ -217,6 +217,26 @@ function getCategoryRows(categories: ExpenseCategory[]) {
   return categories.flatMap((category) => category.children.map((child) => [category.name, child.name]));
 }
 
+function strictCategoryPath(
+  categories: ExpenseCategory[],
+  primaryName: string,
+  secondaryName: string,
+): ExpenseCategoryPath | null {
+  const primary = categories.find((category) => category.name === primaryName);
+  const secondary = primary?.children.find((child) => child.name === secondaryName);
+  if (!primary || !secondary) return null;
+  return {
+    primaryId: primary.id,
+    primaryName: primary.name,
+    secondaryId: secondary.id,
+    secondaryName: secondary.name,
+  };
+}
+
+function categoryExistsElsewhere(categories: ExpenseCategory[], secondaryName: string) {
+  return categories.find((category) => category.children.some((child) => child.name === secondaryName));
+}
+
 function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = [], requiredHeaders: string[] = []) {
   sheet['!cols'] = Array.from({ length: headerCount }, () => ({ wch: 16 }));
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
@@ -316,7 +336,7 @@ function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCat
     ['签约日期/收款日期/支出日期', '对应日期表', '必填', '支持 yyyy-mm-dd、yyyy/m/d、Excel 日期，例如 2026-04-23 或 2026/4/23。'],
     ['合同状态', CONTRACT_SHEET, '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
     ['收款阶段', INCOME_SHEET, '必填', '对应 ERP 新增收款里的收款阶段，建议和合同收款阶段名称一致。'],
-    ['一级分类/二级分类', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '必填', '必须使用 ERP 收支类别管理里的对应收入类别或支出类别。'],
+    ['一级分类/二级分类', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '必填', '必须使用 ERP 收支类别管理里的对应收入类别或支出类别；系统不会在导入时自动新增分类。'],
     ['收款方式/支出方式', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '选填', '对应 ERP 表单里的收款方式/支出方式，留空默认银行转账。'],
     ['收款方', EXPENSE_SHEET, '必填', '对应 ERP 新增支出里的“收款方”。'],
     ['支付状态', EXPENSE_SHEET, '选填', '只能填已付或未付，留空默认已付。'],
@@ -458,19 +478,17 @@ function parseIncomeRows(
       return;
     }
 
-    const categoryPath = resolveExpenseCategory({
-      primaryCategory,
-      secondaryCategory,
-      category: secondaryCategory,
-    }, incomeCategories);
+    const categoryPath = strictCategoryPath(incomeCategories, primaryCategory, secondaryCategory);
+    if (!categoryPath) {
+      const actualPrimary = categoryExistsElsewhere(incomeCategories, secondaryCategory);
+      const tip = actualPrimary
+        ? `二级分类“${secondaryCategory}”存在于收入一级分类“${actualPrimary.name}”下，请修正一级分类`
+        : `分类“${primaryCategory} / ${secondaryCategory}”不存在，请先到收支类别管理的“收入类别”中新增后再导入`;
+      errors.push(`${INCOME_SHEET}第 ${index + 2} 行：${tip}`);
+      return;
+    }
     if (!contract.paymentStages.some((item) => item.name === stage)) {
       warnings.push(`${INCOME_SHEET}第 ${index + 2} 行收款阶段“${stage}”不在合同收款阶段中`);
-    }
-    if (primaryCategory && categoryPath.primaryName && primaryCategory !== categoryPath.primaryName) {
-      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行一级分类“${primaryCategory}”与 ERP 收入分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
-    }
-    if (secondaryCategory && categoryPath.secondaryName && secondaryCategory !== categoryPath.secondaryName) {
-      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行二级分类“${secondaryCategory}”与 ERP 收入分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
     }
 
     parsedReceipts.push({
@@ -541,11 +559,15 @@ function parseExpenseRows(
     }
 
     const remark = trimValue(row['备注']);
-    const categoryPath = resolveExpenseCategory({
-      primaryCategory,
-      secondaryCategory,
-      category: secondaryCategory,
-    }, expenseCategories);
+    const categoryPath = strictCategoryPath(expenseCategories, primaryCategory, secondaryCategory);
+    if (!categoryPath) {
+      const actualPrimary = categoryExistsElsewhere(expenseCategories, secondaryCategory);
+      const tip = actualPrimary
+        ? `二级分类“${secondaryCategory}”存在于支出一级分类“${actualPrimary.name}”下，请修正一级分类`
+        : `分类“${primaryCategory} / ${secondaryCategory}”不存在，请先到收支类别管理的“支出类别”中新增后再导入`;
+      errors.push(`${EXPENSE_SHEET}第 ${index + 2} 行：${tip}`);
+      return;
+    }
     const category = categoryPath.secondaryName || secondaryCategory || primaryCategory;
     const key = `${contractNo}|${date}|${amount}|${category}|${supplier}|${remark}`;
     if (templateKeys.has(key)) {
@@ -556,12 +578,6 @@ function parseExpenseRows(
     if (existingKeys.has(key)) {
       warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行疑似重复，已跳过`);
       return;
-    }
-    if (primaryCategory && categoryPath.primaryName && primaryCategory !== categoryPath.primaryName) {
-      warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行一级分类“${primaryCategory}”与 ERP 支出分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
-    }
-    if (secondaryCategory && categoryPath.secondaryName && secondaryCategory !== categoryPath.secondaryName) {
-      warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行二级分类“${secondaryCategory}”与 ERP 支出分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
     }
 
     parsedExpenses.push({
@@ -714,7 +730,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
     <Modal open={open} onClose={onClose} title="财务数据导入" size="lg">
       <div className="space-y-4">
         <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-          请先下载系统模板，把历史合同、收入流水、支出流水迁移到对应页签后再上传。模板字段只保留 ERP 电脑端当前会保存和展示的字段。
+          请先下载系统模板，把历史合同、收入流水、支出流水迁移到对应页签后再上传。模板字段只保留 ERP 电脑端当前会保存和展示的字段；一二级分类必须已存在于 ERP，导入时不会自动新增分类。
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
