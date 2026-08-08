@@ -30,12 +30,20 @@ export type ExpenseCategorySource = {
   category?: string;
 };
 
+export type FinanceCategoryKind = 'income' | 'expense';
 type RawCategory = { id?: unknown; name?: unknown; children?: unknown };
 type RawSubcategory = { id?: unknown; name?: unknown };
 
 export const EXPENSE_CATEGORY_CONFIG_ID = 'expense_categories_v1';
+export const INCOME_CATEGORY_CONFIG_ID = 'income_categories_v1';
 export const expenseCategoryConfigId = (bizType?: BizType) => (
   bizType ? `${EXPENSE_CATEGORY_CONFIG_ID}_${bizType}` : EXPENSE_CATEGORY_CONFIG_ID
+);
+export const incomeCategoryConfigId = (bizType?: BizType) => (
+  bizType ? `${INCOME_CATEGORY_CONFIG_ID}_${bizType}` : INCOME_CATEGORY_CONFIG_ID
+);
+export const financeCategoryConfigId = (kind: FinanceCategoryKind, bizType?: BizType) => (
+  kind === 'income' ? incomeCategoryConfigId(bizType) : expenseCategoryConfigId(bizType)
 );
 
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
@@ -84,6 +92,24 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   },
 ];
 
+export const DEFAULT_INCOME_CATEGORIES: ExpenseCategory[] = [
+  {
+    id: 'income-primary-project-payment',
+    name: '工程款项',
+    children: [
+      { id: 'income-secondary-contract-payment', name: '合同款' },
+      { id: 'income-secondary-deposit', name: '定金' },
+      { id: 'income-secondary-progress', name: '进度款' },
+      { id: 'income-secondary-final', name: '尾款' },
+      { id: 'income-secondary-warranty', name: '质保金' },
+    ],
+  },
+];
+
+export const defaultFinanceCategories = (kind: FinanceCategoryKind) => (
+  kind === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES
+);
+
 function cloneCategories(categories: ExpenseCategory[]) {
   return categories.map((category) => ({
     ...category,
@@ -91,8 +117,8 @@ function cloneCategories(categories: ExpenseCategory[]) {
   }));
 }
 
-export function normalizeExpenseCategories(value: unknown): ExpenseCategory[] {
-  if (!Array.isArray(value)) return cloneCategories(DEFAULT_EXPENSE_CATEGORIES);
+export function normalizeFinanceCategories(value: unknown, fallback: ExpenseCategory[] = DEFAULT_EXPENSE_CATEGORIES): ExpenseCategory[] {
+  if (!Array.isArray(value)) return cloneCategories(fallback);
   const categories = value
     .map((categoryValue) => {
       const category = categoryValue as RawCategory;
@@ -113,30 +139,54 @@ export function normalizeExpenseCategories(value: unknown): ExpenseCategory[] {
       });
     })
     .filter((category: ExpenseCategory) => category.name);
-  return categories.length ? categories : cloneCategories(DEFAULT_EXPENSE_CATEGORIES);
+  return categories.length ? categories : cloneCategories(fallback);
 }
 
-export async function loadExpenseCategories(bizType?: BizType) {
-  const scopedDoc = bizType ? await systemConfigsAPI.doc(expenseCategoryConfigId(bizType)).get() : null;
-  if (scopedDoc?.categories) return normalizeExpenseCategories(scopedDoc.categories);
-  const legacyDoc = await systemConfigsAPI.doc(EXPENSE_CATEGORY_CONFIG_ID).get();
-  const categories = normalizeExpenseCategories(legacyDoc?.categories);
+export function normalizeExpenseCategories(value: unknown): ExpenseCategory[] {
+  return normalizeFinanceCategories(value, DEFAULT_EXPENSE_CATEGORIES);
+}
+
+export async function loadFinanceCategories(kind: FinanceCategoryKind, bizType?: BizType) {
+  const fallback = defaultFinanceCategories(kind);
+  const configId = financeCategoryConfigId(kind, bizType);
+  const baseConfigId = financeCategoryConfigId(kind);
+  const scopedDoc = bizType ? await systemConfigsAPI.doc(configId).get() : null;
+  if (scopedDoc?.categories) return normalizeFinanceCategories(scopedDoc.categories, fallback);
+  const legacyDoc = await systemConfigsAPI.doc(baseConfigId).get();
+  const categories = normalizeFinanceCategories(legacyDoc?.categories, fallback);
   if (bizType) {
-    await saveExpenseCategories(categories, bizType).catch((error) => {
-      console.error('初始化支出分类配置失败', error);
+    await saveFinanceCategories(kind, categories, bizType).catch((error) => {
+      console.error(`初始化${kind === 'income' ? '收入' : '支出'}分类配置失败`, error);
     });
   }
   return categories;
 }
 
-export async function saveExpenseCategories(categories: ExpenseCategory[], bizType?: BizType) {
-  const normalized = normalizeExpenseCategories(categories);
-  await systemConfigsAPI.doc(expenseCategoryConfigId(bizType)).set({
+export async function saveFinanceCategories(kind: FinanceCategoryKind, categories: ExpenseCategory[], bizType?: BizType) {
+  const normalized = normalizeFinanceCategories(categories, defaultFinanceCategories(kind));
+  await systemConfigsAPI.doc(financeCategoryConfigId(kind, bizType)).set({
     categories: normalized,
+    kind,
     bizType: bizType || '',
     updatedAt: new Date().toISOString(),
   });
   return normalized;
+}
+
+export async function loadExpenseCategories(bizType?: BizType) {
+  return loadFinanceCategories('expense', bizType);
+}
+
+export async function saveExpenseCategories(categories: ExpenseCategory[], bizType?: BizType) {
+  return saveFinanceCategories('expense', categories, bizType);
+}
+
+export async function loadIncomeCategories(bizType?: BizType) {
+  return loadFinanceCategories('income', bizType);
+}
+
+export async function saveIncomeCategories(categories: ExpenseCategory[], bizType?: BizType) {
+  return saveFinanceCategories('income', categories, bizType);
 }
 
 export function resolveExpenseCategory(

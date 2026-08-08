@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { DollarSign, TrendingUp, Receipt, Plus, Search, X, AlertTriangle, Loader2, Edit3, RotateCcw, Download } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, Plus, Search, X, AlertTriangle, Loader2, Edit3, RotateCcw, Download, Settings } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
@@ -16,10 +16,24 @@ import { getAttachmentSummary, mergeAttachments, normalizeAttachments, openAttac
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
+import ExpenseCategoryManager from '@/components/ExpenseCategoryManager';
+import ExpenseCategoryPicker from '@/components/ExpenseCategoryPicker';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  DEFAULT_INCOME_CATEGORIES,
+  expenseCategoryPayload,
+  loadExpenseCategories,
+  loadIncomeCategories,
+  resolveExpenseCategory,
+  saveExpenseCategories,
+  saveIncomeCategories,
+  type ExpenseCategory,
+} from '@/services/expenseCategories';
 
 const isActiveReceipt = (receipt: any) => !['deleted', 'voided', 'reversed'].includes(receipt.lifecycleStatus);
 
 const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
+const incomeCategoryBadgeClass = (name: string) => name === '工程款项' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-600';
 
 function getStageReceiptStatus(stage: { amount: number; paid: number; due: number }) {
   if ((stage.amount || 0) <= 0) return 'unset';
@@ -31,7 +45,7 @@ function getStageReceiptStatus(stage: { amount: number; paid: number; due: numbe
 export default function Income() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { receipts, contracts, addReceipt, updateReceipt } = useFinanceStore();
+  const { receipts, expenses, contracts, addReceipt, updateReceipt } = useFinanceStore();
   const { user, users, loadUsers } = useAuthStore();
   const { showConfirm, showAlert } = useDialogStore();
   const myName = user?.name || '';
@@ -53,12 +67,19 @@ export default function Income() {
   const [filterMonthTo, setFilterMonthTo] = useState('12');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [incomeCategories, setIncomeCategories] = useState<ExpenseCategory[]>(DEFAULT_INCOME_CATEGORIES);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [savingCategories, setSavingCategories] = useState(false);
   const [contractSearch, setContractSearch] = useState('');
   const [form, setForm] = useState({
     contractId: '',
     amount: '',
     paymentMethod: '银行转账',
     stage: '',
+    primaryCategoryId: DEFAULT_INCOME_CATEGORIES[0].id,
+    secondaryCategoryId: DEFAULT_INCOME_CATEGORIES[0].children[0].id,
+    category: DEFAULT_INCOME_CATEGORIES[0].children[0].name,
     receiptDate: new Date().toISOString().slice(0, 10),
     remark: '',
     attachments: [] as string[],
@@ -74,6 +95,17 @@ export default function Income() {
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    loadIncomeCategories(currentBizType).then(setIncomeCategories).catch((error) => {
+      console.error('加载收入类别失败', error);
+      setIncomeCategories(DEFAULT_INCOME_CATEGORIES);
+    });
+    loadExpenseCategories(currentBizType).then(setExpenseCategories).catch((error) => {
+      console.error('加载支出类别失败', error);
+      setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+    });
+  }, [currentBizType]);
 
   const adminUserIds = useMemo(() => users
     .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
@@ -171,11 +203,21 @@ export default function Income() {
     setEditingId(row.id as string);
     const ct = filteredContracts.find(c => c.id === row.contractId);
     setContractSearch(ct ? `${ct.houseAddress} - ${ct.customerName}` : '');
+    const path = resolveExpenseCategory({
+      primaryCategoryId: row.primaryCategoryId as string,
+      primaryCategory: row.primaryCategory as string,
+      secondaryCategoryId: row.secondaryCategoryId as string,
+      secondaryCategory: row.secondaryCategory as string,
+      category: (row.secondaryCategory as string) || (row.stage as string),
+    }, incomeCategories);
     setForm({
       contractId: (row.contractId as string) || '',
       amount: String(row.amount || ''),
       paymentMethod: (row.paymentMethod as string) || '银行转账',
       stage: (row.stage as string) || '',
+      primaryCategoryId: path.primaryId || incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
+      secondaryCategoryId: path.secondaryId || incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
+      category: path.secondaryName || (row.stage as string) || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
       receiptDate: (row.receiptDate as string)?.slice(0, 10) || '',
       remark: (row.remark as string) || '',
       attachments: Array.isArray(row.attachments) ? (row.attachments as any[]) : [],
@@ -228,9 +270,37 @@ export default function Income() {
       ...prevForm,
       contractId,
       stage: defaultStage ? defaultStage.name : '',
+      secondaryCategoryId: incomeCategories[0]?.children.find((child) => child.name === defaultStage?.name)?.id || prevForm.secondaryCategoryId,
+      category: defaultStage?.name || prevForm.category,
       amount: defaultStage ? String(Math.max(defaultStage.amount - stagePaid, 0)) : '',
     }));
-  }, [contracts, receipts]);
+  }, [contracts, receipts, incomeCategories]);
+
+  const handleCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      const normalized = await saveIncomeCategories(categories, currentBizType);
+      setIncomeCategories(normalized);
+      setShowCategoryManager(false);
+    } catch (error: any) {
+      alert(error?.message || '收入类别保存失败，请重试');
+    } finally {
+      setSavingCategories(false);
+    }
+  };
+
+  const handleExpenseCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      const normalized = await saveExpenseCategories(categories, currentBizType);
+      setExpenseCategories(normalized);
+      setShowCategoryManager(false);
+    } catch (error: any) {
+      alert(error?.message || '支出类别保存失败，请重试');
+    } finally {
+      setSavingCategories(false);
+    }
+  };
 
   useEffect(() => {
     if (searchParams.get('action') === 'create') {
@@ -296,6 +366,14 @@ export default function Income() {
         }
       }
       const existingReceipt = editingId ? receipts.find((item) => item.id === editingId) : undefined;
+      const primary = incomeCategories.find((category) => category.id === form.primaryCategoryId) || incomeCategories[0];
+      const secondary = primary?.children.find((child) => child.id === form.secondaryCategoryId) || primary?.children[0];
+      const categoryPath = {
+        primaryId: primary?.id || '',
+        primaryName: primary?.name || '工程款项',
+        secondaryId: secondary?.id || '',
+        secondaryName: secondary?.name || form.stage || '合同款',
+      };
       const receiptData: Record<string, any> = {
         id: editingId || generateId(),
         contractId: form.contractId,
@@ -306,6 +384,7 @@ export default function Income() {
         paymentMethod: form.paymentMethod,
         receiptDate: form.receiptDate,
         stage: form.stage,
+        ...expenseCategoryPayload(categoryPath),
         remark: form.remark,
         createdAt: existingReceipt?.createdAt || new Date().toISOString(),
         attachments: mergeAttachments(form.attachments, uploadedAttachments),
@@ -324,6 +403,9 @@ export default function Income() {
         amount: '',
         paymentMethod: '银行转账',
         stage: '',
+        primaryCategoryId: incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
+        secondaryCategoryId: incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
+        category: incomeCategories[0]?.children[0]?.name || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
         receiptDate: new Date().toISOString().slice(0, 10),
         remark: '',
         attachments: [],
@@ -354,6 +436,21 @@ export default function Income() {
       <span className="text-emerald-600 font-medium">{formatMoney(row.amount as number)}</span>
     )},
     { key: 'paymentMethod', title: '收款方式', sortable: true },
+    {
+      key: 'category',
+      title: '收入类别',
+      render: (row: Record<string, unknown>) => {
+        const path = resolveExpenseCategory(row as any, incomeCategories);
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${incomeCategoryBadgeClass(path.primaryName)}`}>
+              {path.primaryName || '工程款项'}
+            </span>
+            <span className="text-[11px] text-gray-400">{path.secondaryName || (row.stage as string) || '-'}</span>
+          </div>
+        );
+      },
+    },
     { key: 'stage', title: '收款阶段', sortable: true },
     { key: 'receiptDate', title: '日期', sortable: true, render: (row: Record<string, unknown>) => formatDate(row.receiptDate as string) },
     {
@@ -459,7 +556,10 @@ export default function Income() {
     <div className="erp-page-spaced">
       <div className="flex items-center justify-between">
         <div><h1 className="text-base md:text-lg font-bold text-gray-900">收入管理</h1><p className="text-gold-500 text-xs md:text-sm">管理所有收款记录</p></div>
-        <button onClick={() => setShowModal(true)} className="erp-btn-primary hidden md:inline-flex"><Plus size={16} /> 新增收款</button>
+        <div className="hidden items-center gap-2 md:flex">
+          <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary"><Settings size={15} /> 收入类别</button>
+          <button onClick={() => setShowModal(true)} className="erp-btn-primary"><Plus size={16} /> 新增收款</button>
+        </div>
       </div>
 
       {canSeeAllFinancial && (
@@ -488,6 +588,7 @@ export default function Income() {
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索地址/客户/合同号" className="erp-search-input" />
           {search && <button onClick={() => setSearch('')} className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>}
           <button onClick={() => setShowModal(true)} className="erp-btn-primary shrink-0"><Plus size={15} /> 收款</button>
+          <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary shrink-0 md:hidden"><Settings size={15} /> 类别</button>
         </div>
         <DataTable
             columns={columns} 
@@ -506,7 +607,15 @@ export default function Income() {
       </div>
 
       {/* 新增收款 Modal */}
-      <Modal open={showModal} onClose={() => { setShowModal(false); setEditingId(null); setContractSearch(''); setAttachmentFiles([]); setForm(f => ({ ...f, contractId: '', amount: '', stage: '' })); }} title={editingId ? '编辑收款' : '新增收款'} size="lg">
+      <Modal open={showModal} onClose={() => { setShowModal(false); setEditingId(null); setContractSearch(''); setAttachmentFiles([]); setForm(f => ({
+        ...f,
+        contractId: '',
+        amount: '',
+        stage: '',
+        primaryCategoryId: incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
+        secondaryCategoryId: incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
+        category: incomeCategories[0]?.children[0]?.name || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
+      })); }} title={editingId ? '编辑收款' : '新增收款'} size="lg">
         <div className="space-y-4">
           {/* 合同选择 - 可搜索列表 */}
           <div>
@@ -597,8 +706,30 @@ export default function Income() {
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段</label>
               <Select value={form.stage} onChange={(v) => {
                 const stage = contractPaymentInfo?.stages.find(s => s.name === v);
-                setForm({ ...form, stage: v, amount: stage ? String(stage.due) : form.amount });
+                const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
+                setForm({
+                  ...form,
+                  stage: v,
+                  amount: stage ? String(stage.due) : form.amount,
+                  secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
+                  category: categoryChild?.name || v || form.category,
+                });
               }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（${formatMoney(s.amount)}）` }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">收入类别 *</label>
+              <ExpenseCategoryPicker
+                kind="income"
+                categories={incomeCategories}
+                primaryId={form.primaryCategoryId}
+                secondaryId={form.secondaryCategoryId}
+                onChange={(selection) => setForm({
+                  ...form,
+                  primaryCategoryId: selection.primaryId,
+                  secondaryCategoryId: selection.secondaryId,
+                  category: selection.secondaryName,
+                })}
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款金额</label>
@@ -652,6 +783,18 @@ export default function Income() {
           </div>
         </div>
       </Modal>
+      <ExpenseCategoryManager
+        open={showCategoryManager}
+        initialKind="income"
+        categories={expenseCategories}
+        incomeCategories={incomeCategories}
+        expenses={expenses.filter((expense: any) => expense.bizType === currentBizType && isActiveReceipt(expense))}
+        incomes={receipts.filter((receipt: any) => receipt.bizType === currentBizType && isActiveReceipt(receipt))}
+        saving={savingCategories}
+        onClose={() => setShowCategoryManager(false)}
+        onSave={handleExpenseCategorySave}
+        onSaveIncome={handleCategorySave}
+      />
       <Modal
         open={!!reverseReceipt}
         onClose={() => { setReverseReceipt(null); setReverseReason(''); }}

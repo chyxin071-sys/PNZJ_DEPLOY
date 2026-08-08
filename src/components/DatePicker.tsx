@@ -52,7 +52,9 @@ export default function DatePicker({
   const [selectingEnd, setSelectingEnd] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [pickerView, setPickerView] = useState<'day' | 'month' | 'year'>('day');
+  const [desktopPosition, setDesktopPosition] = useState({ top: 0, left: 0, width: 0, placement: 'bottom' as 'top' | 'bottom' });
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -77,7 +79,9 @@ export default function DatePicker({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     // The mobile calendar is rendered through a portal, so it is outside `ref`.
     // Its own backdrop handles closing; the desktop outside-click listener would
@@ -85,6 +89,33 @@ export default function DatePicker({
     if (open && !isMobile) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open, isMobile]);
+
+  const updateDesktopPosition = useCallback(() => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    const panelWidth = window.innerWidth >= 768 ? 288 : 256;
+    const panelHeight = 360;
+    const gap = 6;
+    const left = Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - panelWidth - 12));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const placement = dropUp || (spaceBelow < panelHeight && spaceAbove > spaceBelow) ? 'top' : 'bottom';
+    const top = placement === 'top'
+      ? Math.max(12, rect.top - gap)
+      : Math.min(rect.bottom + gap, window.innerHeight - 12);
+    setDesktopPosition({ top, left, width: rect.width, placement });
+  }, [dropUp]);
+
+  useEffect(() => {
+    if (!open || isMobile) return;
+    updateDesktopPosition();
+    window.addEventListener('resize', updateDesktopPosition);
+    window.addEventListener('scroll', updateDesktopPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateDesktopPosition);
+      window.removeEventListener('scroll', updateDesktopPosition, true);
+    };
+  }, [isMobile, open, updateDesktopPosition]);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewYear(viewYear - 1); setViewMonth(11); }
@@ -306,11 +337,21 @@ export default function DatePicker({
         <Calendar size={14} className="text-gray-400 shrink-0" />
       </button>
 
-      {/* Desktop: popover */}
-      {open && !isMobile && (
-        <div className={`absolute z-[130] left-0 ${dropUp ? 'bottom-full mb-1.5' : 'mt-1.5'}`}>
+      {/* Desktop: portal popover. Keep it out of modal scroll containers so it is never clipped. */}
+      {open && !isMobile && createPortal(
+        <div
+          ref={panelRef}
+          className="fixed z-[140]"
+          style={{
+            left: desktopPosition.left,
+            top: desktopPosition.top,
+            minWidth: Math.max(desktopPosition.width, 256),
+            transform: desktopPosition.placement === 'top' ? 'translateY(-100%)' : undefined,
+          }}
+        >
           {panel}
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Mobile: bottom drawer */}

@@ -70,6 +70,10 @@ export interface Receipt {
   paymentMethod: string;
   receiptDate: string;
   stage: string;
+  primaryCategoryId?: string;
+  primaryCategory?: string;
+  secondaryCategoryId?: string;
+  secondaryCategory?: string;
   remark: string;
   attachments: AttachmentValue[];
   lifecycleStatus?: 'active' | 'deleted' | 'voided' | 'reversed';

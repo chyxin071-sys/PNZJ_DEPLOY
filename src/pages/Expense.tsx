@@ -18,10 +18,13 @@ import dayjs from 'dayjs';
 import ExpenseCategoryManager from '@/components/ExpenseCategoryManager';
 import ExpenseCategoryPicker from '@/components/ExpenseCategoryPicker';
 import {
+  DEFAULT_INCOME_CATEGORIES,
   DEFAULT_EXPENSE_CATEGORIES,
   expenseCategoryPayload,
+  loadIncomeCategories,
   loadExpenseCategories,
   resolveExpenseCategory,
+  saveIncomeCategories,
   saveExpenseCategories,
   type ExpenseCategory,
 } from '@/services/expenseCategories';
@@ -43,7 +46,7 @@ const shouldReverseExpense = (expense: any) => ['已付', '已付款'].includes(
 export default function Expense() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { expenses, contracts, addExpense, updateExpense } = useFinanceStore();
+  const { receipts, expenses, contracts, addExpense, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user, users, loadUsers } = useAuthStore();
   const { showConfirm, showAlert } = useDialogStore();
@@ -63,6 +66,7 @@ export default function Expense() {
   const [showModal, setShowModal] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [incomeCategories, setIncomeCategories] = useState<ExpenseCategory[]>(DEFAULT_INCOME_CATEGORIES);
   const [savingCategories, setSavingCategories] = useState(false);
   const [form, setForm] = useState({
     contractId: '',
@@ -99,6 +103,12 @@ export default function Expense() {
       .catch((error) => {
         console.error('加载支出类别失败', error);
         setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+      });
+    loadIncomeCategories(currentBizType)
+      .then(setIncomeCategories)
+      .catch((error) => {
+        console.error('加载收入类别失败', error);
+        setIncomeCategories(DEFAULT_INCOME_CATEGORIES);
       });
     setActiveTab('全部');
   }, [currentBizType]);
@@ -301,6 +311,19 @@ export default function Expense() {
       setShowCategoryManager(false);
     } catch (error: any) {
       alert(error?.message || '支出类别保存失败，请重试');
+    } finally {
+      setSavingCategories(false);
+    }
+  };
+
+  const handleIncomeCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      const normalized = await saveIncomeCategories(categories, currentBizType);
+      setIncomeCategories(normalized);
+      setShowCategoryManager(false);
+    } catch (error: any) {
+      alert(error?.message || '收入类别保存失败，请重试');
     } finally {
       setSavingCategories(false);
     }
@@ -788,11 +811,15 @@ export default function Expense() {
       </Modal>
       <ExpenseCategoryManager
         open={showCategoryManager}
+        initialKind="expense"
         categories={expenseCategories}
+        incomeCategories={incomeCategories}
         expenses={expenses.filter((expense: any) => expense.bizType === currentBizType && isActiveExpense(expense))}
+        incomes={receipts.filter((receipt: any) => receipt.bizType === currentBizType && isActiveExpense(receipt))}
         saving={savingCategories}
         onClose={() => setShowCategoryManager(false)}
         onSave={handleCategorySave}
+        onSaveIncome={handleIncomeCategorySave}
       />
     </div>
   );
