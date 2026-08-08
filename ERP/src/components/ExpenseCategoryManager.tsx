@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ExpenseCategory, ExpenseCategorySource, FinanceCategoryKind } from '@/services/expenseCategories';
 import { resolveExpenseCategory } from '@/services/expenseCategories';
+import { useDialogStore } from '@/store/dialogStore';
 import { generateId } from '@/utils/format';
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export default function ExpenseCategoryManager({ open, categories, incomeCategories, expenses, incomes = [], initialKind = 'expense', saving, onClose, onSave, onSaveIncome }: Props) {
+  const { showConfirm } = useDialogStore();
   const [kind, setKind] = useState<FinanceCategoryKind>(initialKind);
   const [draft, setDraft] = useState<ExpenseCategory[]>([]);
   const [selectedPrimaryId, setSelectedPrimaryId] = useState('');
@@ -45,6 +47,12 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
   }, [open, activeCategories, kind]);
 
   const selected = draft.find((category) => category.id === selectedPrimaryId) || draft[0];
+  const categorySignature = (items: ExpenseCategory[]) => JSON.stringify(items.map((category) => ({
+    id: category.id,
+    name: category.name,
+    children: category.children.map((child) => ({ id: child.id, name: child.name })),
+  })));
+  const hasUnsavedChanges = categorySignature(draft) !== categorySignature(activeCategories);
   const usage = useMemo(() => {
     const primary = new Map<string, number>();
     const secondary = new Map<string, number>();
@@ -116,7 +124,7 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
       : category));
   };
 
-  const submit = async () => {
+  const saveDraft = async () => {
     const normalized = draft.map((category) => ({
       ...category,
       name: category.name.trim(),
@@ -124,20 +132,51 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
     }));
     if (!normalized.length || normalized.some((category) => !category.name || !category.children.length || category.children.some((child) => !child.name))) {
       setError('每个一级分类至少需要一个名称完整的二级分类');
-      return;
+      return false;
     }
     const primaryNames = normalized.map((category) => category.name);
     if (new Set(primaryNames).size !== primaryNames.length) {
       setError('一级分类名称不能重复');
-      return;
+      return false;
     }
     if (normalized.some((category) => new Set(category.children.map((child) => child.name)).size !== category.children.length)) {
       setError('同一一级分类下，二级分类名称不能重复');
-      return;
+      return false;
     }
     setError('');
     if (kind === 'income') await (onSaveIncome || onSave)(normalized);
     else await onSave(normalized);
+    return true;
+  };
+
+  const submit = async () => {
+    try {
+      if (await saveDraft()) onClose();
+    } catch {
+      // 保存失败由页面提示，弹窗保持打开。
+    }
+  };
+
+  const switchKind = async (nextKind: FinanceCategoryKind) => {
+    if (nextKind === kind || saving) return;
+    if (newPrimary.trim() || newSecondary.trim()) {
+      setError('还有未添加的分类名称，请先点击“添加”后再保存并切换');
+      return;
+    }
+    if (!hasUnsavedChanges) {
+      setKind(nextKind);
+      return;
+    }
+    const confirmed = await showConfirm(
+      `当前${activeLabel}类别有未保存的修改，是否保存后切换到${nextKind === 'income' ? '收入类别' : '支出类别'}？`,
+      { title: '保存分类修改', confirmText: '保存并切换', cancelText: '继续编辑' },
+    );
+    if (!confirmed) return;
+    try {
+      if (await saveDraft()) setKind(nextKind);
+    } catch {
+      // 保存失败由页面提示，保留当前草稿供继续处理。
+    }
   };
 
   return (
@@ -156,7 +195,8 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
             <button
               key={item}
               type="button"
-              onClick={() => setKind(item)}
+              onClick={() => void switchKind(item)}
+              disabled={saving}
               className={`rounded-md px-3 py-1.5 text-sm font-medium ${kind === item ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
             >
               {item === 'income' ? '收入类别' : '支出类别'}

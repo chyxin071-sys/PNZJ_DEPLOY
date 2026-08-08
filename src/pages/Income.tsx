@@ -281,9 +281,9 @@ export default function Income() {
     try {
       const normalized = await saveIncomeCategories(categories, currentBizType);
       setIncomeCategories(normalized);
-      setShowCategoryManager(false);
     } catch (error: any) {
       alert(error?.message || '收入类别保存失败，请重试');
+      throw error;
     } finally {
       setSavingCategories(false);
     }
@@ -294,9 +294,9 @@ export default function Income() {
     try {
       const normalized = await saveExpenseCategories(categories, currentBizType);
       setExpenseCategories(normalized);
-      setShowCategoryManager(false);
     } catch (error: any) {
       alert(error?.message || '支出类别保存失败，请重试');
+      throw error;
     } finally {
       setSavingCategories(false);
     }

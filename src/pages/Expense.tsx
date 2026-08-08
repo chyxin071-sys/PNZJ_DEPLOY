@@ -308,9 +308,9 @@ export default function Expense() {
       setExpenseCategories(normalized);
       const activeStillExists = activeTab === '全部' || normalized.some((category) => category.name === activeTab);
       if (!activeStillExists) setActiveTab('全部');
-      setShowCategoryManager(false);
     } catch (error: any) {
       alert(error?.message || '支出类别保存失败，请重试');
+      throw error;
     } finally {
       setSavingCategories(false);
     }
@@ -321,9 +321,9 @@ export default function Expense() {
     try {
       const normalized = await saveIncomeCategories(categories, currentBizType);
       setIncomeCategories(normalized);
-      setShowCategoryManager(false);
     } catch (error: any) {
       alert(error?.message || '收入类别保存失败，请重试');
+      throw error;
     } finally {
       setSavingCategories(false);
     }
