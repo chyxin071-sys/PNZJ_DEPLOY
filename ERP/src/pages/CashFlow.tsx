@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip, Upload } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, DollarSign, ExternalLink, Paperclip, Settings, Upload } from 'lucide-react';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useAuthStore } from '@/store/authStore';
@@ -15,10 +15,22 @@ import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import FinanceImportModal from '@/components/FinanceImportModal';
+import ExpenseCategoryManager from '@/components/ExpenseCategoryManager';
 import { useIncrementalList } from '@/hooks/useListViewportState';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AttachmentValue } from '@/types';
 import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  DEFAULT_INCOME_CATEGORIES,
+  expenseCategoryPayload,
+  loadExpenseCategories,
+  loadIncomeCategories,
+  resolveExpenseCategory,
+  saveExpenseCategories,
+  saveIncomeCategories,
+  type ExpenseCategory,
+} from '@/services/expenseCategories';
 
 interface FlowItem {
   id: string;
@@ -33,6 +45,8 @@ interface FlowItem {
   address?: string;
   stage?: string;
   category?: string;
+  primaryCategory?: string;
+  secondaryCategory?: string;
   paymentMethod?: string;
   status?: string;
   remark?: string;
@@ -61,6 +75,10 @@ export default function CashFlow() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedFlow, setSelectedFlow] = useState<FlowItem | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [incomeCategories, setIncomeCategories] = useState<ExpenseCategory[]>(DEFAULT_INCOME_CATEGORIES);
+  const [savingCategories, setSavingCategories] = useState(false);
   const [controlFlow, setControlFlow] = useState<FlowItem | null>(null);
   const [controlReason, setControlReason] = useState('');
 
@@ -69,6 +87,54 @@ export default function CashFlow() {
   useEffect(() => {
     if (users.length === 0) void loadUsers().catch(() => {});
   }, [loadUsers, users.length]);
+
+  useEffect(() => {
+    loadExpenseCategories(currentBizType).then(setExpenseCategories).catch(() => setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES));
+    loadIncomeCategories(currentBizType).then(setIncomeCategories).catch(() => setIncomeCategories(DEFAULT_INCOME_CATEGORIES));
+  }, [currentBizType]);
+
+  const handleExpenseCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      const previous = expenseCategories;
+      const normalized = await saveExpenseCategories(categories, currentBizType);
+      const updates = expenses.flatMap((expense: any) => {
+        if (expense.bizType !== currentBizType || !isActiveFinanceRecord(expense)) return [];
+        const oldPath = resolveExpenseCategory(expense, previous);
+        const primary = normalized.find((category) => category.id === oldPath.primaryId);
+        const secondary = primary?.children.find((child) => child.id === oldPath.secondaryId);
+        if (!expense.id || !primary || !secondary) return [];
+        return [{
+          ...expense,
+          ...expenseCategoryPayload({
+            primaryId: primary.id,
+            primaryName: primary.name,
+            secondaryId: secondary.id,
+            secondaryName: secondary.name,
+          }),
+        }];
+      });
+      for (const update of updates) await updateExpense(update as any);
+      setExpenseCategories(normalized);
+    } catch (error: any) {
+      await showAlert(error?.message || '支出类别保存失败，请重试');
+      throw error;
+    } finally {
+      setSavingCategories(false);
+    }
+  };
+
+  const handleIncomeCategorySave = async (categories: ExpenseCategory[]) => {
+    setSavingCategories(true);
+    try {
+      setIncomeCategories(await saveIncomeCategories(categories, currentBizType));
+    } catch (error: any) {
+      await showAlert(error?.message || '收入类别保存失败，请重试');
+      throw error;
+    } finally {
+      setSavingCategories(false);
+    }
+  };
 
   const adminUserIds = useMemo(() => users
     .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
@@ -134,44 +200,55 @@ export default function CashFlow() {
 
   const flowList = useMemo(() => {
     const flows: FlowItem[] = [
-      ...filteredReceipts.map((r) => ({
-        id: `receipt-${r._id || r.id}`,
-        sourceId: r._id || r.id,
-        date: r.receiptDate,
-        type: '收款' as const,
-        amount: r.amount,
-        contractId: getContractId(r.contractId, r.contractNo),
-        contractNo: r.contractNo,
-        relatedParty: r.customerName,
-        address: getHouseAddress(r.contractNo),
-        stage: r.stage,
-        paymentMethod: r.paymentMethod,
-        remark: r.remark,
-        attachments: r.attachments || [],
-        source: r,
-        summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
-      })),
-      ...filteredExpenses.map((e) => ({
-        id: `expense-${e._id || e.id}`,
-        sourceId: e._id || e.id,
-        date: e.expenseDate,
-        type: '支出' as const,
-        amount: e.amount,
-        contractId: getContractId(e.contractId, e.contractNo),
-        contractNo: e.contractNo,
-        relatedParty: e.supplier,
-        address: getHouseAddress(e.contractNo),
-        category: e.category,
-        paymentMethod: e.payMethod,
-        status: e.status,
-        remark: e.remark,
-        attachments: e.attachments || [],
-        source: e,
-        summary: `${e.category}${e.remark ? ' - ' + e.remark : ''}`,
-      })),
+      ...filteredReceipts.map((r) => {
+        const categoryPath = resolveExpenseCategory(r, incomeCategories);
+        return {
+          id: `receipt-${r._id || r.id}`,
+          sourceId: r._id || r.id,
+          date: r.receiptDate,
+          type: '收款' as const,
+          amount: r.amount,
+          contractId: getContractId(r.contractId, r.contractNo),
+          contractNo: r.contractNo,
+          relatedParty: r.customerName,
+          address: getHouseAddress(r.contractNo),
+          stage: r.stage,
+          category: categoryPath.secondaryName,
+          primaryCategory: categoryPath.primaryName,
+          secondaryCategory: categoryPath.secondaryName,
+          paymentMethod: r.paymentMethod,
+          remark: r.remark,
+          attachments: r.attachments || [],
+          source: r,
+          summary: `${r.stage} - ${r.paymentMethod}${r.remark ? ' - ' + r.remark : ''}`,
+        };
+      }),
+      ...filteredExpenses.map((e) => {
+        const categoryPath = resolveExpenseCategory(e, expenseCategories);
+        return {
+          id: `expense-${e._id || e.id}`,
+          sourceId: e._id || e.id,
+          date: e.expenseDate,
+          type: '支出' as const,
+          amount: e.amount,
+          contractId: getContractId(e.contractId, e.contractNo),
+          contractNo: e.contractNo,
+          relatedParty: e.supplier,
+          address: getHouseAddress(e.contractNo),
+          category: categoryPath.secondaryName,
+          primaryCategory: categoryPath.primaryName,
+          secondaryCategory: categoryPath.secondaryName,
+          paymentMethod: e.payMethod,
+          status: e.status,
+          remark: e.remark,
+          attachments: e.attachments || [],
+          source: e,
+          summary: `${categoryPath.primaryName} - ${categoryPath.secondaryName}${e.remark ? ' - ' + e.remark : ''}`,
+        };
+      }),
     ];
     return flows.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  }, [filteredReceipts, filteredExpenses, contracts]);
+  }, [filteredReceipts, filteredExpenses, contracts, incomeCategories, expenseCategories]);
 
   const filtered = useMemo(() => {
     let list = [...flowList];
@@ -336,12 +413,14 @@ export default function CashFlow() {
     {
       key: 'date',
       title: '日期',
+      width: '120px',
       sortable: true,
       render: (row: FlowItem) => formatDate(row.date),
     },
     {
       key: 'type',
       title: '类型',
+      width: '90px',
       sortable: true,
       render: (row: FlowItem) => {
         const isIncome = row.type === '收款';
@@ -359,6 +438,7 @@ export default function CashFlow() {
     {
       key: 'amount',
       title: '金额',
+      width: '140px',
       sortable: true,
       render: (row: FlowItem) => {
         const isIncome = row.type === '收款';
@@ -373,6 +453,7 @@ export default function CashFlow() {
     {
       key: 'address',
       title: '地址',
+      width: '220px',
       sortable: true,
       render: (row: FlowItem) => (
         <span className="block max-w-[220px] truncate font-medium text-gray-900" title={row.address || '-'}>
@@ -381,59 +462,51 @@ export default function CashFlow() {
       ),
     },
     {
-      key: 'relatedParty',
-      title: '姓名',
-      sortable: true,
-      render: (row: FlowItem) => <span className="text-gray-700">{row.relatedParty || '-'}</span>,
-    },
-    {
-      key: 'summary',
-      title: '说明',
+      key: 'primaryCategory',
+      title: '一级分类',
+      width: '150px',
       render: (row: FlowItem) => (
-        <span className="block max-w-[260px] truncate text-gray-600" title={row.summary || '-'}>
-          {row.summary || '-'}
+        <span className="block truncate text-gray-700" title={row.primaryCategory || '-'}>
+          {row.primaryCategory || '-'}
         </span>
       ),
     },
     {
-      key: 'recordAction',
-      title: '处理',
-      width: '108px',
+      key: 'secondaryCategory',
+      title: '二级分类',
+      width: '180px',
+      render: (row: FlowItem) => (
+        <span className="block truncate font-medium text-gray-800" title={row.secondaryCategory || '-'}>
+          {row.secondaryCategory || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'remark',
+      title: '备注',
+      width: '240px',
+      render: (row: FlowItem) => (
+        <span className="block truncate text-gray-600" title={row.remark || '-'}>
+          {row.remark || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'detailAction',
+      title: '详情',
+      width: '100px',
       render: (row: FlowItem) => (
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
-            openFlowControl(row);
+            setSelectedFlow(row);
           }}
-          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
-            row.id.startsWith('receipt-')
-              ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-              : 'bg-red-50 text-red-600 hover:bg-red-100'
-          }`}
+          className="inline-flex items-center gap-1 rounded-md bg-gold-50 px-2 py-1 text-xs font-medium text-gold-700 hover:bg-gold-100"
         >
-          {getControlLabel(row)}
+          <ExternalLink size={12} />
+          查看
         </button>
-      ),
-    },
-    {
-      key: 'contractAction',
-      title: '合同详情',
-      width: '96px',
-      render: (row: FlowItem) => (
-        row.contractId ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`/contracts/${row.contractId}`);
-            }}
-            className="inline-flex items-center gap-1 rounded-md bg-gold-50 px-2 py-1 text-xs font-medium text-gold-700 hover:bg-gold-100"
-          >
-            <ExternalLink size={12} />
-            查看
-          </button>
-        ) : <span className="text-xs text-gray-300">-</span>
       ),
     },
   ];
@@ -469,13 +542,13 @@ export default function CashFlow() {
       },
     },
     {
-      key: 'summary',
-      title: '说明',
+      key: 'categorySummary',
+      title: '分类与备注',
       render: (row: FlowItem) => (
         <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-gray-400">{row.type === '收款' ? '收款阶段' : '支出类别'}</span>
-            <span className="font-medium text-gray-700">{row.type === '收款' ? (row.stage || '-') : (row.category || '-')}</span>
+          <div className="flex items-start justify-between gap-3 text-xs">
+            <span className="shrink-0 text-gray-400">分类</span>
+            <span className="text-right font-medium text-gray-700">{row.primaryCategory || '-'} / {row.secondaryCategory || '-'}</span>
           </div>
           {row.remark ? (
             <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">备注：{row.remark}</div>
@@ -494,6 +567,14 @@ export default function CashFlow() {
           <p className="text-gold-500 text-xs md:text-sm">所有收付款记录汇总</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCategoryManager(true)}
+            className="erp-btn-secondary hidden md:inline-flex"
+          >
+            <Settings size={15} />
+            收支类别
+          </button>
           <button
             onClick={() => setShowImportModal(true)}
             className="erp-btn-primary"
@@ -603,6 +684,8 @@ export default function CashFlow() {
             onRowClick={(row) => setSelectedFlow(row)}
             emptyText="暂无流水记录"
             mobileCardColumns={mobileColumns}
+            horizontalScroll
+            fixedLeft={1}
         />
         {hasMoreFlows && (
           <div className="flex justify-center border-t border-gray-50 px-4 py-4">
@@ -641,7 +724,9 @@ export default function CashFlow() {
               <DetailItem label="合同编号" value={selectedFlow.contractNo || '-'} />
               <DetailItem label={selectedFlow.type === '收款' ? '客户姓名' : '收款方/供应商'} value={selectedFlow.relatedParty || '-'} />
               <DetailItem label="项目地址" value={selectedFlow.address || '-'} wide />
-              <DetailItem label={selectedFlow.type === '收款' ? '收款阶段' : '支出类别'} value={selectedFlow.type === '收款' ? (selectedFlow.stage || '-') : (selectedFlow.category || '-')} />
+              {selectedFlow.type === '收款' ? <DetailItem label="收款阶段" value={selectedFlow.stage || '-'} /> : null}
+              <DetailItem label="一级分类" value={selectedFlow.primaryCategory || '-'} />
+              <DetailItem label="二级分类" value={selectedFlow.secondaryCategory || '-'} />
               <DetailItem label={selectedFlow.type === '收款' ? '收款方式' : '支出方式'} value={selectedFlow.paymentMethod || '-'} />
               {selectedFlow.status ? <DetailItem label="状态" value={selectedFlow.status} /> : null}
               <DetailItem label="备注" value={selectedFlow.remark || '-'} wide />
@@ -719,6 +804,18 @@ export default function CashFlow() {
         )}
       </Modal>
       <FinanceImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
+      <ExpenseCategoryManager
+        open={showCategoryManager}
+        initialKind="expense"
+        categories={expenseCategories}
+        incomeCategories={incomeCategories}
+        expenses={expenses.filter((expense: any) => expense.bizType === currentBizType && isActiveFinanceRecord(expense))}
+        incomes={receipts.filter((receipt: any) => receipt.bizType === currentBizType && isActiveFinanceRecord(receipt))}
+        saving={savingCategories}
+        onClose={() => setShowCategoryManager(false)}
+        onSave={handleExpenseCategorySave}
+        onSaveIncome={handleIncomeCategorySave}
+      />
     </div>
   );
 }

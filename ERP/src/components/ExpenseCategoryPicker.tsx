@@ -44,52 +44,56 @@ export default function ExpenseCategoryPicker({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-2.5">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500">一级分类</span>
-        <span className="text-[11px] text-gray-400">{kind === 'income' ? '用于收入大类归集' : '用于费用大类归集'}</span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => selectPrimary(category.id)}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              category.id === primary?.id
-                ? 'bg-gold-100 text-gold-700 ring-1 ring-gold-300'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            {category.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-3 border-t border-gray-100 pt-2">
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-xs font-medium text-gray-500">二级分类</span>
-          <span className="text-[11px] text-gray-400">{kind === 'income' ? '用于具体收入明细' : '用于具体支出明细'}</span>
+    <div className="grid min-h-[220px] grid-cols-[minmax(120px,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="min-w-0 border-r border-gray-200 bg-gray-50/60">
+        <div className="border-b border-gray-100 px-3 py-2.5">
+          <div className="text-xs font-medium text-gray-600">一级分类</div>
+          <div className="mt-0.5 text-[11px] text-gray-400">{kind === 'income' ? '收入大类' : '费用大类'}</div>
         </div>
-        <div className="flex flex-wrap gap-2">
-        {secondaryOptions.length > 0 ? (
-          secondaryOptions.map((child) => (
+        <div className="max-h-[280px] space-y-1 overflow-y-auto p-2">
+          {categories.map((category) => (
             <button
-              key={child.id}
+              key={category.id}
               type="button"
-              onClick={() => selectSecondary(child.id)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                child.id === secondaryId
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              onClick={() => selectPrimary(category.id)}
+              className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium leading-5 transition-colors ${
+                category.id === primary?.id
+                  ? 'bg-gold-100 text-gold-700 ring-1 ring-inset ring-gold-300'
+                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
               }`}
             >
-              {child.name}
+              {category.name}
             </button>
-          ))
-        ) : (
-          <span className="text-xs text-gray-400">请先在类别管理中添加二级分类</span>
-        )}
+          ))}
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="border-b border-gray-100 px-3 py-2.5">
+          <div className="text-xs font-medium text-gray-600">二级分类</div>
+          <div className="mt-0.5 truncate text-[11px] text-gray-400" title={primary?.name}>
+            {primary?.name ? `${primary.name}下的明细` : '具体收支明细'}
+          </div>
+        </div>
+        <div className="max-h-[280px] space-y-1 overflow-y-auto p-2">
+          {secondaryOptions.length > 0 ? (
+            secondaryOptions.map((child) => (
+              <button
+                key={child.id}
+                type="button"
+                onClick={() => selectSecondary(child.id)}
+                className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium leading-5 transition-colors ${
+                  child.id === secondaryId
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                {child.name}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-8 text-center text-xs leading-5 text-gray-400">请先在类别管理中添加二级分类</div>
+          )}
         </div>
       </div>
     </div>
