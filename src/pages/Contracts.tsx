@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
@@ -34,6 +34,7 @@ const emptyForm = () => ({
   houseAddress: '',
   remark: '',
   status: '进行中' as Contract['status'],
+  stages: commercialStages(),
 });
 
 function focusNextOnEnter(event: React.KeyboardEvent<HTMLElement>) {
@@ -217,6 +218,7 @@ export default function Contracts() {
       houseAddress: contract.houseAddress || '',
       remark: contract.remark || '',
       status: contract.status || '进行中',
+      stages: (contract.paymentStages || commercialStages()).map((stage) => ({ ...stage })),
     });
     setModalOpen(true);
   };
@@ -225,11 +227,38 @@ export default function Contracts() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateStage = (index: number, field: 'name' | 'amount', value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      stages: previous.stages.map((stage, stageIndex) => stageIndex === index
+        ? { ...stage, [field]: field === 'amount' ? Number(value) || 0 : value }
+        : stage),
+    }));
+  };
+
+  const addStage = () => setForm((previous) => ({
+    ...previous,
+    stages: [...previous.stages, { name: '', amount: 0, ratio: 0 }],
+  }));
+
+  const removeStage = (index: number) => setForm((previous) => ({
+    ...previous,
+    stages: previous.stages.length <= 1 ? previous.stages : previous.stages.filter((_, stageIndex) => stageIndex !== index),
+  }));
+
   const handleSave = async () => {
     if (!form.partyA.trim() || saving) return;
     setSaving(true);
     try {
       const amount = Math.round(Number(form.contractAmount) || 0);
+      const paymentStages = form.stages
+        .filter((stage) => stage.name.trim())
+        .map((stage) => ({
+          ...stage,
+          name: stage.name.trim(),
+          amount: Number(stage.amount) || 0,
+          ratio: amount > 0 ? (Number(stage.amount) || 0) / amount : 0,
+        }));
       if (editingId) {
         const existing = contracts.find((c) => c.id === editingId || c._id === editingId);
         if (!existing) return;
@@ -241,6 +270,7 @@ export default function Contracts() {
           partyB: form.partyB.trim(),
           partyC: form.partyC.trim(),
           contractAmount: amount,
+          paymentStages: paymentStages.length > 0 ? paymentStages : commercialStages(),
           houseAddress: normalizeAddress(form.houseAddress),
           signDate: form.signDate || today(),
           remark: form.remark,
@@ -254,6 +284,7 @@ export default function Contracts() {
           partyB: form.partyB.trim(),
           partyC: form.partyC.trim(),
           contractAmount: amount,
+          paymentStages: paymentStages.length > 0 ? paymentStages : commercialStages(),
           houseAddress: normalizeAddress(form.houseAddress),
           signDate: form.signDate || today(),
           remark: form.remark,
@@ -272,7 +303,7 @@ export default function Contracts() {
           partyC: form.partyC.trim(),
           houseAddress: normalizeAddress(form.houseAddress),
           contractAmount: amount,
-          paymentStages: commercialStages(),
+          paymentStages: paymentStages.length > 0 ? paymentStages : commercialStages(),
           status: '进行中',
           signDate: form.signDate || today(),
           expectedEndDate: '',
@@ -455,8 +486,23 @@ export default function Contracts() {
               <FormField label="备注">
                 <textarea value={form.remark} onChange={(e) => update('remark', e.target.value)} rows={3} className="erp-input resize-none" />
               </FormField>
-              <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                工装收款阶段默认包含回款、质保金；阶段名称和金额可在合同详情中继续编辑。
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-xs font-medium text-gray-500">合同收款计划</label>
+                  <button type="button" onClick={addStage} className="text-xs font-medium text-gold-600">+ 添加阶段</button>
+                </div>
+                <p className="mb-2 text-[11px] text-gray-400">可修改默认名称或添加合同阶段；临时到账请在新增收款时选择“自定义阶段”。</p>
+                <div className="space-y-2">
+                  {form.stages.map((stage, index) => (
+                    <div key={index} className="grid grid-cols-[minmax(0,1fr)_120px_28px] items-center gap-2">
+                      <input value={stage.name} onChange={(event) => updateStage(index, 'name', event.target.value)} className="erp-input text-xs" placeholder="阶段名称" />
+                      <input type="number" value={stage.amount || ''} onChange={(event) => updateStage(index, 'amount', event.target.value)} className="erp-input text-xs" placeholder="应收金额" />
+                      <button type="button" onClick={() => removeStage(index)} disabled={form.stages.length <= 1} className="p-1 text-gray-300 hover:text-red-500 disabled:opacity-30" aria-label="删除收款阶段">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button onClick={() => setModalOpen(false)} className="erp-btn-secondary" disabled={saving}>取消</button>

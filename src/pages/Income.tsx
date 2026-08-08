@@ -77,6 +77,7 @@ export default function Income() {
     amount: '',
     paymentMethod: '银行转账',
     stage: '',
+    stageType: 'contract' as 'contract' | 'custom',
     primaryCategoryId: DEFAULT_INCOME_CATEGORIES[0].id,
     secondaryCategoryId: DEFAULT_INCOME_CATEGORIES[0].children[0].id,
     category: DEFAULT_INCOME_CATEGORIES[0].children[0].name,
@@ -202,6 +203,7 @@ export default function Income() {
   const openEditReceipt = (row: Record<string, unknown>) => {
     setEditingId(row.id as string);
     const ct = filteredContracts.find(c => c.id === row.contractId);
+    const stageType = (row.stageType as 'contract' | 'custom' | undefined) || (ct?.paymentStages.some((stage) => stage.name === row.stage) ? 'contract' : 'custom');
     setContractSearch(ct ? `${ct.houseAddress} - ${ct.customerName}` : '');
     const path = resolveExpenseCategory({
       primaryCategoryId: row.primaryCategoryId as string,
@@ -215,6 +217,7 @@ export default function Income() {
       amount: String(row.amount || ''),
       paymentMethod: (row.paymentMethod as string) || '银行转账',
       stage: (row.stage as string) || '',
+      stageType,
       primaryCategoryId: path.primaryId || incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
       secondaryCategoryId: path.secondaryId || incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
       category: path.secondaryName || (row.stage as string) || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
@@ -270,6 +273,7 @@ export default function Income() {
       ...prevForm,
       contractId,
       stage: defaultStage ? defaultStage.name : '',
+      stageType: 'contract',
       secondaryCategoryId: incomeCategories[0]?.children.find((child) => child.name === defaultStage?.name)?.id || prevForm.secondaryCategoryId,
       category: defaultStage?.name || prevForm.category,
       amount: defaultStage ? String(Math.max(defaultStage.amount - stagePaid, 0)) : '',
@@ -329,7 +333,7 @@ export default function Income() {
   }, [receipts, searchParams, setSearchParams]);
 
   const getAmountWarning = () => {
-    if (!contractPaymentInfo || !form.stage || !form.amount) return null;
+    if (form.stageType !== 'contract' || !contractPaymentInfo || !form.stage || !form.amount) return null;
     const stage = contractPaymentInfo.stages.find(s => s.name === form.stage);
     if (!stage) return null;
     const inputAmount = Number(form.amount);
@@ -346,6 +350,10 @@ export default function Income() {
 
   const handleSubmit = async () => {
     if (!selectedContract || !form.amount || !form.stage || submitting) return;
+    if (form.stageType === 'custom' && selectedContract.paymentStages.some((stage) => stage.name === form.stage.trim())) {
+      await showAlert('自定义阶段不能与合同收款阶段同名，请选择“合同阶段”或更换名称。');
+      return;
+    }
     setSubmitting(true);
     try {
       let uploadedAttachments: AttachmentValue[] = [];
@@ -384,6 +392,7 @@ export default function Income() {
         paymentMethod: form.paymentMethod,
         receiptDate: form.receiptDate,
         stage: form.stage,
+        stageType: form.stageType,
         ...expenseCategoryPayload(categoryPath),
         remark: form.remark,
         createdAt: existingReceipt?.createdAt || new Date().toISOString(),
@@ -403,6 +412,7 @@ export default function Income() {
         amount: '',
         paymentMethod: '银行转账',
         stage: '',
+        stageType: 'contract',
         primaryCategoryId: incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
         secondaryCategoryId: incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
         category: incomeCategories[0]?.children[0]?.name || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
@@ -612,6 +622,7 @@ export default function Income() {
         contractId: '',
         amount: '',
         stage: '',
+        stageType: 'contract',
         primaryCategoryId: incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
         secondaryCategoryId: incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
         category: incomeCategories[0]?.children[0]?.name || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
@@ -657,7 +668,7 @@ export default function Income() {
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-800">{selectedContract?.houseAddress}</span>
-                  <button onClick={() => { setForm({ ...form, contractId: '', stage: '', amount: '' }); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                  <button onClick={() => { setForm({ ...form, contractId: '', stage: '', stageType: 'contract', amount: '' }); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
                 </div>
                 <p className="text-xs text-gray-400">{selectedContract?.customerName} · {formatMoney(selectedContract?.contractAmount || 0)}</p>
               </div>
@@ -703,18 +714,34 @@ export default function Income() {
 
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段</label>
-              <Select value={form.stage} onChange={(v) => {
-                const stage = contractPaymentInfo?.stages.find(s => s.name === v);
-                const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
-                setForm({
-                  ...form,
-                  stage: v,
-                  amount: stage ? String(stage.due) : form.amount,
-                  secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
-                  category: categoryChild?.name || v || form.category,
-                });
-              }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（${formatMoney(s.amount)}）` }))} />
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段 *</label>
+              <div className="mb-2 grid grid-cols-2 rounded-md bg-gray-100 p-1">
+                {([
+                  { value: 'contract', label: '合同阶段' },
+                  { value: 'custom', label: '自定义阶段' },
+                ] as const).map((option) => (
+                  <button key={option.value} type="button" onClick={() => setForm({ ...form, stageType: option.value, stage: '', amount: option.value === 'contract' ? '' : form.amount })}
+                    className={`rounded px-3 py-1.5 text-xs font-medium ${form.stageType === option.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {form.stageType === 'contract' ? (
+                <Select value={form.stage} onChange={(v) => {
+                  const stage = contractPaymentInfo?.stages.find(s => s.name === v);
+                  const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
+                  setForm({
+                    ...form,
+                    stage: v,
+                    amount: stage ? String(Math.max(stage.due, 0)) : form.amount,
+                    secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
+                    category: categoryChild?.name || v || form.category,
+                  });
+                }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（应收 ${formatMoney(s.amount)}）` }))} />
+              ) : (
+                <input value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })} className="erp-input" placeholder="例如：临时补款、追加款" />
+              )}
+              {form.stageType === 'custom' ? <p className="mt-1 text-[11px] text-gray-400">自定义阶段只计入实际收入，不进入合同收款计划。</p> : null}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">收入类别 *</label>

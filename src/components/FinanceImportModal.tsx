@@ -27,6 +27,7 @@ type ImportRow = Record<string, any>;
 
 type ParsedImport = {
   contracts: Contract[];
+  contractUpdates: Contract[];
   receipts: Receipt[];
   expenses: Expense[];
   errors: string[];
@@ -83,6 +84,8 @@ const homeIncomeHeaders = [
   '合同编号',
   '归属项目',
   '收款阶段',
+  '是否进入合同收款计划',
+  '阶段应收金额',
   '一级分类',
   '二级分类',
   '收款金额',
@@ -95,6 +98,8 @@ const commercialIncomeHeaders = [
   '合同编号',
   '项目名称',
   '收款阶段',
+  '是否进入合同收款计划',
+  '阶段应收金额',
   '一级分类',
   '二级分类',
   '收款金额',
@@ -130,8 +135,8 @@ const commercialExpenseHeaders = [
 
 const requiredHomeContractHeaders = ['合同编号', '归属项目', '客户名称', '签约日期', '合同金额'];
 const requiredCommercialContractHeaders = ['合同编号', '项目名称', '甲方', '签约日期', '合同金额'];
-const requiredIncomeHeaders = ['收款日期', '合同编号', '收款阶段', '一级分类', '二级分类', '收款金额'];
-const requiredExpenseHeaders = ['支出日期', '一级分类', '二级分类', '支出金额', '收款方'];
+const requiredIncomeHeaders = ['收款日期', '合同编号', '收款阶段', '是否进入合同收款计划', '阶段应收金额', '一级分类', '二级分类', '收款金额'];
+const requiredExpenseHeaders = ['支出日期', '一级分类', '二级分类', '支出金额'];
 const validContractStatuses = new Set(['进行中', '已完工', '已结算']);
 const validExpenseStatuses = new Set(['已付', '未付']);
 const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
@@ -297,8 +302,8 @@ function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCat
   appendStyledSheet(excel, workbook, CONTRACT_SHEET, [contractHeaders, contractExample], requiredContractHeaders, [1]);
 
   const incomeExample = isCommercial
-    ? ['2026-04-28', '示例-导入前删除', '某商业办公室装修项目', '回款', firstIncomeCategory[0], firstIncomeCategory[1], 50000, '银行转账', '示例行，正式导入前请整行删除']
-    : ['2024-01-21', '示例-导入前删除', '核城家园2区3-1-502', '定金', firstIncomeCategory[0], firstIncomeCategory[1], 1000, '银行转账', '示例行，正式导入前请整行删除'];
+    ? ['2026-04-28', '示例-导入前删除', '某商业办公室装修项目', '首期回款', '是', 100000, firstIncomeCategory[0], firstIncomeCategory[1], 50000, '银行转账', '示例行，正式导入前请整行删除']
+    : ['2024-01-21', '示例-导入前删除', '核城家园2区3-1-502', '首期款', '是', 10000, firstIncomeCategory[0], firstIncomeCategory[1], 1000, '银行转账', '示例行，正式导入前请整行删除'];
   appendStyledSheet(excel, workbook, INCOME_SHEET, [incomeHeaders, incomeExample], requiredIncomeHeaders, [1]);
 
   const expenseExample = isCommercial
@@ -308,7 +313,7 @@ function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCat
 
   const incomeCategoryRows = getCategoryRows(incomeCategories);
   const expenseCategoryRows = getCategoryRows(expenseCategories);
-  const optionLength = Math.max(incomeCategoryRows.length, expenseCategoryRows.length, PAYMENT_METHODS.length, validContractStatuses.size, validExpenseStatuses.size);
+  const optionLength = Math.max(incomeCategoryRows.length, expenseCategoryRows.length, PAYMENT_METHODS.length, validContractStatuses.size, validExpenseStatuses.size, 2);
   const contractStatuses = Array.from(validContractStatuses);
   const expenseStatuses = Array.from(validExpenseStatuses);
   const options = Array.from({ length: optionLength }, (_, index) => [
@@ -319,9 +324,10 @@ function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCat
     PAYMENT_METHODS[index] || '',
     contractStatuses[index] || '',
     expenseStatuses[index] || '',
+    ['是', '否'][index] || '',
   ]);
   appendStyledSheet(excel, workbook, '下拉选项', [
-    ['收入一级分类', '收入二级分类', '支出一级分类', '支出二级分类', '收款/支出方式', '合同状态', '支付状态'],
+    ['收入一级分类', '收入二级分类', '支出一级分类', '支出二级分类', '收款/支出方式', '合同状态', '支付状态', '是否进入合同收款计划'],
     ...options,
   ]);
 
@@ -335,10 +341,12 @@ function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCat
     ['合同金额/收款金额/支出金额', '对应金额表', '必填', '必须是大于 0 的数字，不要填正负号，例如 1000、12347.50。'],
     ['签约日期/收款日期/支出日期', '对应日期表', '必填', '支持 yyyy-mm-dd、yyyy/m/d、Excel 日期，例如 2026-04-23 或 2026/4/23。'],
     ['合同状态', CONTRACT_SHEET, '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
-    ['收款阶段', INCOME_SHEET, '必填', '对应 ERP 新增收款里的收款阶段，建议和合同收款阶段名称一致。'],
+    ['收款阶段', INCOME_SHEET, '必填', '可填写合同阶段或自定义阶段；同一合同的阶段名称应保持一致。'],
+    ['是否进入合同收款计划', INCOME_SHEET, '必填', '只能填“是”或“否”。填“是”会保留原阶段并追加到合同收款计划；填“否”仅作为本次自定义收款阶段。'],
+    ['阶段应收金额', INCOME_SHEET, '新增合同阶段时必填', '填“是”且合同中不存在该阶段时必须填写；这是合同约定应收金额，不是本次实际收款金额。已有阶段或填“否”时可留空。'],
     ['一级分类/二级分类', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '必填', '必须使用 ERP 收支类别管理里的对应收入类别或支出类别；系统不会在导入时自动新增分类。'],
     ['收款方式/支出方式', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '选填', '对应 ERP 表单里的收款方式/支出方式，留空默认银行转账。'],
-    ['收款方', EXPENSE_SHEET, '必填', '对应 ERP 新增支出里的“收款方”。'],
+    ['收款方', EXPENSE_SHEET, '选填', '对应 ERP 新增支出里的“收款方”；不知道或无需记录时可留空。'],
     ['支付状态', EXPENSE_SHEET, '选填', '只能填已付或未付，留空默认已付。'],
     ['备注', '全部', '选填', '对应 ERP 表单里的备注。'],
     ['示例行', '全部示例页', '导入前删除', '红色字体为示例数据，正式导入前请整行删除。'],
@@ -433,6 +441,11 @@ function parseIncomeRows(
   warnings: string[],
 ) {
   const parsedReceipts: Receipt[] = [];
+  const workingContracts = new Map<string, Contract>(Array.from(availableContracts.entries()).map(([contractNo, contract]) => [
+    contractNo,
+    { ...contract, paymentStages: (contract.paymentStages || []).map((stage) => ({ ...stage })) },
+  ]));
+  const contractUpdates = new Map<string, Contract>();
   const templateKeys = new Set<string>();
   const existingKeys = new Set(receipts.map((item) => `${item.contractNo}|${item.receiptDate}|${item.amount}|${item.stage}|${item.remark}`));
 
@@ -441,14 +454,17 @@ function parseIncomeRows(
     const projectName = currentBizType === '工装' ? rowValue(row, ['项目名称', '归属项目']) : rowValue(row, ['归属项目', '项目名称']);
     const date = dateValue(row['收款日期']);
     const stage = trimValue(row['收款阶段']);
+    const includeInPlanText = trimValue(row['是否进入合同收款计划']);
+    const stagePlanAmount = numberValue(row['阶段应收金额']);
     const primaryCategory = trimValue(row['一级分类']);
     const secondaryCategory = trimValue(row['二级分类']);
     const amount = numberValue(row['收款金额']);
-    if (!contractNo && !projectName && !stage && !primaryCategory && !secondaryCategory && !amount) return;
+    if (!contractNo && !projectName && !stage && !includeInPlanText && !primaryCategory && !secondaryCategory && !amount) return;
     const rowErrors: string[] = [];
     if (!date) rowErrors.push('收款日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
     if (!contractNo) rowErrors.push('合同编号未填，收入必须和 ERP 或“合同项目导入”页中的合同编号一致');
     if (!stage) rowErrors.push('收款阶段未填，对应 ERP 新增收款里的收款阶段');
+    if (!['是', '否'].includes(includeInPlanText)) rowErrors.push('是否进入合同收款计划必须填“是”或“否”');
     if (!primaryCategory) rowErrors.push('一级分类未填，必须使用 ERP 收支类别管理里的收入一级分类');
     if (!secondaryCategory) rowErrors.push('二级分类未填，必须使用 ERP 收支类别管理里的收入二级分类');
     if (!isValidMoney(row['收款金额'])) rowErrors.push('收款金额未填或格式不正确，必须是大于 0 的数字，例如：1000、12347.50');
@@ -457,7 +473,7 @@ function parseIncomeRows(
       return;
     }
 
-    const contract = availableContracts.get(contractNo);
+    let contract = workingContracts.get(contractNo);
     if (!contract) {
       errors.push(`${INCOME_SHEET}第 ${index + 2} 行合同编号 ${contractNo} 在 ERP 和模板中都不存在`);
       return;
@@ -487,8 +503,41 @@ function parseIncomeRows(
       errors.push(`${INCOME_SHEET}第 ${index + 2} 行：${tip}`);
       return;
     }
-    if (!contract.paymentStages.some((item) => item.name === stage)) {
-      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行收款阶段“${stage}”不在合同收款阶段中`);
+
+    const includeInPlan = includeInPlanText === '是';
+    const existingStageIndex = contract.paymentStages.findIndex((item) => item.name === stage);
+    if (includeInPlan) {
+      if (existingStageIndex < 0 && !isValidMoney(row['阶段应收金额'])) {
+        errors.push(`${INCOME_SHEET}第 ${index + 2} 行：合同 ${contractNo} 中不存在收款阶段“${stage}”，填“是”时阶段应收金额必须是大于 0 的数字`);
+        return;
+      }
+      if (existingStageIndex < 0) {
+        contract = {
+          ...contract,
+          paymentStages: [
+            ...contract.paymentStages,
+            { name: stage, amount: stagePlanAmount, ratio: contract.contractAmount > 0 ? stagePlanAmount / contract.contractAmount : 0 },
+          ],
+        };
+        workingContracts.set(contractNo, contract);
+        contractUpdates.set(contractNo, contract);
+        warnings.push(`${INCOME_SHEET}第 ${index + 2} 行：将“${stage}”追加到合同 ${contractNo} 的收款计划，原阶段保留`);
+      } else {
+        const currentStage = contract.paymentStages[existingStageIndex];
+        if ((currentStage.amount || 0) <= 0 && stagePlanAmount > 0) {
+          const nextStages = contract.paymentStages.map((item, itemIndex) => itemIndex === existingStageIndex
+            ? { ...item, amount: stagePlanAmount, ratio: contract.contractAmount > 0 ? stagePlanAmount / contract.contractAmount : 0 }
+            : item);
+          contract = { ...contract, paymentStages: nextStages };
+          workingContracts.set(contractNo, contract);
+          contractUpdates.set(contractNo, contract);
+        } else if (stagePlanAmount > 0 && Math.abs(stagePlanAmount - (currentStage.amount || 0)) > 0.01) {
+          warnings.push(`${INCOME_SHEET}第 ${index + 2} 行：合同 ${contractNo} 已有阶段“${stage}”及应收金额 ${currentStage.amount}，模板中的 ${stagePlanAmount} 不会覆盖原金额`);
+        }
+      }
+    } else if (existingStageIndex >= 0) {
+      errors.push(`${INCOME_SHEET}第 ${index + 2} 行：自定义阶段“${stage}”与合同 ${contractNo} 的已有收款阶段同名，请填“是”或更换名称`);
+      return;
     }
 
     parsedReceipts.push({
@@ -501,6 +550,7 @@ function parseIncomeRows(
       paymentMethod: trimValue(row['收款方式']) || '银行转账',
       receiptDate: date,
       stage,
+      stageType: includeInPlan ? 'contract' : 'custom',
       ...expenseCategoryPayload(categoryPath),
       remark,
       attachments: [],
@@ -510,7 +560,7 @@ function parseIncomeRows(
     });
   });
 
-  return parsedReceipts;
+  return { parsedReceipts, contractUpdates };
 }
 
 function parseExpenseRows(
@@ -542,7 +592,6 @@ function parseExpenseRows(
     if (!primaryCategory) rowErrors.push('一级分类未填，必须使用 ERP 收支类别管理里的支出一级分类');
     if (!secondaryCategory) rowErrors.push('二级分类未填，必须使用 ERP 收支类别管理里的支出二级分类');
     if (!isValidMoney(row['支出金额'])) rowErrors.push('支出金额未填或格式不正确，必须是大于 0 的数字，例如：1000、12347.50');
-    if (!supplier) rowErrors.push('收款方未填，对应 ERP 新增支出里的收款方');
     if (status && !validExpenseStatuses.has(status)) rowErrors.push(`支付状态“${status}”不正确，只能填：已付、未付`);
     if (rowErrors.length > 0) {
       errors.push(`${EXPENSE_SHEET}第 ${index + 2} 行：${rowErrors.join('；')}`);
@@ -605,7 +654,7 @@ function parseExpenseRows(
 
 export default function FinanceImportModal({ open, onClose }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { contracts, receipts, expenses, addContract, addReceipt, addExpense, _refreshSilent } = useFinanceStore();
+  const { contracts, receipts, expenses, addContract, updateContract, addReceipt, addExpense, _refreshSilent } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user } = useAuthStore();
   const { showAlert, showConfirm } = useDialogStore();
@@ -663,7 +712,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
       errors,
       warnings,
     );
-    const parsedReceipts = parseIncomeRows(
+    const { parsedReceipts, contractUpdates } = parseIncomeRows(
       incomeRows,
       currentBizType,
       availableContracts,
@@ -684,9 +733,15 @@ export default function FinanceImportModal({ open, onClose }: Props) {
       warnings,
     );
 
+    const contractsToAdd = Array.from(contractMap.entries()).map(([contractNo, contract]) => contractUpdates.get(contractNo) || contract);
+    const existingContractUpdates = Array.from(contractUpdates.entries())
+      .filter(([contractNo]) => existingContractNos.has(contractNo))
+      .map(([, contract]) => contract);
+
     setSelectedFileName(file.name);
     setParsed({
-      contracts: Array.from(contractMap.values()),
+      contracts: contractsToAdd,
+      contractUpdates: existingContractUpdates,
       receipts: parsedReceipts,
       expenses: parsedExpenses,
       errors,
@@ -700,18 +755,19 @@ export default function FinanceImportModal({ open, onClose }: Props) {
       await showAlert('当前模板还有错误项，请先修改后再导入。');
       return;
     }
-    if (parsed.contracts.length + parsed.receipts.length + parsed.expenses.length === 0) {
+    if (parsed.contracts.length + parsed.contractUpdates.length + parsed.receipts.length + parsed.expenses.length === 0) {
       await showAlert('没有可导入的数据，请检查模板内容。');
       return;
     }
     const confirmed = await showConfirm(
-      `将导入 ${parsed.contracts.length} 个合同、${parsed.receipts.length} 条收入、${parsed.expenses.length} 条支出。导入前请确认已经备份原始 Excel。`,
+      `将导入 ${parsed.contracts.length} 个合同、更新 ${parsed.contractUpdates.length} 个合同收款计划、导入 ${parsed.receipts.length} 条收入、${parsed.expenses.length} 条支出。原合同收款阶段不会删除。`,
       { title: '确认批量导入财务数据？', confirmText: '确认导入' },
     );
     if (!confirmed) return;
     setImporting(true);
     try {
       for (const contract of parsed.contracts) await addContract(contract);
+      for (const contract of parsed.contractUpdates) await updateContract(contract);
       for (const receipt of parsed.receipts) await addReceipt(receipt);
       for (const expense of parsed.expenses) await addExpense(expense);
       await _refreshSilent(['contracts', 'receipts', 'expenses'], true);
@@ -770,10 +826,15 @@ export default function FinanceImportModal({ open, onClose }: Props) {
         {parsed ? (
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
-              <ImportStat label="合同" value={parsed.contracts.length} />
+              <ImportStat label="新增合同" value={parsed.contracts.length} />
               <ImportStat label="收入" value={parsed.receipts.length} />
               <ImportStat label="支出" value={parsed.expenses.length} />
             </div>
+            {parsed.contractUpdates.length > 0 ? (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                将更新 {parsed.contractUpdates.length} 个已有合同的收款计划，所有原阶段均会保留。
+              </div>
+            ) : null}
             {parsed.errors.length > 0 ? (
               <div className="max-h-40 overflow-auto rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
                 {parsed.errors.slice(0, 50).map((error) => <div key={error}>{error}</div>)}

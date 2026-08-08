@@ -97,17 +97,17 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
     const c = contracts.find(ct => ct.id === contractId);
     if (!c) return;
     setContractSearch(`${c.contractNo} - ${c.customerName}`);
-    setForm(prev => ({ ...prev, contractId, supplier: currentBizType === '家装' ? (c.customerName || prev.supplier) : prev.supplier }));
+    setForm(prev => ({ ...prev, contractId }));
   };
 
   useEffect(() => {
-    loadExpenseCategories()
+    loadExpenseCategories(currentBizType)
       .then((categories) => setExpenseCategories(categories))
       .catch((error) => {
         console.error('加载支出类别失败', error);
         setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
       });
-  }, []);
+  }, [currentBizType]);
 
   useEffect(() => {
     if (!open) return;
@@ -135,10 +135,6 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
       return;
     }
     const base = blankForm();
-    if (defaultContractId) {
-      const c = contracts.find(ct => ct.id === defaultContractId || ct._id === defaultContractId);
-      if (c && currentBizType === '家装') base.supplier = c.customerName || '';
-    }
     setForm(base);
     setContractSearch('');
     if (defaultContractId) {
@@ -147,7 +143,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
   }, [open, defaultContractId, editingExpense?.id, expenseCategories]);
 
   const handleSubmit = async () => {
-    if (!form.amount || !form.supplier || submitting) return;
+    if (!form.amount || submitting) return;
     setSubmitting(true);
     try {
       let uploadedAttachments: AttachmentValue[] = [];
@@ -197,7 +193,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
         await addLeadAuditFollowUp({
           leadId: selectedContract.customerId,
           actorName: user?.name || '员工',
-          content: `${user?.name || '员工'}新增支出：${selectedContract.houseAddress || selectedContract.contractNo}，类别“${category}”，金额 ${Number(form.amount)}，收款方/供应商 ${form.supplier}，状态 ${form.status}，日期 ${form.expenseDate}。${form.remark ? `备注：${form.remark}` : ''}`,
+          content: `${user?.name || '员工'}新增支出：${selectedContract.houseAddress || selectedContract.contractNo}，类别“${category}”，金额 ${Number(form.amount)}，收款方/供应商 ${form.supplier || '未填写'}，状态 ${form.status}，日期 ${form.expenseDate}。${form.remark ? `备注：${form.remark}` : ''}`,
           createdAt: expenseData.createdAt,
         });
       }
@@ -304,14 +300,13 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方 *</label>
+          <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方（选填）</label>
           <input
             type="text"
             value={form.supplier}
             onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-            readOnly={currentBizType === '家装' && !!selectedContract}
-            placeholder={selectedContract?.customerName || '请输入收款方名称'}
-            className={`erp-input ${currentBizType === '家装' && selectedContract ? 'bg-gray-50 text-gray-500' : ''}`}
+            placeholder="请输入收款方名称"
+            className="erp-input"
           />
         </div>
         <div className="grid grid-cols-1 gap-4">
@@ -359,7 +354,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
           }} />
         </div>
         <div className="flex justify-center pt-2">
-          <button onClick={handleSubmit} disabled={!form.amount || !form.supplier || submitting} className="erp-btn-primary min-w-[220px] justify-center disabled:opacity-40">
+          <button onClick={handleSubmit} disabled={!form.amount || submitting} className="erp-btn-primary min-w-[220px] justify-center disabled:opacity-40">
             {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
             {submitting ? '提交中...' : editingExpense ? '保存修改' : '确认新增'}
           </button>

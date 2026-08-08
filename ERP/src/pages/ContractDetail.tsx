@@ -825,7 +825,16 @@ export default function ContractDetail() {
 
   const receiptColumns = [
     { key: 'receiptDate', title: '收款日期', render: (r: Receipt) => formatDate(r.receiptDate) },
-    { key: 'stage', title: '收款阶段' },
+    {
+      key: 'stage',
+      title: '收款阶段',
+      render: (r: Receipt) => (
+        <div className="flex items-center gap-1.5">
+          <span>{r.stage || '-'}</span>
+          {r.stageType === 'custom' ? <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">自定义</span> : null}
+        </div>
+      ),
+    },
     {
       key: 'amount',
       title: '收款金额',
@@ -1736,7 +1745,7 @@ export default function ContractDetail() {
       <Modal open={showStageModal} onClose={() => setShowStageModal(false)} title="编辑收款阶段" size="sm">
         <div className="space-y-4" onKeyDown={focusNextOnEnter}>
           <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
-            阶段金额可以不等于合同金额；系统只提示差额，不阻止保存。
+            此处维护合同正式收款计划，可自由添加阶段。临时到账请在新增收款时选择“自定义阶段”；阶段金额可以不等于合同金额。
           </div>
           <div className="space-y-3">
             {stageForm.map((stage, idx) => (

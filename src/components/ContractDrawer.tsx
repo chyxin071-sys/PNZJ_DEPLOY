@@ -37,6 +37,7 @@ const homeDefaultStages = (): StageForm[] => [
   { name: '竣工尾款', amount: 0, ratio: 0 },
 ];
 const HOME_STAGE_WEIGHTS = [0.1, 0.3, 0.25, 0.25, 0.1];
+const HOME_DEFAULT_STAGE_NAMES = ['定金', '开工款', '水电验收款', '泥木验收款', '竣工尾款'];
 const commercialDefaultStages = (): StageForm[] => [
   { name: '回款', amount: 0, ratio: 0 },
   { name: '质保金', amount: 0, ratio: 0 },
@@ -44,7 +45,9 @@ const commercialDefaultStages = (): StageForm[] => [
 const today = () => new Date().toISOString().slice(0, 10);
 
 function applyHomeDefaultStageAmounts(stages: StageForm[], amount: number) {
-  if (amount <= 0 || stages.length === 0 || stages.some((stage) => (stage.amount || 0) > 0)) {
+  const isUntouchedDefaultPlan = stages.length === HOME_DEFAULT_STAGE_NAMES.length
+    && stages.every((stage, index) => stage.name === HOME_DEFAULT_STAGE_NAMES[index]);
+  if (amount <= 0 || !isUntouchedDefaultPlan || stages.some((stage) => (stage.amount || 0) > 0)) {
     return stages;
   }
   let allocated = 0;
@@ -403,9 +406,10 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
           {/* 收款阶段 */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-gray-500 font-medium">收款阶段</label>
+              <label className="text-xs text-gray-500 font-medium">合同收款计划</label>
               <button type="button" onClick={addStage} className="text-xs text-gold-500 font-medium">+ 添加阶段</button>
             </div>
+            <p className="mb-2 text-[11px] text-gray-400">可修改默认名称或添加合同阶段；临时到账请在新增收款时选择“自定义阶段”。</p>
             {showStageAmountHint && (
               <div className={`mb-2 rounded-lg px-3 py-2 text-xs ${
                 Math.abs(stageDiff) < 0.01

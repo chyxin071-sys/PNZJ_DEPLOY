@@ -119,8 +119,7 @@ export default function Expense() {
     if (searchParams.get('action') === 'create') {
       const contractId = searchParams.get('contractId');
       if (contractId) {
-        const contract = filteredContracts.find((c) => c.id === contractId || c._id === contractId);
-        setForm(f => ({ ...f, contractId, supplier: currentBizType === '家装' && contract ? contract.customerName : f.supplier }));
+        setForm(f => ({ ...f, contractId }));
       }
       setShowModal(true);
       // clear search params so it doesn't reopen on refresh
@@ -355,7 +354,7 @@ export default function Expense() {
   );
 
   const handleSubmit = async () => {
-    if (!form.amount || !form.supplier || submitting) return;
+    if (!form.amount || submitting) return;
     setSubmitting(true);
     try {
       let uploadedAttachments: AttachmentValue[] = [];
@@ -449,7 +448,7 @@ export default function Expense() {
         <span className="text-red-500 font-medium">{formatMoney(row.amount as number)}</span>
       ),
     },
-    { key: 'supplier', title: '收款方', sortable: true, render: (row: Record<string, unknown>) => <div className="max-w-[120px] truncate" title={row.supplier as string}>{row.supplier as string}</div> },
+    { key: 'supplier', title: '收款方', sortable: true, render: (row: Record<string, unknown>) => <div className="max-w-[120px] truncate" title={(row.supplier as string) || '未填写'}>{(row.supplier as string) || '-'}</div> },
     {
       key: 'expenseDate', title: '日期', sortable: true,
       render: (row: Record<string, unknown>) => formatDate(row.expenseDate as string),
@@ -665,8 +664,7 @@ export default function Expense() {
             <Select
               value={form.contractId}
               onChange={(v) => {
-                const contract = filteredContracts.find((c) => c.id === v);
-                setForm({ ...form, contractId: v, supplier: currentBizType === '家装' && contract ? contract.customerName : form.supplier });
+                setForm({ ...form, contractId: v });
               }}
               options={[
                 { value: '', label: '请选择合同（可选）' },
@@ -699,12 +697,12 @@ export default function Expense() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方</label>
+            <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款方（选填）</label>
             <input
               type="text"
               value={form.supplier}
               onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-              placeholder={selectedContract?.customerName || '请输入收款方名称'}
+              placeholder="请输入收款方名称"
               className="erp-input"
             />
           </div>
@@ -763,7 +761,7 @@ export default function Expense() {
           <div className="flex justify-center pt-2">
             <button
               onClick={handleSubmit}
-              disabled={!form.amount || !form.supplier || submitting}
+              disabled={!form.amount || submitting}
               className="erp-btn-primary min-w-[220px] justify-center disabled:opacity-40"
             >
               {submitting ? <Loader2 size={14} className="animate-spin" /> : null}

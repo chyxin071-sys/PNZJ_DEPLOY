@@ -78,6 +78,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
     paymentMethod: '银行转账',
     customPaymentMethod: '',
     stage: '',
+    stageType: 'contract' as 'contract' | 'custom',
     primaryCategoryId: DEFAULT_INCOME_CATEGORIES[0].id,
     secondaryCategoryId: DEFAULT_INCOME_CATEGORIES[0].children[0].id,
     category: DEFAULT_INCOME_CATEGORIES[0].children[0].name,
@@ -130,6 +131,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
       ...prevForm,
       contractId,
       stage: targetStage ? targetStage.name : '',
+      stageType: 'contract',
       secondaryCategoryId: incomeCategories[0]?.children.find((child) => child.name === targetStage?.name)?.id || prevForm.secondaryCategoryId,
       category: targetStage?.name || prevForm.category,
       amount: editingReceipt ? prevForm.amount : targetStage ? String(Math.max(targetStage.amount - stagePaid, 0)) : '',
@@ -142,6 +144,8 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
     setPendingUploads([]);
     if (editingReceipt) {
       const method = editingReceipt.paymentMethod || '银行转账';
+      const c = effectiveContracts.find(ct => ct.id === editingReceipt.contractId || ct._id === editingReceipt.contractId);
+      const stageType = editingReceipt.stageType || (c?.paymentStages.some((stage) => stage.name === editingReceipt.stage) ? 'contract' : 'custom');
       const path = resolveExpenseCategory({
         primaryCategoryId: editingReceipt.primaryCategoryId,
         primaryCategory: editingReceipt.primaryCategory,
@@ -155,6 +159,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         paymentMethod: PAYMENT_METHODS.includes(method) ? method : '其他',
         customPaymentMethod: PAYMENT_METHODS.includes(method) ? '' : method,
         stage: editingReceipt.stage || '',
+        stageType,
         primaryCategoryId: path.primaryId || incomeCategories[0]?.id || DEFAULT_INCOME_CATEGORIES[0].id,
         secondaryCategoryId: path.secondaryId || incomeCategories[0]?.children[0]?.id || DEFAULT_INCOME_CATEGORIES[0].children[0].id,
         category: path.secondaryName || editingReceipt.stage || DEFAULT_INCOME_CATEGORIES[0].children[0].name,
@@ -162,7 +167,6 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         remark: editingReceipt.remark || '',
         attachments: editingReceipt.attachments || [],
       });
-      const c = effectiveContracts.find(ct => ct.id === editingReceipt.contractId || ct._id === editingReceipt.contractId);
       setContractSearch(c ? `${c.contractNo} - ${c.customerName}` : '');
       return;
     }
@@ -196,7 +200,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
   }, [filteredContracts, contractSearch]);
 
   const getAmountWarning = () => {
-    if (!contractPaymentInfo || !form.stage || !form.amount) return null;
+    if (form.stageType !== 'contract' || !contractPaymentInfo || !form.stage || !form.amount) return null;
     const stage = contractPaymentInfo.stages.find(s => s.name === form.stage);
     if (!stage) return null;
     const inputAmount = Number(form.amount);
@@ -221,6 +225,10 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
 
   const handleSubmit = async () => {
     if (!selectedContract || !form.amount || !form.stage || submitting) return;
+    if (form.stageType === 'custom' && selectedContract.paymentStages.some((stage) => stage.name === form.stage.trim())) {
+      alert('自定义阶段不能与合同收款阶段同名，请选择“合同阶段”或更换名称。');
+      return;
+    }
     setSubmitting(true);
     try {
       let uploadedAttachments: AttachmentValue[] = [];
@@ -258,6 +266,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         paymentMethod,
         receiptDate: form.receiptDate,
         stage: form.stage,
+        stageType: form.stageType,
         ...expenseCategoryPayload(categoryPath),
         remark: form.remark,
         createdAt: editingReceipt?.createdAt || new Date().toISOString(),
@@ -343,7 +352,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-800">{selectedContract?.houseAddress}</span>
                   {!defaultContractId && (
-                    <button onClick={() => { setForm({ ...form, contractId: '', stage: '', amount: '' }); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                    <button onClick={() => { setForm({ ...form, contractId: '', stage: '', stageType: 'contract', amount: '' }); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
                   )}
                 </div>
                 <p className="text-xs text-gray-400">{selectedContract?.contractNo} · {selectedContract?.customerName}</p>
@@ -392,17 +401,33 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段 *</label>
-            <Select value={form.stage} onChange={(v) => {
-              const stage = contractPaymentInfo?.stages.find(s => s.name === v);
-              const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
-              setForm({
-                ...form,
-                stage: v,
-                amount: stage ? String(stage.due) : form.amount,
-                secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
-                category: categoryChild?.name || v || form.category,
-              });
-            }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（${formatMoney(s.amount)}）` }))} />
+            <div className="mb-2 grid grid-cols-2 rounded-md bg-gray-100 p-1">
+              {([
+                { value: 'contract', label: '合同阶段' },
+                { value: 'custom', label: '自定义阶段' },
+              ] as const).map((option) => (
+                <button key={option.value} type="button" onClick={() => setForm({ ...form, stageType: option.value, stage: '', amount: option.value === 'contract' ? '' : form.amount })}
+                  className={`rounded px-3 py-1.5 text-xs font-medium ${form.stageType === option.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {form.stageType === 'contract' ? (
+              <Select value={form.stage} onChange={(v) => {
+                const stage = contractPaymentInfo?.stages.find(s => s.name === v);
+                const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
+                setForm({
+                  ...form,
+                  stage: v,
+                  amount: stage ? String(Math.max(stage.due, 0)) : form.amount,
+                  secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
+                  category: categoryChild?.name || v || form.category,
+                });
+              }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（应收 ${formatMoney(s.amount)}）` }))} />
+            ) : (
+              <input value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })} className="erp-input" placeholder="例如：临时补款、追加款" />
+            )}
+            {form.stageType === 'custom' ? <p className="mt-1 text-[11px] text-gray-400">自定义阶段只计入实际收入，不进入合同收款计划。</p> : null}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">收入类别 *</label>

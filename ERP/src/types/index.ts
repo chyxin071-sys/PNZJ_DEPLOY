@@ -70,6 +70,7 @@ export interface Receipt {
   paymentMethod: string;
   receiptDate: string;
   stage: string;
+  stageType?: 'contract' | 'custom';
   primaryCategoryId?: string;
   primaryCategory?: string;
   secondaryCategoryId?: string;
