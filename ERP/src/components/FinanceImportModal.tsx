@@ -10,8 +10,8 @@ import {
   DEFAULT_EXPENSE_CATEGORIES,
   DEFAULT_INCOME_CATEGORIES,
   expenseCategoryPayload,
-  loadIncomeCategories,
   loadExpenseCategories,
+  loadIncomeCategories,
   resolveExpenseCategory,
   type ExpenseCategory,
 } from '@/services/expenseCategories';
@@ -34,22 +34,20 @@ type ParsedImport = {
 };
 
 const CONTRACT_SHEET = '合同项目导入';
-const FLOW_SHEET = '流水导入';
+const INCOME_SHEET = '收入流水导入';
+const EXPENSE_SHEET = '支出流水导入';
 
 const homeContractHeaders = [
   '合同编号',
   '归属项目',
   '客户名称',
   '客户电话',
-  '合同名称',
   '签约日期',
   '合同金额',
   '项目地址',
   '合同状态',
-  '负责人',
-  '归属部门',
-  '开工日期',
-  '完工日期',
+  '项目经理',
+  '预计完工日期',
   '收款阶段1名称',
   '收款阶段1金额',
   '收款阶段2名称',
@@ -69,10 +67,8 @@ const commercialContractHeaders = [
   '合同金额',
   '项目地址',
   '合同状态',
-  '负责人',
-  '归属部门',
-  '开工日期',
-  '完工日期',
+  '项目经理',
+  '预计完工日期',
   '收款阶段1名称',
   '收款阶段1金额',
   '收款阶段2名称',
@@ -82,54 +78,63 @@ const commercialContractHeaders = [
   '备注',
 ];
 
-const homeFlowHeaders = [
-  '记账日期',
-  '收支类型',
+const homeIncomeHeaders = [
+  '收款日期',
   '合同编号',
   '归属项目',
-  '摘要/用途说明',
+  '收款阶段',
   '一级分类',
   '二级分类',
-  '记账金额',
-  '收支账户',
-  '经手人',
-  '归属部门',
-  '对方单位',
-  '货品/服务名称',
+  '收款金额',
+  '收款方式',
   '备注',
 ];
 
-const commercialFlowHeaders = [
-  '记账日期',
-  '收支类型',
+const commercialIncomeHeaders = [
+  '收款日期',
   '合同编号',
   '项目名称',
-  '摘要/用途说明',
+  '收款阶段',
   '一级分类',
   '二级分类',
-  '记账金额',
-  '收支账户',
-  '经手人',
-  '归属部门',
-  '对方单位',
-  '货品/服务名称',
+  '收款金额',
+  '收款方式',
+  '备注',
+];
+
+const homeExpenseHeaders = [
+  '支出日期',
+  '合同编号',
+  '归属项目',
+  '一级分类',
+  '二级分类',
+  '支出金额',
+  '收款方',
+  '支出方式',
+  '支付状态',
+  '备注',
+];
+
+const commercialExpenseHeaders = [
+  '支出日期',
+  '合同编号',
+  '项目名称',
+  '一级分类',
+  '二级分类',
+  '支出金额',
+  '收款方',
+  '支出方式',
+  '支付状态',
   '备注',
 ];
 
 const requiredHomeContractHeaders = ['合同编号', '归属项目', '客户名称', '签约日期', '合同金额'];
 const requiredCommercialContractHeaders = ['合同编号', '项目名称', '甲方', '签约日期', '合同金额'];
-const requiredFlowHeaders = ['记账日期', '收支类型', '合同编号', '一级分类', '二级分类', '记账金额'];
-const validFlowTypes = new Set(['收入', '支出']);
+const requiredIncomeHeaders = ['收款日期', '合同编号', '收款阶段', '一级分类', '二级分类', '收款金额'];
+const requiredExpenseHeaders = ['支出日期', '一级分类', '二级分类', '支出金额', '收款方'];
 const validContractStatuses = new Set(['进行中', '已完工', '已结算']);
-const DEFAULT_ACCOUNTS = ['银行账户', '现金', '微信', '支付宝', '对公账户'];
-const ROLE_DEPT: Record<string, string> = {
-  admin: '管理组',
-  sales: '销售部',
-  designer: '设计部',
-  manager: '工程部',
-  finance: '财务部',
-  employee: '普通',
-};
+const validExpenseStatuses = new Set(['已付', '未付']);
+const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
 
 const trimValue = (value: unknown) => String(value ?? '').trim();
 
@@ -208,33 +213,8 @@ function buildPaymentStages(row: ImportRow, amount: number, bizType: BizType) {
   return stages.length > 0 ? stages : [{ name: bizType === '工装' ? '回款' : '合同款', amount, ratio: 1 }];
 }
 
-function uniqueValues(values: Array<string | undefined | null>) {
-  return Array.from(new Set(values.map((value) => trimValue(value)).filter(Boolean)));
-}
-
-function getEmployeeDepartment(employee: any) {
-  return trimValue(employee?.department) || ROLE_DEPT[String(employee?.role || '')] || '';
-}
-
-function getDepartments(users: any[], currentUser: any) {
-  const departments = uniqueValues([
-    currentUser?.department,
-    ...users.map(getEmployeeDepartment),
-    '财务部',
-    '销售部',
-    '设计部',
-    '工程部',
-    '管理组',
-  ]);
-  return departments;
-}
-
 function getCategoryRows(categories: ExpenseCategory[]) {
   return categories.flatMap((category) => category.children.map((child) => [category.name, child.name]));
-}
-
-function getImportCategoryOptionRows(expenseCategories: ExpenseCategory[], incomeCategories: ExpenseCategory[]) {
-  return [...getCategoryRows(incomeCategories), ...getCategoryRows(expenseCategories)];
 }
 
 function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sampleRows: number[] = [], requiredHeaders: string[] = []) {
@@ -265,92 +245,353 @@ function applyWorksheetBasics(sheet: XLSX.WorkSheet, headerCount: number, sample
   });
 }
 
-function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCategory[], incomeCategories: ExpenseCategory[], departments: string[], bizType: BizType) {
+function appendStyledSheet(excel: typeof XLSX, workbook: XLSX.WorkBook, name: string, rows: any[][], requiredHeaders: string[] = [], sampleRows: number[] = []) {
+  const sheet = excel.utils.aoa_to_sheet(rows);
+  applyWorksheetBasics(sheet, rows[0]?.length || 1, sampleRows, requiredHeaders);
+  excel.utils.book_append_sheet(workbook, sheet, name);
+}
+
+function buildTemplateWorkbook(excel: typeof XLSX, expenseCategories: ExpenseCategory[], incomeCategories: ExpenseCategory[], bizType: BizType) {
   const workbook = excel.utils.book_new();
   const isCommercial = bizType === '工装';
   const contractHeaders = isCommercial ? commercialContractHeaders : homeContractHeaders;
-  const flowHeaders = isCommercial ? commercialFlowHeaders : homeFlowHeaders;
+  const incomeHeaders = isCommercial ? commercialIncomeHeaders : homeIncomeHeaders;
+  const expenseHeaders = isCommercial ? commercialExpenseHeaders : homeExpenseHeaders;
   const requiredContractHeaders = isCommercial ? requiredCommercialContractHeaders : requiredHomeContractHeaders;
   const projectLabel = isCommercial ? '项目名称' : '归属项目';
+  const firstIncomeCategory = getCategoryRows(incomeCategories)[0] || ['工程款项', isCommercial ? '回款' : '合同款'];
+  const firstExpenseCategory = getCategoryRows(expenseCategories)[0] || ['材料费', '主材采购'];
 
-  const flowGuide = [
+  appendStyledSheet(excel, workbook, '导入流程', [
     ['步骤', '要做什么', '说明'],
-    ['1', '下载模板', '请先下载本模板，不要自行改表头。'],
-    ['2', '整理合同/项目', `ERP 中不存在的历史${isCommercial ? '工装合同' : '家装合同'}，先填到“合同项目导入”。`],
-    ['3', '整理流水', `每笔流水必须填写合同编号、${projectLabel}、一级分类、二级分类。`],
-    ['4', '上传导入', '系统会先导入合同，再导入收入/支出流水。'],
-  ];
-  excel.utils.book_append_sheet(workbook, excel.utils.aoa_to_sheet(flowGuide), '导入流程');
+    ['1', '下载模板', '请先下载本模板，不要自行改表头。红色表头为必填字段，红色字体示例行导入前请整行删除。'],
+    ['2', '整理合同/项目', `ERP 中不存在的历史${isCommercial ? '工装合同' : '家装合同'}，先填到“${CONTRACT_SHEET}”。已存在合同可不填合同页。`],
+    ['3', '整理收入', `收款记录填到“${INCOME_SHEET}”，字段对应 ERP 的新增收款弹窗。`],
+    ['4', '整理支出', `支出记录填到“${EXPENSE_SHEET}”，字段对应 ERP 的新增支出弹窗；非项目支出可不填合同编号。`],
+    ['5', '上传导入', '系统会先导入合同，再按合同编号导入收入和支出。'],
+  ]);
 
   const contractExample = isCommercial
-    ? ['示例-导入前删除', '某商业办公室装修项目', '兰州某某科技有限公司', '品诺筑家装饰工程有限公司', '监理单位/无', '2026-04-23', 300000, '兰州市城关区某办公楼', '进行中', '张三', departments[0] || '工程部', '2026-04-25', '2026-08-31', '回款', 270000, '质保金', 30000, '', '', '示例行，正式导入前请整行删除']
-    : ['示例-导入前删除', '核城家园2区3-1-502', '马金莲', '13800000000', '核城家园2区3-1-502装修合同', '2024-01-15', 58000, '核城家园2区3-1-502', '进行中', '张三', departments[0] || '工程部', '2024-01-20', '', '定金', 10000, '中期款', 28000, '尾款', 20000, '示例行，正式导入前请整行删除'];
-  const contractRows = [contractHeaders, contractExample];
-  const contractSheet = excel.utils.aoa_to_sheet(contractRows);
-  applyWorksheetBasics(contractSheet, contractHeaders.length, [1], requiredContractHeaders);
-  excel.utils.book_append_sheet(workbook, contractSheet, CONTRACT_SHEET);
+    ? ['示例-导入前删除', '某商业办公室装修项目', '兰州某某科技有限公司', '品诺筑家装饰工程有限公司', '监理单位/无', '2026-04-23', 300000, '兰州市城关区某办公楼', '进行中', '张三', '2026-08-31', '回款', 270000, '质保金', 30000, '', '', '示例行，正式导入前请整行删除']
+    : ['示例-导入前删除', '核城家园2区3-1-502', '马金莲', '13800000000', '2024-01-15', 58000, '核城家园2区3-1-502', '进行中', '张三', '', '定金', 10000, '中期款', 28000, '尾款', 20000, '示例行，正式导入前请整行删除'];
+  appendStyledSheet(excel, workbook, CONTRACT_SHEET, [contractHeaders, contractExample], requiredContractHeaders, [1]);
 
-  const categoryRows = getCategoryRows(expenseCategories);
-  const optionCategoryRows = getImportCategoryOptionRows(expenseCategories, incomeCategories);
-  const firstCategory = categoryRows[0] || ['材料费', '主材采购'];
-  const flowRows = isCommercial
-    ? [
-      flowHeaders,
-      ['2026-04-28', '收入', '示例-导入前删除', '某商业办公室装修项目', '工程回款', '工程款项', '回款', 50000, '对公账户', '张三', departments[0] || '财务部', '兰州某某科技有限公司', '', '示例行，正式导入前请整行删除'],
-      ['2026-05-12', '支出', '示例-导入前删除', '某商业办公室装修项目', '工装项目支出示例', firstCategory[0], firstCategory[1], 12347, DEFAULT_ACCOUNTS[0], '李四', departments[0] || '财务部', '供应商A', firstCategory[1], '示例行，正式导入前请整行删除'],
-    ]
-    : [
-      flowHeaders,
-      ['2024-01-21', '收入', '示例-导入前删除', '核城家园2区3-1-502', '定金收款', '工程款项', '定金', 1000, DEFAULT_ACCOUNTS[0], '张三', departments[0] || '财务部', '马金莲', '', '示例行，正式导入前请整行删除'],
-      ['2024-02-28', '支出', '示例-导入前删除', '核城家园2区3-1-502', '项目支出示例', firstCategory[0], firstCategory[1], 12347, DEFAULT_ACCOUNTS[0], '李四', departments[0] || '财务部', '供应商A', firstCategory[1], '示例行，正式导入前请整行删除'],
-    ];
-  const flowSheet = excel.utils.aoa_to_sheet(flowRows);
-  applyWorksheetBasics(flowSheet, flowHeaders.length, [1, 2], requiredFlowHeaders);
-  excel.utils.book_append_sheet(workbook, flowSheet, FLOW_SHEET);
+  const incomeExample = isCommercial
+    ? ['2026-04-28', '示例-导入前删除', '某商业办公室装修项目', '回款', firstIncomeCategory[0], firstIncomeCategory[1], 50000, '银行转账', '示例行，正式导入前请整行删除']
+    : ['2024-01-21', '示例-导入前删除', '核城家园2区3-1-502', '定金', firstIncomeCategory[0], firstIncomeCategory[1], 1000, '银行转账', '示例行，正式导入前请整行删除'];
+  appendStyledSheet(excel, workbook, INCOME_SHEET, [incomeHeaders, incomeExample], requiredIncomeHeaders, [1]);
 
-  const optionLength = Math.max(optionCategoryRows.length, DEFAULT_ACCOUNTS.length, departments.length, validContractStatuses.size);
-  const statuses = Array.from(validContractStatuses);
+  const expenseExample = isCommercial
+    ? ['2026-05-12', '示例-导入前删除', '某商业办公室装修项目', firstExpenseCategory[0], firstExpenseCategory[1], 12347, '供应商A', '银行转账', '已付', '示例行，正式导入前请整行删除']
+    : ['2024-02-28', '示例-导入前删除', '核城家园2区3-1-502', firstExpenseCategory[0], firstExpenseCategory[1], 12347, '供应商A', '银行转账', '已付', '示例行，正式导入前请整行删除'];
+  appendStyledSheet(excel, workbook, EXPENSE_SHEET, [expenseHeaders, expenseExample], requiredExpenseHeaders, [1]);
+
+  const incomeCategoryRows = getCategoryRows(incomeCategories);
+  const expenseCategoryRows = getCategoryRows(expenseCategories);
+  const optionLength = Math.max(incomeCategoryRows.length, expenseCategoryRows.length, PAYMENT_METHODS.length, validContractStatuses.size, validExpenseStatuses.size);
+  const contractStatuses = Array.from(validContractStatuses);
+  const expenseStatuses = Array.from(validExpenseStatuses);
   const options = Array.from({ length: optionLength }, (_, index) => [
-    optionCategoryRows[index]?.[0] || '',
-    optionCategoryRows[index]?.[1] || '',
-    DEFAULT_ACCOUNTS[index] || '',
-    departments[index] || '',
-    statuses[index] || '',
+    incomeCategoryRows[index]?.[0] || '',
+    incomeCategoryRows[index]?.[1] || '',
+    expenseCategoryRows[index]?.[0] || '',
+    expenseCategoryRows[index]?.[1] || '',
+    PAYMENT_METHODS[index] || '',
+    contractStatuses[index] || '',
+    expenseStatuses[index] || '',
   ]);
-  const optionSheet = excel.utils.aoa_to_sheet([
-    ['一级分类', '二级分类', '收支账户', '归属部门', '合同状态'],
+  appendStyledSheet(excel, workbook, '下拉选项', [
+    ['收入一级分类', '收入二级分类', '支出一级分类', '支出二级分类', '收款/支出方式', '合同状态', '支付状态'],
     ...options,
   ]);
-  applyWorksheetBasics(optionSheet, 5);
-  excel.utils.book_append_sheet(workbook, optionSheet, '下拉选项');
 
-  const fieldGuide = [
-    ['字段', '是否必填', '规则'],
-    ['合同编号', '必填', '必须唯一；流水通过合同编号关联项目。'],
-    [projectLabel, '必填', isCommercial ? '工装填项目名称，合同页和流水页应保持一致。' : '合同页和流水页应保持一致。'],
-    [isCommercial ? '甲方' : '客户名称', '必填', isCommercial ? '工装合同页对应“甲方”。' : '家装合同页对应客户姓名。'],
-    ...(isCommercial ? [['乙方/丙方', '选填', '工装合同页对应乙方、丙方；没有丙方可留空。']] : [['客户电话', '选填', '家装客户联系电话。']]),
-    ['记账金额/合同金额', '必填', '必须是大于 0 的数字，不要填正负号。'],
-    ['记账日期/签约日期', '必填', '支持 yyyy-mm-dd、yyyy/m/d、Excel 日期，如 2026-04-23 或 2026/4/23。'],
-    ['收支类型', '必填', '只能填“收入”或“支出”。'],
-    ['合同状态', '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
-    ['一级分类', '必填', '收入建议填“工程款项”；支出填 ERP 支出类别管理里的一级分类。'],
-    ['二级分类', '必填', isCommercial ? '工装收入建议填回款/预付款/进度款/尾款/质保金；支出填 ERP 支出类别管理里的二级分类。' : '收入填合同收款阶段，如合同款/定金/中期款/尾款；支出填 ERP 支出类别管理里的二级分类。'],
-    [`${projectLabel}/摘要`, '选填', '有合同编号即可关联项目；摘要为空时系统会用二级分类或备注兜底。'],
-    ['示例行', '导入前删除', '红色字体为示例数据，正式导入前请整行删除。'],
-  ];
-  const fieldGuideSheet = excel.utils.aoa_to_sheet(fieldGuide);
-  applyWorksheetBasics(fieldGuideSheet, 3);
-  excel.utils.book_append_sheet(workbook, fieldGuideSheet, '字段说明');
+  appendStyledSheet(excel, workbook, '字段说明', [
+    ['字段', '适用表', '是否必填', '规则'],
+    ['合同编号', `${CONTRACT_SHEET}/${INCOME_SHEET}`, '必填', '合同编号用于关联项目；收入必须填写。支出如为非项目支出可留空。'],
+    [projectLabel, `${CONTRACT_SHEET}/${INCOME_SHEET}/${EXPENSE_SHEET}`, '合同页必填，流水页选填', '流水页有合同编号即可关联项目；填写时应和合同项目保持一致。'],
+    [isCommercial ? '甲方' : '客户名称', CONTRACT_SHEET, '必填', isCommercial ? '对应 ERP 工装合同的甲方。' : '对应 ERP 家装合同的客户姓名。'],
+    [isCommercial ? '乙方/丙方' : '客户电话', CONTRACT_SHEET, '选填', isCommercial ? '对应 ERP 工装合同的乙方、丙方；没有丙方可留空。' : '对应 ERP 家装合同的联系电话。'],
+    ['项目经理', CONTRACT_SHEET, '选填', '对应 ERP 合同详情里的项目经理/负责人。'],
+    ['合同金额/收款金额/支出金额', '对应金额表', '必填', '必须是大于 0 的数字，不要填正负号，例如 1000、12347.50。'],
+    ['签约日期/收款日期/支出日期', '对应日期表', '必填', '支持 yyyy-mm-dd、yyyy/m/d、Excel 日期，例如 2026-04-23 或 2026/4/23。'],
+    ['合同状态', CONTRACT_SHEET, '选填', '必须使用 ERP 合同状态：进行中、已完工、已结算。'],
+    ['收款阶段', INCOME_SHEET, '必填', '对应 ERP 新增收款里的收款阶段，建议和合同收款阶段名称一致。'],
+    ['一级分类/二级分类', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '必填', '必须使用 ERP 收支类别管理里的对应收入类别或支出类别。'],
+    ['收款方式/支出方式', `${INCOME_SHEET}/${EXPENSE_SHEET}`, '选填', '对应 ERP 表单里的收款方式/支出方式，留空默认银行转账。'],
+    ['收款方', EXPENSE_SHEET, '必填', '对应 ERP 新增支出里的“收款方”。'],
+    ['支付状态', EXPENSE_SHEET, '选填', '只能填已付或未付，留空默认已付。'],
+    ['备注', '全部', '选填', '对应 ERP 表单里的备注。'],
+    ['示例行', '全部示例页', '导入前删除', '红色字体为示例数据，正式导入前请整行删除。'],
+  ]);
 
   return workbook;
+}
+
+function parseContractRows(
+  rows: ImportRow[],
+  currentBizType: BizType,
+  existingContractNos: Set<string>,
+  contracts: Contract[],
+  userName: string,
+  errors: string[],
+  warnings: string[],
+) {
+  const contractMap = new Map<string, Contract>();
+  const templateContractNos = new Set<string>();
+  const now = new Date().toISOString();
+
+  rows.forEach((row, index) => {
+    const contractNo = trimValue(row['合同编号']);
+    const projectName = currentBizType === '工装' ? rowValue(row, ['项目名称', '归属项目']) : rowValue(row, ['归属项目', '项目名称']);
+    const customerName = currentBizType === '工装' ? rowValue(row, ['甲方', '客户名称']) : rowValue(row, ['客户名称', '甲方']);
+    const partyB = currentBizType === '工装' ? rowValue(row, ['乙方', '客户电话']) : '';
+    const partyC = currentBizType === '工装' ? trimValue(row['丙方']) : '';
+    const amount = numberValue(row['合同金额']);
+    const signDate = dateValue(row['签约日期']);
+    const status = trimValue(row['合同状态']) || '进行中';
+    if (!contractNo && !projectName && !customerName) return;
+    if (!contractNo || !projectName || !customerName || !amount || !signDate) {
+      const rowErrors: string[] = [];
+      if (!contractNo) rowErrors.push('合同编号未填');
+      if (!projectName) rowErrors.push(`${currentBizType === '工装' ? '项目名称' : '归属项目'}未填`);
+      if (!customerName) rowErrors.push(`${currentBizType === '工装' ? '甲方' : '客户名称'}未填`);
+      if (!isValidMoney(row['合同金额'])) rowErrors.push('合同金额未填或格式不正确，必须是大于 0 的数字');
+      if (!signDate) rowErrors.push('签约日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
+      errors.push(`${CONTRACT_SHEET}第 ${index + 2} 行：${rowErrors.join('；')}`);
+      return;
+    }
+    if (templateContractNos.has(contractNo)) {
+      errors.push(`${CONTRACT_SHEET}第 ${index + 2} 行合同编号重复：${contractNo}`);
+      return;
+    }
+    templateContractNos.add(contractNo);
+    if (!validContractStatuses.has(status)) {
+      errors.push(`${CONTRACT_SHEET}第 ${index + 2} 行合同状态“${status}”不在 ERP 状态中，只能填：进行中、已完工、已结算`);
+      return;
+    }
+    if (existingContractNos.has(contractNo)) {
+      warnings.push(`合同 ${contractNo} 已存在于 ERP，合同主档跳过，仅用于匹配流水`);
+      return;
+    }
+    contractMap.set(contractNo, {
+      id: generateId(),
+      contractNo,
+      bizType: currentBizType,
+      houseAddress: trimValue(row['项目地址']) || projectName,
+      customerName,
+      customerPhone: currentBizType === '工装' ? partyB : trimValue(row['客户电话']),
+      partyB: currentBizType === '工装' ? partyB : undefined,
+      partyC: currentBizType === '工装' ? partyC : undefined,
+      contractAmount: amount,
+      paymentStages: buildPaymentStages(row, amount, currentBizType),
+      status: status as Contract['status'],
+      signDate,
+      expectedEndDate: dateValue(row['预计完工日期']),
+      projectManager: trimValue(row['项目经理']),
+      remark: trimValue(row['备注']),
+      attachments: [],
+      createdAt: now,
+      createdBy: userName,
+    });
+  });
+
+  const availableContracts = new Map<string, Contract>();
+  contracts.forEach((contract) => availableContracts.set(contract.contractNo, contract));
+  contractMap.forEach((contract) => availableContracts.set(contract.contractNo, contract));
+
+  return { contractMap, availableContracts };
+}
+
+function parseIncomeRows(
+  rows: ImportRow[],
+  currentBizType: BizType,
+  availableContracts: Map<string, Contract>,
+  receipts: Receipt[],
+  incomeCategories: ExpenseCategory[],
+  userName: string,
+  errors: string[],
+  warnings: string[],
+) {
+  const parsedReceipts: Receipt[] = [];
+  const templateKeys = new Set<string>();
+  const existingKeys = new Set(receipts.map((item) => `${item.contractNo}|${item.receiptDate}|${item.amount}|${item.stage}|${item.remark}`));
+
+  rows.forEach((row, index) => {
+    const contractNo = trimValue(row['合同编号']);
+    const projectName = currentBizType === '工装' ? rowValue(row, ['项目名称', '归属项目']) : rowValue(row, ['归属项目', '项目名称']);
+    const date = dateValue(row['收款日期']);
+    const stage = trimValue(row['收款阶段']);
+    const primaryCategory = trimValue(row['一级分类']);
+    const secondaryCategory = trimValue(row['二级分类']);
+    const amount = numberValue(row['收款金额']);
+    if (!contractNo && !projectName && !stage && !primaryCategory && !secondaryCategory && !amount) return;
+    const rowErrors: string[] = [];
+    if (!date) rowErrors.push('收款日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
+    if (!contractNo) rowErrors.push('合同编号未填，收入必须和 ERP 或“合同项目导入”页中的合同编号一致');
+    if (!stage) rowErrors.push('收款阶段未填，对应 ERP 新增收款里的收款阶段');
+    if (!primaryCategory) rowErrors.push('一级分类未填，必须使用 ERP 收支类别管理里的收入一级分类');
+    if (!secondaryCategory) rowErrors.push('二级分类未填，必须使用 ERP 收支类别管理里的收入二级分类');
+    if (!isValidMoney(row['收款金额'])) rowErrors.push('收款金额未填或格式不正确，必须是大于 0 的数字，例如：1000、12347.50');
+    if (rowErrors.length > 0) {
+      errors.push(`${INCOME_SHEET}第 ${index + 2} 行：${rowErrors.join('；')}`);
+      return;
+    }
+
+    const contract = availableContracts.get(contractNo);
+    if (!contract) {
+      errors.push(`${INCOME_SHEET}第 ${index + 2} 行合同编号 ${contractNo} 在 ERP 和模板中都不存在`);
+      return;
+    }
+    if (contract.houseAddress && projectName && contract.houseAddress !== projectName) {
+      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行项目名称与合同项目不完全一致：${projectName}`);
+    }
+
+    const remark = trimValue(row['备注']);
+    const key = `${contractNo}|${date}|${amount}|${stage}|${remark}`;
+    if (templateKeys.has(key)) {
+      errors.push(`${INCOME_SHEET}第 ${index + 2} 行与模板内其他收入重复`);
+      return;
+    }
+    templateKeys.add(key);
+    if (existingKeys.has(key)) {
+      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行疑似重复，已跳过`);
+      return;
+    }
+
+    const categoryPath = resolveExpenseCategory({
+      primaryCategory,
+      secondaryCategory,
+      category: secondaryCategory,
+    }, incomeCategories);
+    if (!contract.paymentStages.some((item) => item.name === stage)) {
+      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行收款阶段“${stage}”不在合同收款阶段中`);
+    }
+    if (primaryCategory && categoryPath.primaryName && primaryCategory !== categoryPath.primaryName) {
+      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行一级分类“${primaryCategory}”与 ERP 收入分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
+    }
+    if (secondaryCategory && categoryPath.secondaryName && secondaryCategory !== categoryPath.secondaryName) {
+      warnings.push(`${INCOME_SHEET}第 ${index + 2} 行二级分类“${secondaryCategory}”与 ERP 收入分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
+    }
+
+    parsedReceipts.push({
+      id: generateId(),
+      contractId: contract.id,
+      contractNo,
+      bizType: currentBizType,
+      customerName: contract.customerName,
+      amount,
+      paymentMethod: trimValue(row['收款方式']) || '银行转账',
+      receiptDate: date,
+      stage,
+      ...expenseCategoryPayload(categoryPath),
+      remark,
+      attachments: [],
+      lifecycleStatus: 'active',
+      createdAt: new Date().toISOString(),
+      createdBy: userName,
+    });
+  });
+
+  return parsedReceipts;
+}
+
+function parseExpenseRows(
+  rows: ImportRow[],
+  currentBizType: BizType,
+  availableContracts: Map<string, Contract>,
+  expenses: Expense[],
+  expenseCategories: ExpenseCategory[],
+  userName: string,
+  errors: string[],
+  warnings: string[],
+) {
+  const parsedExpenses: Expense[] = [];
+  const templateKeys = new Set<string>();
+  const existingKeys = new Set(expenses.map((item) => `${item.contractNo || ''}|${item.expenseDate}|${item.amount}|${item.category}|${item.supplier}|${item.remark}`));
+
+  rows.forEach((row, index) => {
+    const contractNo = trimValue(row['合同编号']);
+    const projectName = currentBizType === '工装' ? rowValue(row, ['项目名称', '归属项目']) : rowValue(row, ['归属项目', '项目名称']);
+    const date = dateValue(row['支出日期']);
+    const primaryCategory = trimValue(row['一级分类']);
+    const secondaryCategory = trimValue(row['二级分类']);
+    const amount = numberValue(row['支出金额']);
+    const supplier = trimValue(row['收款方']);
+    const status = trimValue(row['支付状态']) || '已付';
+    if (!contractNo && !projectName && !primaryCategory && !secondaryCategory && !amount && !supplier) return;
+    const rowErrors: string[] = [];
+    if (!date) rowErrors.push('支出日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
+    if (!primaryCategory) rowErrors.push('一级分类未填，必须使用 ERP 收支类别管理里的支出一级分类');
+    if (!secondaryCategory) rowErrors.push('二级分类未填，必须使用 ERP 收支类别管理里的支出二级分类');
+    if (!isValidMoney(row['支出金额'])) rowErrors.push('支出金额未填或格式不正确，必须是大于 0 的数字，例如：1000、12347.50');
+    if (!supplier) rowErrors.push('收款方未填，对应 ERP 新增支出里的收款方');
+    if (status && !validExpenseStatuses.has(status)) rowErrors.push(`支付状态“${status}”不正确，只能填：已付、未付`);
+    if (rowErrors.length > 0) {
+      errors.push(`${EXPENSE_SHEET}第 ${index + 2} 行：${rowErrors.join('；')}`);
+      return;
+    }
+
+    const contract = contractNo ? availableContracts.get(contractNo) : undefined;
+    if (contractNo && !contract) {
+      errors.push(`${EXPENSE_SHEET}第 ${index + 2} 行合同编号 ${contractNo} 在 ERP 和模板中都不存在；如为非项目支出请留空合同编号`);
+      return;
+    }
+    if (contract?.houseAddress && projectName && contract.houseAddress !== projectName) {
+      warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行项目名称与合同项目不完全一致：${projectName}`);
+    }
+
+    const remark = trimValue(row['备注']);
+    const categoryPath = resolveExpenseCategory({
+      primaryCategory,
+      secondaryCategory,
+      category: secondaryCategory,
+    }, expenseCategories);
+    const category = categoryPath.secondaryName || secondaryCategory || primaryCategory;
+    const key = `${contractNo}|${date}|${amount}|${category}|${supplier}|${remark}`;
+    if (templateKeys.has(key)) {
+      errors.push(`${EXPENSE_SHEET}第 ${index + 2} 行与模板内其他支出重复`);
+      return;
+    }
+    templateKeys.add(key);
+    if (existingKeys.has(key)) {
+      warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行疑似重复，已跳过`);
+      return;
+    }
+    if (primaryCategory && categoryPath.primaryName && primaryCategory !== categoryPath.primaryName) {
+      warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行一级分类“${primaryCategory}”与 ERP 支出分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
+    }
+    if (secondaryCategory && categoryPath.secondaryName && secondaryCategory !== categoryPath.secondaryName) {
+      warnings.push(`${EXPENSE_SHEET}第 ${index + 2} 行二级分类“${secondaryCategory}”与 ERP 支出分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
+    }
+
+    parsedExpenses.push({
+      id: generateId(),
+      contractId: contract?.id || '__none__',
+      contractNo: contract?.contractNo || '',
+      bizType: currentBizType,
+      category,
+      ...expenseCategoryPayload(categoryPath),
+      amount,
+      supplier,
+      payMethod: trimValue(row['支出方式']) || '银行转账',
+      expenseDate: date,
+      status: status as Expense['status'],
+      remark,
+      attachments: [],
+      lifecycleStatus: 'active',
+      createdAt: new Date().toISOString(),
+      createdBy: userName,
+    });
+  });
+
+  return parsedExpenses;
 }
 
 export default function FinanceImportModal({ open, onClose }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { contracts, receipts, expenses, addContract, addReceipt, addExpense, _refreshSilent } = useFinanceStore();
   const { currentBizType } = useBizStore();
-  const { user, users, loadUsers } = useAuthStore();
+  const { user } = useAuthStore();
   const { showAlert, showConfirm } = useDialogStore();
   const [selectedFileName, setSelectedFileName] = useState('');
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
@@ -362,19 +603,17 @@ export default function FinanceImportModal({ open, onClose }: Props) {
     if (!open) return;
     loadExpenseCategories(currentBizType).then(setExpenseCategories).catch(() => setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES));
     loadIncomeCategories(currentBizType).then(setIncomeCategories).catch(() => setIncomeCategories(DEFAULT_INCOME_CATEGORIES));
-    if (users.length === 0) void loadUsers().catch(() => {});
-  }, [currentBizType, loadUsers, open, users.length]);
+  }, [currentBizType, open]);
 
   const existingContractNos = useMemo(
     () => new Set(contracts.map((contract) => contract.contractNo).filter(Boolean)),
     [contracts],
   );
-  const departments = useMemo(() => getDepartments(users, user), [user, users]);
 
   const downloadTemplate = async () => {
     const XLSXStyle = await import('xlsx-js-style');
     XLSXStyle.writeFile(
-      buildTemplateWorkbook(XLSXStyle as typeof XLSX, expenseCategories, incomeCategories, departments, currentBizType),
+      buildTemplateWorkbook(XLSXStyle as typeof XLSX, expenseCategories, incomeCategories, currentBizType),
       `ERP_${currentBizType}_财务数据导入模板_${new Date().toISOString().slice(0, 10)}.xlsx`,
       { cellStyles: true },
     );
@@ -385,185 +624,49 @@ export default function FinanceImportModal({ open, onClose }: Props) {
     const errors: string[] = [];
     const warnings: string[] = [];
     const contractRows = sheetRows(workbook, CONTRACT_SHEET);
-    const flowRows = sheetRows(workbook, FLOW_SHEET);
+    const incomeRows = sheetRows(workbook, INCOME_SHEET);
+    const expenseRows = sheetRows(workbook, EXPENSE_SHEET);
     if (!workbook.Sheets[CONTRACT_SHEET]) errors.push(`缺少页签：${CONTRACT_SHEET}`);
-    if (!workbook.Sheets[FLOW_SHEET]) errors.push(`缺少页签：${FLOW_SHEET}`);
+    if (!workbook.Sheets[INCOME_SHEET]) errors.push(`缺少页签：${INCOME_SHEET}`);
+    if (!workbook.Sheets[EXPENSE_SHEET]) errors.push(`缺少页签：${EXPENSE_SHEET}`);
+
     const contractHeaderGroups = currentBizType === '工装'
       ? [['合同编号'], ['项目名称', '归属项目'], ['甲方', '客户名称'], ['签约日期'], ['合同金额']]
       : requiredHomeContractHeaders.map((header) => [header]);
-    missingHeaderGroups(contractRows, contractHeaderGroups).forEach((header) => errors.push(`合同项目导入缺少表头：${header}`));
-    missingHeaders(flowRows, requiredFlowHeaders).forEach((header) => errors.push(`流水导入缺少表头：${header}`));
+    missingHeaderGroups(contractRows, contractHeaderGroups).forEach((header) => errors.push(`${CONTRACT_SHEET}缺少表头：${header}`));
+    missingHeaders(incomeRows, requiredIncomeHeaders).forEach((header) => errors.push(`${INCOME_SHEET}缺少表头：${header}`));
+    missingHeaders(expenseRows, requiredExpenseHeaders).forEach((header) => errors.push(`${EXPENSE_SHEET}缺少表头：${header}`));
 
-    const contractMap = new Map<string, Contract>();
-    const templateContractNos = new Set<string>();
-    const now = new Date().toISOString();
-
-    contractRows.forEach((row, index) => {
-      const contractNo = trimValue(row['合同编号']);
-      const projectName = currentBizType === '工装' ? rowValue(row, ['项目名称', '归属项目']) : rowValue(row, ['归属项目', '项目名称']);
-      const customerName = currentBizType === '工装' ? rowValue(row, ['甲方', '客户名称']) : rowValue(row, ['客户名称', '甲方']);
-      const partyB = currentBizType === '工装' ? rowValue(row, ['乙方', '客户电话']) : '';
-      const partyC = currentBizType === '工装' ? trimValue(row['丙方']) : '';
-      const amount = numberValue(row['合同金额']);
-      const signDate = dateValue(row['签约日期']);
-      const status = trimValue(row['合同状态']) || '进行中';
-      if (!contractNo && !projectName && !customerName) return;
-      if (!contractNo || !projectName || !customerName || !amount || !signDate) {
-        const rowErrors: string[] = [];
-        if (!contractNo) rowErrors.push('合同编号未填');
-        if (!projectName) rowErrors.push(`${currentBizType === '工装' ? '项目名称' : '归属项目'}未填`);
-        if (!customerName) rowErrors.push(`${currentBizType === '工装' ? '甲方' : '客户名称'}未填`);
-        if (!isValidMoney(row['合同金额'])) rowErrors.push('合同金额未填或格式不正确，必须是大于 0 的数字');
-        if (!signDate) rowErrors.push('签约日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
-        errors.push(`合同项目导入第 ${index + 2} 行：${rowErrors.join('；')}`);
-        return;
-      }
-      if (templateContractNos.has(contractNo)) {
-        errors.push(`合同项目导入第 ${index + 2} 行合同编号重复：${contractNo}`);
-        return;
-      }
-      templateContractNos.add(contractNo);
-      if (!validContractStatuses.has(status)) {
-        errors.push(`合同项目导入第 ${index + 2} 行合同状态“${status}”不在 ERP 状态中，只能填：进行中、已完工、已结算`);
-        return;
-      }
-      if (existingContractNos.has(contractNo)) {
-        warnings.push(`合同 ${contractNo} 已存在于 ERP，合同主档跳过，仅用于匹配流水`);
-        return;
-      }
-      contractMap.set(contractNo, {
-        id: generateId(),
-        contractNo,
-        bizType: currentBizType,
-        houseAddress: trimValue(row['项目地址']) || projectName,
-        customerName,
-        customerPhone: currentBizType === '工装' ? partyB : trimValue(row['客户电话']),
-        partyB: currentBizType === '工装' ? partyB : undefined,
-        partyC: currentBizType === '工装' ? partyC : undefined,
-        contractAmount: amount,
-        paymentStages: buildPaymentStages(row, amount, currentBizType),
-        status: status as Contract['status'],
-        signDate,
-        expectedEndDate: dateValue(row['完工日期']),
-        projectManager: trimValue(row['负责人']),
-        remark: trimValue(row['备注']),
-        attachments: [],
-        createdAt: now,
-        createdBy: user?.name || 'ERP导入',
-      });
-    });
-
-    const availableContracts = new Map<string, Contract>();
-    contracts.forEach((contract) => availableContracts.set(contract.contractNo, contract));
-    contractMap.forEach((contract) => availableContracts.set(contract.contractNo, contract));
-
-    const parsedReceipts: Receipt[] = [];
-    const parsedExpenses: Expense[] = [];
-    const templateFlowKeys = new Set<string>();
-    const existingFlowKeys = new Set([
-      ...receipts.map((item) => `收入|${item.contractNo}|${item.receiptDate}|${item.amount}|${item.stage}|${item.remark}`),
-      ...expenses.map((item) => `支出|${item.contractNo}|${item.expenseDate}|${item.amount}|${item.category}|${item.remark}`),
-    ]);
-
-    flowRows.forEach((row, index) => {
-      const type = trimValue(row['收支类型']);
-      const contractNo = trimValue(row['合同编号']);
-      const projectName = currentBizType === '工装' ? rowValue(row, ['项目名称', '归属项目']) : rowValue(row, ['归属项目', '项目名称']);
-      const date = dateValue(row['记账日期']);
-      const amount = numberValue(row['记账金额']);
-      const summary = trimValue(row['摘要/用途说明']);
-      const secondaryCategory = trimValue(row['二级分类']);
-      const primaryCategory = trimValue(row['一级分类']);
-      if (!type && !contractNo && !projectName && !summary && !primaryCategory && !secondaryCategory && !amount) return;
-      const rowErrors: string[] = [];
-      if (!date) rowErrors.push('记账日期未填或格式不正确，正确格式：2026-04-23、2026/4/23，或 Excel 日期');
-      if (!type) rowErrors.push('收支类型未填，正确值：收入、支出');
-      if (type && !validFlowTypes.has(type)) rowErrors.push(`收支类型“${type}”不正确，只能填：收入、支出`);
-      if (!contractNo) rowErrors.push('合同编号未填，必须和 ERP 或“合同项目导入”页中的合同编号一致');
-      if (!primaryCategory) rowErrors.push('一级分类未填，收入建议填“工程款项”，支出填 ERP 支出类别管理里的一级分类');
-      if (!secondaryCategory) rowErrors.push('二级分类未填，收入填收款阶段，支出填 ERP 支出类别管理里的二级分类');
-      if (!isValidMoney(row['记账金额'])) rowErrors.push('记账金额未填或格式不正确，必须是大于 0 的数字，例如：1000、12347.50');
-      if (rowErrors.length > 0) {
-        errors.push(`流水导入第 ${index + 2} 行：${rowErrors.join('；')}`);
-        return;
-      }
-      const contract = availableContracts.get(contractNo);
-      if (!contract) {
-        errors.push(`流水导入第 ${index + 2} 行合同编号 ${contractNo} 在 ERP 和模板中都不存在`);
-        return;
-      }
-      if (contract.houseAddress && projectName && contract.houseAddress !== projectName) {
-        warnings.push(`流水导入第 ${index + 2} 行归属项目与合同项目不完全一致：${projectName}`);
-      }
-      const remark = trimValue(row['备注']) || summary || secondaryCategory;
-      const flowKey = `${type}|${contractNo}|${date}|${amount}|${secondaryCategory || summary}|${remark}`;
-      if (templateFlowKeys.has(flowKey)) {
-        errors.push(`流水导入第 ${index + 2} 行与模板内其他流水重复`);
-        return;
-      }
-      templateFlowKeys.add(flowKey);
-      if (existingFlowKeys.has(flowKey)) {
-        warnings.push(`流水导入第 ${index + 2} 行疑似重复，已跳过`);
-        return;
-      }
-      if (type === '收入') {
-        const categoryPath = resolveExpenseCategory({
-          primaryCategory,
-          secondaryCategory,
-          category: secondaryCategory,
-        }, incomeCategories);
-        if (!contract.paymentStages.some((stage) => stage.name === secondaryCategory)) {
-          warnings.push(`流水导入第 ${index + 2} 行收入阶段“${secondaryCategory}”不在合同收款阶段中`);
-        }
-        parsedReceipts.push({
-          id: generateId(),
-          contractId: contract.id,
-          contractNo,
-          bizType: currentBizType,
-          customerName: trimValue(row['对方单位']) || contract.customerName,
-          amount,
-          paymentMethod: trimValue(row['收支账户']) || '银行账户',
-          receiptDate: date,
-          stage: secondaryCategory || summary,
-          ...expenseCategoryPayload(categoryPath),
-          remark,
-          attachments: [],
-          lifecycleStatus: 'active',
-          createdAt: now,
-          createdBy: user?.name || 'ERP导入',
-        });
-      } else {
-        const categoryPath = resolveExpenseCategory({
-          primaryCategory,
-          secondaryCategory,
-          category: secondaryCategory,
-        }, expenseCategories);
-        if (primaryCategory && categoryPath.primaryName && primaryCategory !== categoryPath.primaryName) {
-          warnings.push(`流水导入第 ${index + 2} 行一级分类“${primaryCategory}”与 ERP 分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
-        }
-        if (secondaryCategory && categoryPath.secondaryName && secondaryCategory !== categoryPath.secondaryName) {
-          warnings.push(`流水导入第 ${index + 2} 行二级分类“${secondaryCategory}”与 ERP 分类不完全匹配，导入后归到“${categoryPath.primaryName} / ${categoryPath.secondaryName}”`);
-        }
-        parsedExpenses.push({
-          id: generateId(),
-          contractId: contract.id,
-          contractNo,
-          bizType: currentBizType,
-          category: categoryPath.secondaryName || secondaryCategory || primaryCategory || summary,
-          ...expenseCategoryPayload(categoryPath),
-          amount,
-          supplier: trimValue(row['对方单位']) || trimValue(row['货品/服务名称']) || projectName,
-          payMethod: trimValue(row['收支账户']) || '银行账户',
-          expenseDate: date,
-          status: '已付',
-          remark,
-          attachments: [],
-          lifecycleStatus: 'active',
-          createdAt: now,
-          createdBy: user?.name || 'ERP导入',
-        });
-      }
-    });
+    const userName = user?.name || 'ERP导入';
+    const { contractMap, availableContracts } = parseContractRows(
+      contractRows,
+      currentBizType,
+      existingContractNos,
+      contracts,
+      userName,
+      errors,
+      warnings,
+    );
+    const parsedReceipts = parseIncomeRows(
+      incomeRows,
+      currentBizType,
+      availableContracts,
+      receipts,
+      incomeCategories,
+      userName,
+      errors,
+      warnings,
+    );
+    const parsedExpenses = parseExpenseRows(
+      expenseRows,
+      currentBizType,
+      availableContracts,
+      expenses,
+      expenseCategories,
+      userName,
+      errors,
+      warnings,
+    );
 
     setSelectedFileName(file.name);
     setParsed({
@@ -611,7 +714,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
     <Modal open={open} onClose={onClose} title="财务数据导入" size="lg">
       <div className="space-y-4">
         <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-          请先下载系统模板，把历史合同和流水迁移到模板后再上传。系统会先导入合同项目，再按合同编号导入收入和支出流水。
+          请先下载系统模板，把历史合同、收入流水、支出流水迁移到对应页签后再上传。模板字段只保留 ERP 电脑端当前会保存和展示的字段。
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
