@@ -158,10 +158,11 @@ function countProjectDays(startValue?: string, endValue?: string) {
 function getProjectDateMeta(project: any) {
   const lifecycleStatus = getProjectLifecycleStatus(project);
   const startDate = formatProjectDate(project.startDate);
-  const finishDate = lifecycleStatus === '已完工' ? formatProjectDate(project.endDate || project.completedAt || project.actualEndDate) : '';
+  const finishDate = lifecycleStatus === '已完工' ? formatProjectDate(project.actualEndDate || project.completedAt || project.endDate) : '';
   const pauseDate = lifecycleStatus === '已暂停' ? formatProjectDate(project.pauseDate || project.pausedAt || project.updatedAt) : '';
-  const durationEnd = finishDate || pauseDate || new Date().toISOString().slice(0, 10);
-  const days = countProjectDays(project.startDate, durationEnd);
+  const isClosed = lifecycleStatus === '已完工' || lifecycleStatus === '已暂停';
+  const durationEnd = finishDate || pauseDate || (!isClosed ? new Date().toISOString().slice(0, 10) : '');
+  const days = startDate && durationEnd ? countProjectDays(project.startDate, durationEnd) : 0;
   return { startDate, finishDate, pauseDate, days };
 }
 
@@ -1117,7 +1118,7 @@ export default function ProjectsBiz() {
               <span>下一阶段</span>
               <span>进度</span>
               <button type="button" onClick={toggleTimeSort} className="inline-flex items-center gap-1 text-left transition-colors hover:text-gray-800">
-                <span>开工日期 / 工期</span>
+                <span>工期信息</span>
                 {timeSortOrder === 'desc' ? <ChevronDown size={13} /> : timeSortOrder === 'asc' ? <ChevronUp size={13} /> : <span className="text-xs text-gray-300">↕</span>}
               </button>
               <span>跟进人员</span>
@@ -1129,13 +1130,17 @@ export default function ProjectsBiz() {
                 ? p.progressSummary
                 : buildProjectProgressSummary(p.nodesData || []);
               const stageStatuses = Array.isArray(summary.stageStatuses) ? summary.stageStatuses : [];
-              const progress = typeof summary.progressPercent === 'number' ? summary.progressPercent : getProgress(p.nodesData || []);
               const lifecycleStatus = getProjectLifecycleStatus(p);
+              const progress = lifecycleStatus === '已完工'
+                ? 100
+                : (typeof summary.progressPercent === 'number' ? summary.progressPercent : getProgress(p.nodesData || []));
               const currentStageLabel = getCurrentStageLabel(p);
               const currentStageIndex = Math.max(0, stageStatuses.findIndex((stage: any) => stage.isCurrentPosition));
               const currentStage = stageStatuses[currentStageIndex];
-              const currentStageName = summary.currentNodeName || summary.nodeName || '-';
-              const nextStageName = stageStatuses[currentStageIndex + 1]?.name || '-';
+              const currentStageName = lifecycleStatus === '已完工'
+                ? '已完工'
+                : (summary.currentNodeName || summary.nodeName || '-');
+              const nextStageName = lifecycleStatus === '已完工' ? '-' : (stageStatuses[currentStageIndex + 1]?.name || '-');
               const dateMeta = getProjectDateMeta(p);
               const isRelated = isAdmin || getProjectPeople(p).includes(myName);
               const projectId = p._id;
@@ -1296,8 +1301,8 @@ export default function ProjectsBiz() {
 
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium text-gray-800" title={currentStageName}>{currentStageName}</div>
-                      <div className={`mt-1 text-[10px] ${currentStage?.status === 'current' ? 'text-amber-600' : currentStage?.status === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
-                        {currentStage?.status === 'current' ? '施工中' : currentStage?.status === 'completed' ? '已完成，等待下一阶段' : '待开始'}
+                      <div className={`mt-1 text-[10px] ${lifecycleStatus === '已完工' ? 'text-emerald-600' : currentStage?.status === 'current' ? 'text-amber-600' : currentStage?.status === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
+                        {lifecycleStatus === '已完工' ? '项目已完成' : currentStage?.status === 'current' ? '施工中' : currentStage?.status === 'completed' ? '已完成，等待下一阶段' : '待开始'}
                       </div>
                     </div>
 
@@ -1314,8 +1319,29 @@ export default function ProjectsBiz() {
                     </div>
 
                     <div className="min-w-0 space-y-1 text-xs text-gray-500">
-                      <div>开工 {dateMeta.startDate || '-'}</div>
-                      {dateMeta.days > 0 && <div className="text-gray-400">工期 {dateMeta.days} 天</div>}
+                      {lifecycleStatus === '已完工' ? (
+                        <>
+                          <div className="whitespace-nowrap" title={`开工 ${dateMeta.startDate || '-'}，完工 ${dateMeta.finishDate || '-'}`}>
+                            {dateMeta.startDate || '-'} <span className="text-gray-300">→</span> {dateMeta.finishDate || '-'}
+                          </div>
+                          <div className="text-gray-400">实际工期 {dateMeta.days > 0 ? `${dateMeta.days} 天` : '-'}</div>
+                        </>
+                      ) : lifecycleStatus === '已暂停' ? (
+                        <>
+                          <div>开工 {dateMeta.startDate || '-'}</div>
+                          <div className="text-gray-400">暂停 {dateMeta.pauseDate || '-'}{dateMeta.days > 0 ? ` · 已施工 ${dateMeta.days} 天` : ''}</div>
+                        </>
+                      ) : lifecycleStatus === '未开工' ? (
+                        <>
+                          <div>计划开工 {dateMeta.startDate || '-'}</div>
+                          <div className="text-gray-400">尚未开工</div>
+                        </>
+                      ) : (
+                        <>
+                          <div>开工 {dateMeta.startDate || '-'}</div>
+                          <div className="text-gray-400">已施工 {dateMeta.days > 0 ? `${dateMeta.days} 天` : '-'}</div>
+                        </>
+                      )}
                     </div>
 
                     <div className="min-w-0 text-xs">
