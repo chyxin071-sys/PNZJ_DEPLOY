@@ -37,6 +37,7 @@ import {
   stableOperationId,
 } from '@/services/notificationService';
 import { addLeadAuditFollowUp } from '@/utils/leadAudit';
+import { buildProjectProgressSummary } from '@/utils/projectProgress';
 
 const CACHED_URLS = new Map<string, string>();
 const CLOUD_STORAGE_PREFIX = 'cloud://cloud1-8grodf5s3006f004.636c-cloud1-8grodf5s3006f004-1421470557/';
@@ -237,58 +238,6 @@ const toPersonArray = (val: any): string[] => {
 const includesPerson = (val: any, name: string): boolean => {
   return toPersonArray(val).includes(name);
 };
-
-function buildProjectProgressSummary(nodesData: any[] = []) {
-  const stageStatuses = (nodesData || []).map((node: any) => {
-    let stageTotal = 0;
-    let stageCompleted = 0;
-    let anyStarted = false;
-    (node.sections || []).forEach((sec: any) => {
-      if (sec.actualStartDate || sec.status === 'current') anyStarted = true;
-      const subNodes = sec.subNodes || [];
-      if (subNodes.length === 0) {
-        stageTotal++;
-        if (sec.status === 'completed' || sec.submitted) stageCompleted++;
-      } else {
-        subNodes.forEach((sn: any) => {
-          stageTotal++;
-          if (sn.status === 'completed' || sn.submitted) stageCompleted++;
-          if (sn.status === 'current' || sn.actualStartDate || sn.acceptanceRecord?.photos?.length) anyStarted = true;
-        });
-      }
-    });
-    let status = 'pending';
-    if (stageTotal > 0 && stageCompleted >= stageTotal) status = 'completed';
-    else if (stageCompleted > 0 || anyStarted) status = 'current';
-    return { name: node.name || '阶段', status, stageCompleted, stageTotal };
-  });
-  if (stageStatuses.length > 0 && !stageStatuses.some((item: any) => item.status === 'current')) {
-    const firstPendingIndex = stageStatuses.findIndex((item: any) => item.status === 'pending');
-    if (firstPendingIndex >= 0) stageStatuses[firstPendingIndex].status = 'current';
-  }
-  let currentIndex = stageStatuses.findIndex((item: any) => item.status === 'current');
-  if (currentIndex < 0) currentIndex = stageStatuses.reduce((last: number, item: any, idx: number) => item.status === 'completed' ? idx : last, -1);
-  if (currentIndex < 0 && stageStatuses.length > 0) currentIndex = 0;
-  const completedSubNodes = stageStatuses.reduce((sum: number, item: any) => sum + (item.stageCompleted || 0), 0);
-  const totalSubNodes = stageStatuses.reduce((sum: number, item: any) => sum + (item.stageTotal || 0), 0);
-  const nodesList = stageStatuses.map((item: any) => item.name).filter(Boolean);
-  const nodesCount = nodesList.length;
-  const currentNode = nodesCount > 0 ? Math.min(nodesCount, currentIndex + 1) : 0;
-  const currentProgress = nodesCount > 1 ? Math.max(0, currentNode - 1) / (nodesCount - 1) : (nodesCount === 1 ? 1 : 0);
-  return {
-    currentNode,
-    currentNodeName: nodesList[currentNode - 1] || '',
-    nodeName: nodesList[currentNode - 1] || '',
-    nodesCount,
-    nodesList,
-    stageStatuses: stageStatuses.map(({ name, status }: any) => ({ name, status })),
-    currentProgress,
-    progressPercent: totalSubNodes > 0 ? Math.round((completedSubNodes / totalSubNodes) * 100) : Math.round(currentProgress * 100),
-    completedSubNodes,
-    totalSubNodes,
-    updatedAt: Date.now(),
-  };
-}
 
 function isActiveSubNode(subNode: any) {
   if (!subNode) return false;
@@ -678,6 +627,12 @@ export default function ProjectBizDetail() {
             });
           }
         });
+      }
+      const calculatedProgressSummary = buildProjectProgressSummary(p.nodesData || []);
+      const previousProgressVersion = Number(p.progressSummary?.algorithmVersion || 0);
+      p.progressSummary = calculatedProgressSummary;
+      if (previousProgressVersion < calculatedProgressSummary.algorithmVersion) {
+        void projectsAPI.update(id!, { progressSummary: calculatedProgressSummary }).catch(() => undefined);
       }
       const [latestLogsData, latestInspectionsData] = await Promise.all([
         projectLogsAPI.where({ projectId: id }).orderBy('createdAt', 'desc').toArray().catch(() => []),
@@ -1175,10 +1130,11 @@ export default function ProjectBizDetail() {
          }
       }
       section.subNodes?.forEach((sn: any) => {
-        if (sn.status === 'current') {
+        if (sn.status !== 'completed' && sn.status !== 'awaiting_signature') {
           sn.status = 'completed';
           if (!sn.acceptanceRecord) sn.acceptanceRecord = {};
           if (!sn.acceptanceRecord.completedAt) sn.acceptanceRecord.completedAt = timeStr;
+          if (!sn.completedBy) sn.completedBy = myName;
         }
       });
       try {
@@ -2184,10 +2140,10 @@ export default function ProjectBizDetail() {
 
 
   /* ---- 统计 ---- */
-  const allSubNodes = project?.nodesData?.flatMap((n: any) => n.sections?.flatMap((s: any) => s.subNodes || []) || []) || [];
-  const completedCount = allSubNodes.filter((sn: any) => sn.status === 'completed').length;
-  const totalCount = allSubNodes.length;
-  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const progressSummary = buildProjectProgressSummary(project?.nodesData || []);
+  const completedCount = progressSummary.completedSubNodes;
+  const totalCount = progressSummary.totalSubNodes;
+  const progress = progressSummary.progressPercent;
 
   if (loading) {
     return (
@@ -2214,7 +2170,6 @@ export default function ProjectBizDetail() {
   const completionChecks = getCompletionChecks();
   const completionIssueCount = completionChecks.unfinished.length + completionChecks.pendingRectifications.length;
   const relatedContract = contracts?.[0];
-  const progressSummary = project.progressSummary || buildProjectProgressSummary(project.nodesData || []);
   const currentNodeName = progressSummary.currentNodeName || progressSummary.nodeName || '';
   const projectDuration = getPlanDays(project.startDate, project.endDate);
   const followPeople = [
@@ -2661,28 +2616,10 @@ export default function ProjectBizDetail() {
                     </div>
                     <div className="mt-2 pb-4">
                       {(project.nodesData && project.nodesData.length > 0) ? (() => {
-                        const nodeStatuses = project.nodesData.map((node: any) => {
-                          let stageTotal = 0;
-                          let stageCompleted = 0;
-                          (node.sections || []).forEach((sec: any) => {
-                            (sec.subNodes || []).forEach((sn: any) => {
-                              stageTotal++;
-                              if (sn.status === 'completed') stageCompleted++;
-                            });
-                          });
-                          
-                          let status = 'pending';
-                          if (stageTotal > 0) {
-                            if (stageCompleted === stageTotal) status = 'completed';
-                            else if (stageCompleted > 0) status = 'current';
-                          }
-                          return { node, status, stageCompleted, stageTotal };
-                        });
-                        
-                        let firstPendingIndex = nodeStatuses.findIndex((n: any) => n.status === 'pending');
-                        if (firstPendingIndex !== -1 && !nodeStatuses.some((n: any) => n.status === 'current')) {
-                          nodeStatuses[firstPendingIndex].status = 'current';
-                        }
+                        const nodeStatuses = progressSummary.stageStatuses.map((stage: any, index: number) => ({
+                          ...stage,
+                          node: project.nodesData[index],
+                        }));
                         
                         return (
                           <div
@@ -2694,6 +2631,7 @@ export default function ProjectBizDetail() {
                                 const isLast = i === nodeStatuses.length - 1;
                                 const isCompleted = ns.status === 'completed';
                                 const isCurrent = ns.status === 'current';
+                                const isCurrentPosition = Boolean(ns.isCurrentPosition);
                                 return (
                                   <div key={`dot-${i}`} className="relative flex items-center py-0.5">
                                     {i > 0 && (
@@ -2702,6 +2640,7 @@ export default function ProjectBizDetail() {
                                     )}
                                     <div className="relative z-10 mx-auto flex flex-col items-center group">
                                       <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 shrink-0 bg-white transition-colors
+                                        ${isCurrentPosition && isCompleted ? 'ring-2 ring-gold-400 ring-offset-2' : ''}
                                         ${isCompleted ? 'border-emerald-500 bg-emerald-500' : 
                                           isCurrent ? 'border-gold-500' : 'border-gray-200'}`}>
                                         {isCompleted ? <CheckCircle size={11} className="text-white" /> : 
@@ -2723,8 +2662,9 @@ export default function ProjectBizDetail() {
                             {nodeStatuses.map((ns: any, i: number) => {
                                 const isCompleted = ns.status === 'completed';
                                 const isCurrent = ns.status === 'current';
+                                const isCurrentPosition = Boolean(ns.isCurrentPosition);
                                 return (
-                                  <span key={`label-${i}`} className={`truncate text-center text-[10px] mt-1 transition-colors ${isCompleted ? 'text-emerald-600' : isCurrent ? 'text-gold-600 font-medium' : 'text-gray-400'}`}>
+                                  <span key={`label-${i}`} className={`truncate text-center text-[10px] mt-1 transition-colors ${isCurrentPosition ? 'font-semibold' : ''} ${isCompleted ? 'text-emerald-600' : isCurrent ? 'text-gold-600 font-medium' : 'text-gray-400'}`}>
                                     {ns.node.name || '阶段'}
                                   </span>
                                 );
@@ -3002,8 +2942,10 @@ export default function ProjectBizDetail() {
                   {project.nodesData?.map((node: any, index: number) => {
                     const sections = node.sections || [];
                     const nodeSections = sections.flatMap((s: any) => s ? [s] : []);
-                    const hasCurrent = nodeSections.some((s: any) => s.status === 'current');
-                    const allCompleted = nodeSections.length > 0 && nodeSections.every((s: any) => s.status === 'completed' || s.submitted);
+                    const stageSummary = progressSummary.stageStatuses[index];
+                    const hasCurrent = stageSummary?.status === 'current';
+                    const allCompleted = stageSummary?.status === 'completed';
+                    const isCurrentPosition = Boolean(stageSummary?.isCurrentPosition);
                     const badge = allCompleted ? '已完成' : hasCurrent ? '施工中' : '待开始';
                     const badgeClass = allCompleted ? 'bg-emerald-50 text-emerald-700' : hasCurrent ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500';
                     const actualStarts = nodeSections.map((s: any) => s.actualStartDate).filter(Boolean);
@@ -3012,7 +2954,7 @@ export default function ProjectBizDetail() {
 
                     return (
                       <div key={node._id || `mobile-node-${index}`} className="space-y-2">
-                        <div onClick={() => !isEditingNodes && toggleNodeCollapse(node._id)} className="w-full px-1 py-2 text-left">
+                        <div onClick={() => !isEditingNodes && toggleNodeCollapse(node._id)} className={`w-full px-1 py-2 text-left ${isCurrentPosition && allCompleted ? 'rounded-lg ring-2 ring-gold-300 ring-offset-1' : ''}`}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 min-w-0">

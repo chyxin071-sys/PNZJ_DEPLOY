@@ -24,6 +24,10 @@ import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
 import { useIncrementalList, usePageScrollRestore } from '@/hooks/useListViewportState';
 import {
+  buildProjectProgressSummary,
+  isCurrentProjectProgressSummary,
+} from '@/utils/projectProgress';
+import {
   createNotificationEventSafely,
   resolveProjectParticipantUserIds,
   stableOperationId,
@@ -168,62 +172,6 @@ function hasProjectStarted(project: any) {
   return start.getTime() <= today.getTime();
 }
 
-function getStageStatuses(nodesData: any[] = []) {
-  const nodeStatuses = nodesData.map((node: any) => {
-    let stageTotal = 0;
-    let stageCompleted = 0;
-    (node.sections || []).forEach((sec: any) => {
-      (sec.subNodes || []).forEach((sn: any) => {
-        stageTotal++;
-        if (sn.status === 'completed') stageCompleted++;
-      });
-    });
-    let status = 'pending';
-    if (stageTotal > 0) {
-      if (stageCompleted === stageTotal) status = 'completed';
-      else if (stageCompleted > 0) status = 'current';
-    }
-    return { node, status, stageCompleted, stageTotal };
-  });
-  const firstPendingIndex = nodeStatuses.findIndex((n: any) => n.status === 'pending');
-  if (firstPendingIndex !== -1 && !nodeStatuses.some((n: any) => n.status === 'current')) {
-    nodeStatuses[firstPendingIndex].status = 'current';
-  }
-  return nodeStatuses;
-}
-
-function buildProjectProgressSummary(nodesData: any[] = []) {
-  const nodeStatuses = getStageStatuses(nodesData);
-  const nodesList = nodeStatuses.map((item: any) => item.node?.name || '').filter(Boolean);
-  let completedSubNodes = 0;
-  let totalSubNodes = 0;
-  nodeStatuses.forEach((item: any) => {
-    completedSubNodes += item.stageCompleted || 0;
-    totalSubNodes += item.stageTotal || 0;
-  });
-  let currentIndex = nodeStatuses.findIndex((item: any) => item.status === 'current');
-  if (currentIndex < 0) {
-    currentIndex = nodeStatuses.reduce((last: number, item: any, idx: number) => item.status === 'completed' ? idx : last, -1);
-  }
-  if (currentIndex < 0 && nodeStatuses.length > 0) currentIndex = 0;
-  const nodesCount = nodesList.length;
-  const currentNode = nodesCount > 0 ? Math.min(nodesCount, currentIndex + 1) : 0;
-  const currentProgress = nodesCount > 1 ? Math.max(0, currentNode - 1) / (nodesCount - 1) : (nodesCount === 1 ? 1 : 0);
-  return {
-    currentNode,
-    currentNodeName: nodesList[currentNode - 1] || '',
-    nodeName: nodesList[currentNode - 1] || '',
-    nodesCount,
-    nodesList,
-    stageStatuses: nodeStatuses.map((item: any) => ({ name: item.node?.name || '', status: item.status })),
-    currentProgress,
-    progressPercent: totalSubNodes > 0 ? Math.round((completedSubNodes / totalSubNodes) * 100) : Math.round(currentProgress * 100),
-    completedSubNodes,
-    totalSubNodes,
-    updatedAt: Date.now(),
-  };
-}
-
 function getProjectLifecycleStatus(project: any) {
   if (project.status === '已完工' || project.status === '已暂停') return project.status;
   if (project.status === '施工中' || project.status === '进行中' || hasProjectStarted(project)) return '施工中';
@@ -232,13 +180,12 @@ function getProjectLifecycleStatus(project: any) {
 
 function getCurrentStageLabel(project: any) {
   if (project.status === '已完工' || project.status === '已暂停') return project.status;
-  if (project.progressSummary?.currentNodeName || project.progressSummary?.nodeName) {
-    return project.progressSummary.currentNodeName || project.progressSummary.nodeName;
+  if (isCurrentProjectProgressSummary(project.progressSummary)) {
+    const name = project.progressSummary.currentNodeName || project.progressSummary.nodeName;
+    return project.progressSummary.waitingForNextStage && name ? `${name}已完成` : name;
   }
-  const stages = getStageStatuses(project.nodesData || []);
-  const current = stages.find((stage: any) => stage.status === 'current');
-  const lastCompleted = [...stages].reverse().find((stage: any) => stage.status === 'completed');
-  return current?.node?.name || lastCompleted?.node?.name || (hasProjectStarted(project) ? '开工' : '未开工');
+  const summary = buildProjectProgressSummary(project.nodesData || []);
+  return summary.currentNodeName || (hasProjectStarted(project) ? '开工' : '未开工');
 }
 
 function extractTemplateNodes(doc: any) {
@@ -449,10 +396,21 @@ export default function ProjectsBiz() {
         usersAPI.toArray(PROJECT_USER_FIELDS),
         leadsAPI.toArray(PROJECT_LEAD_FIELDS),
       ]);
-      // List rendering only consumes the compact progressSummary. Older records
-      // without a summary are repaired when their detail is opened or edited,
-      // avoiding one full project request for every row on each list visit.
-      setProjects(projData || []);
+      const repairedProjects = await Promise.all((projData || []).map(async (project: any) => {
+        if (isCurrentProjectProgressSummary(project.progressSummary)) return project;
+        const projectId = project._id || project.id;
+        if (!projectId) return project;
+        try {
+          const detailData = await projectsAPI.doc(projectId).get();
+          const detail = Array.isArray(detailData) ? detailData[0] : detailData;
+          const progressSummary = buildProjectProgressSummary(detail?.nodesData || []);
+          void projectsAPI.update(projectId, { progressSummary }).catch(() => undefined);
+          return { ...project, progressSummary };
+        } catch {
+          return project;
+        }
+      }));
+      setProjects(repairedProjects);
       setEmployees(userData);
       setLeads(leadData);
       cloudDB.collection('shareAccess')
@@ -1153,7 +1111,9 @@ export default function ProjectsBiz() {
               <span className="text-right">操作</span>
             </div>
             {visibleProjects.map(p => {
-              const summary = p.progressSummary || buildProjectProgressSummary(p.nodesData || []);
+              const summary = isCurrentProjectProgressSummary(p.progressSummary)
+                ? p.progressSummary
+                : buildProjectProgressSummary(p.nodesData || []);
               const stageStatuses = Array.isArray(summary.stageStatuses) ? summary.stageStatuses : [];
               const progress = typeof summary.progressPercent === 'number' ? summary.progressPercent : getProgress(p.nodesData || []);
               const lifecycleStatus = getProjectLifecycleStatus(p);
@@ -1267,9 +1227,11 @@ export default function ProjectsBiz() {
                               const isLast = i === stageStatuses.length - 1;
                               const isCompleted = ns.status === 'completed';
                               const isCurrent = ns.status === 'current';
+                              const isCurrentPosition = Boolean(ns.isCurrentPosition);
                               return (
                                 <div key={`${ns.name || 'stage'}-${i}`} className={`flex items-center ${isLast ? '' : 'flex-1'}`}>
                                   <div className={`relative w-3 h-3 rounded-full shrink-0 z-10 bg-white border transition-colors
+                                    ${isCurrentPosition && isCompleted ? 'ring-2 ring-gold-400 ring-offset-1' : ''}
                                     ${isCompleted ? 'border-emerald-500' : isCurrent ? 'border-gold-500' : 'border-gray-200'}`}>
                                     <span className={`absolute left-1/2 top-1/2 w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${
                                       isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-gold-500' : 'bg-gray-200'
@@ -1340,6 +1302,7 @@ export default function ProjectsBiz() {
                                 const isLast = i === stageStatuses.length - 1;
                                 const isCompleted = ns.status === 'completed';
                                 const isCurrent = ns.status === 'current';
+                                const isCurrentPosition = Boolean(ns.isCurrentPosition);
                                 return (
                                   <div key={`dot-${i}`} className="relative flex items-center">
                                     {/* 左侧连线（从左边中点到圆点） */}
@@ -1350,6 +1313,7 @@ export default function ProjectsBiz() {
                                     {/* 圆点 */}
                                     <div className="relative z-10 mx-auto flex flex-col items-center group">
                                       <div className={`w-3 h-3 rounded-full flex items-center justify-center border-2 shrink-0 bg-white transition-all
+                                        ${isCurrentPosition && isCompleted ? 'ring-2 ring-gold-400 ring-offset-2' : ''}
                                         ${isCompleted ? 'border-emerald-500 bg-emerald-500' : isCurrent ? 'border-gold-500' : 'border-gray-200'}`}>
                                         {isCompleted && <CheckCircle size={7} className="text-white" />}
                                       </div>
