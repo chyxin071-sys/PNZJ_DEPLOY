@@ -34,6 +34,7 @@ import {
 } from '@/services/notificationService';
 
 const STATUS_COLORS: Record<string, string> = {
+  '未开工': 'bg-gray-100 text-gray-500',
   '施工中': 'bg-blue-50 text-blue-600',
   '进行中': 'bg-blue-50 text-blue-600',
   '已完工': 'bg-emerald-50 text-emerald-600',
@@ -363,6 +364,16 @@ export default function ProjectsBiz() {
   const [openSwipeProjectId, setOpenSwipeProjectId] = useState<string | null>(null);
   const projectTouchStartRef = useRef<{ x: number; y: number; id: string } | null>(null);
   const suppressProjectClickRef = useRef<string | null>(null);
+  const desktopProjectTableRef = useRef<HTMLDivElement | null>(null);
+
+  const handleDesktopTableWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const container = desktopProjectTableRef.current;
+    if (!container || container.scrollWidth <= container.clientWidth) return;
+    if (event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      event.preventDefault();
+      container.scrollLeft += event.deltaY;
+    }
+  };
 
   const [templateData, setTemplateData] = useState<any[]>([]);
   const [showTemplateLib, setShowTemplateLib] = useState(false);
@@ -1073,7 +1084,7 @@ export default function ProjectsBiz() {
               <div>
                 <p className="text-xs text-gray-500 mb-2">工地状态</p>
                 <div className="flex flex-wrap gap-2">
-                  {['施工中', '已完工', '已暂停'].map(s => (
+                  {['未开工', '施工中', '已完工', '已暂停'].map(s => (
                     <button key={s} onClick={() => setStatFilter(statFilter === s ? 'all' : s)} className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${statFilter === s ? 'bg-gold-400 text-black border-gold-400' : 'border-gray-200 text-gray-600 hover:bg-white'}`}>{s}</button>
                   ))}
                 </div>
@@ -1099,15 +1110,18 @@ export default function ProjectsBiz() {
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-gray-400 text-sm">暂无工地数据</div>
         ) : (
-          <div>
-            <div className="erp-list-head grid-cols-[minmax(240px,1.2fr)_minmax(180px,0.8fr)_minmax(380px,1.8fr)_minmax(160px,0.7fr)_56px] gap-6">
-              <span>工地信息</span>
-              <span>负责人</span>
-              <span>施工进度</span>
+          <div ref={desktopProjectTableRef} onWheel={handleDesktopTableWheel} className="project-table-scroll md:overflow-x-auto md:overscroll-x-contain">
+            <div className="erp-list-head min-w-[1420px] grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] gap-4">
+              <span>地址</span>
+              <span>当前阶段</span>
+              <span>下一阶段</span>
+              <span>进度</span>
               <button type="button" onClick={toggleTimeSort} className="inline-flex items-center gap-1 text-left transition-colors hover:text-gray-800">
-                <span>时间</span>
+                <span>开工日期 / 工期</span>
                 {timeSortOrder === 'desc' ? <ChevronDown size={13} /> : timeSortOrder === 'asc' ? <ChevronUp size={13} /> : <span className="text-xs text-gray-300">↕</span>}
               </button>
+              <span>跟进人员</span>
+              <span>待解决问题</span>
               <span className="text-right">操作</span>
             </div>
             {visibleProjects.map(p => {
@@ -1118,6 +1132,10 @@ export default function ProjectsBiz() {
               const progress = typeof summary.progressPercent === 'number' ? summary.progressPercent : getProgress(p.nodesData || []);
               const lifecycleStatus = getProjectLifecycleStatus(p);
               const currentStageLabel = getCurrentStageLabel(p);
+              const currentStageIndex = Math.max(0, stageStatuses.findIndex((stage: any) => stage.isCurrentPosition));
+              const currentStage = stageStatuses[currentStageIndex];
+              const currentStageName = summary.currentNodeName || summary.nodeName || '-';
+              const nextStageName = stageStatuses[currentStageIndex + 1]?.name || '-';
               const dateMeta = getProjectDateMeta(p);
               const isRelated = isAdmin || getProjectPeople(p).includes(myName);
               const projectId = p._id;
@@ -1255,7 +1273,7 @@ export default function ProjectsBiz() {
                   </div>
                   
                   {/* 桌面端 */}
-                  <div className="hidden md:grid grid-cols-[minmax(240px,1.2fr)_minmax(180px,0.8fr)_minmax(380px,1.8fr)_minmax(160px,0.7fr)_56px] items-center gap-6">
+                  <div className="hidden min-w-[1420px] md:grid grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] items-center gap-4">
                     <div className="min-w-0">
                       <div className="mb-1 flex min-w-0 items-center gap-2">
                         <span className="relative inline-flex min-w-0 items-center text-sm font-semibold text-gray-900">
@@ -1271,9 +1289,33 @@ export default function ProjectsBiz() {
                             </span>
                           )}
                         </span>
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[lifecycleStatus] || 'bg-gold-50 text-gold-600'}`}>{currentStageLabel}</span>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[lifecycleStatus] || 'bg-gold-50 text-gold-600'}`}>{lifecycleStatus}</span>
                       </div>
                       <div className="truncate text-xs text-gray-500" title={p.customer || '未命名'}>{p.customer || '未命名'}</div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-gray-800" title={currentStageName}>{currentStageName}</div>
+                      <div className={`mt-1 text-[10px] ${currentStage?.status === 'current' ? 'text-amber-600' : currentStage?.status === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
+                        {currentStage?.status === 'current' ? '施工中' : currentStage?.status === 'completed' ? '已完成，等待下一阶段' : '待开始'}
+                      </div>
+                    </div>
+
+                    <div className="truncate text-sm text-gray-700" title={nextStageName}>{nextStageName}</div>
+
+                    <div className="min-w-0">
+                      <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-gray-700">{progress}%</span>
+                        <span className="text-[10px] text-gray-400">施工进度</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-sky-500 transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 space-y-1 text-xs text-gray-500">
+                      <div>开工 {dateMeta.startDate || '-'}</div>
+                      {dateMeta.days > 0 && <div className="text-gray-400">工期 {dateMeta.days} 天</div>}
                     </div>
 
                     <div className="min-w-0 text-xs">
@@ -1286,71 +1328,14 @@ export default function ProjectsBiz() {
                       </div>
                     </div>
 
-                    <div className="min-w-0">
-                      {stageStatuses.length > 0 && (
-                        <div className="w-full min-w-0">
-                          <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="text-gray-500 font-medium">施工进度</span>
-                            <span className="font-bold text-gold-600 text-xs">{progress}%</span>
-                          </div>
-                          <div
-                            className="mt-1.5"
-                            style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, stageStatuses.length)}, minmax(0, 1fr))` }}
-                          >
-                            {/* 圆点 + 连线行 */}
-                            {stageStatuses.map((ns: any, i: number) => {
-                                const isLast = i === stageStatuses.length - 1;
-                                const isCompleted = ns.status === 'completed';
-                                const isCurrent = ns.status === 'current';
-                                const isCurrentPosition = Boolean(ns.isCurrentPosition);
-                                return (
-                                  <div key={`dot-${i}`} className="relative flex items-center">
-                                    {/* 左侧连线（从左边中点到圆点） */}
-                                    {i > 0 && (
-                                      <div className="absolute right-1/2 left-0 top-1/2 h-0.5 -translate-y-px"
-                                        style={{ background: isCompleted ? '#10b981' : '#f3f4f6' }} />
-                                    )}
-                                    {/* 圆点 */}
-                                    <div className="relative z-10 mx-auto flex flex-col items-center group">
-                                      <div className={`w-3 h-3 rounded-full flex items-center justify-center border-2 shrink-0 bg-white transition-all
-                                        ${isCurrentPosition && isCompleted ? 'ring-2 ring-gold-400 ring-offset-2' : ''}
-                                        ${isCompleted ? 'border-emerald-500 bg-emerald-500' : isCurrent ? 'border-gold-500' : 'border-gray-200'}`}>
-                                        {isCompleted && <CheckCircle size={7} className="text-white" />}
-                                      </div>
-                                      <div className="absolute opacity-0 group-hover:opacity-100 -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-20 transition-opacity shadow-lg">
-                                        {ns.name || '阶段'}
-                                      </div>
-                                    </div>
-                                    {/* 右侧连线（从圆点到右边中点） */}
-                                    {!isLast && (
-                                      <div className="absolute left-1/2 right-0 top-1/2 h-0.5 -translate-y-px"
-                                        style={{ background: isCompleted ? '#10b981' : '#f3f4f6' }} />
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            {/* 文字标签行 */}
-                            {stageStatuses.map((ns: any, i: number) => (
-                              <span key={`label-${i}`} className="truncate text-center text-[10px] text-gray-400 mt-1">{ns.name || '阶段'}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 space-y-1 text-xs text-gray-500">
-                      {dateMeta.startDate && <div>开工 {dateMeta.startDate}</div>}
-                      {dateMeta.finishDate && <div>完工 {dateMeta.finishDate}</div>}
-                      {dateMeta.pauseDate && <div>暂停 {dateMeta.pauseDate}</div>}
-                      {dateMeta.days > 0 && <div className="text-gray-400">工期 {dateMeta.days} 天</div>}
-                    </div>
+                    <div className="truncate text-xs text-gray-400" title="暂无待解决问题">-</div>
 
                     <div className="flex items-center justify-end gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                       {isRelated && (
                         <>
-                          <button onClick={() => setShowEdit({ ...p })} className="p-1.5 text-gray-400 hover:text-gold-500 rounded-lg hover:bg-gold-50 transition-colors"><Edit3 size={14} /></button>
+                          <button title="编辑工地" aria-label="编辑工地" onClick={() => setShowEdit({ ...p })} className="p-1.5 text-gray-400 hover:text-gold-500 rounded-lg hover:bg-gold-50 transition-colors"><Edit3 size={14} /></button>
                           {isAdmin && (
-                            <button onClick={() => handleDelete(projectId)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
+                            <button title="删除工地" aria-label="删除工地" onClick={() => handleDelete(projectId)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
                           )}
                         </>
                       )}

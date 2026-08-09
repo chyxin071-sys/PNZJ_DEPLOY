@@ -1,4 +1,4 @@
-export const PROJECT_PROGRESS_VERSION = 2;
+export const PROJECT_PROGRESS_VERSION = 3;
 
 type ProgressStatus = 'pending' | 'current' | 'completed';
 
@@ -67,16 +67,12 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
     };
   });
 
+  // The current position is the furthest stage with real activity, whether it
+  // is still in progress or has just been completed.
   let currentIndex = stages.reduce(
-    (last: number, stage: any, index: number) => stage.status === 'current' ? index : last,
+    (last: number, stage: any, index: number) => stage.status !== 'pending' ? index : last,
     -1,
   );
-  if (currentIndex < 0) {
-    currentIndex = stages.reduce(
-      (last: number, stage: any, index: number) => stage.status === 'completed' ? index : last,
-      -1,
-    );
-  }
   if (currentIndex < 0 && stages.length > 0) currentIndex = 0;
   if (currentIndex >= 0) stages[currentIndex].isCurrentPosition = true;
 

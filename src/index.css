@@ -322,6 +322,27 @@ body {
     @apply bg-white transition-colors hover:bg-gray-50;
   }
 
+  @media (min-width: 768px) {
+    .project-table-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f8fafc;
+    }
+
+    .project-table-scroll::-webkit-scrollbar {
+      height: 10px;
+    }
+
+    .project-table-scroll::-webkit-scrollbar-track {
+      background: #f8fafc;
+    }
+
+    .project-table-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border: 2px solid #f8fafc;
+      border-radius: 6px;
+    }
+  }
+
   .erp-search-field {
     @apply flex-1 relative min-w-0;
   }
