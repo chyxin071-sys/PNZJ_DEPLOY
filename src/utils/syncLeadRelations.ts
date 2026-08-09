@@ -24,25 +24,18 @@ export async function syncLeadRelations(
 ) {
   const customerNo = toText(nextLead?.customerNo || previousLead?.customerNo);
   const oldName = toText(previousLead?.name);
-  const oldPhone = toText(previousLead?.phone);
-  const oldAddress = toText(previousLead?.address);
   const nextName = toText(nextLead?.name);
   const nextPhone = toText(nextLead?.phone);
   const nextAddress = toText(nextLead?.address);
   const updatedAt = new Date().toISOString();
 
-  const matchesLead = (item: any) => {
+  const matchesLeadId = (item: any) => {
     if (!item) return false;
-    if (leadId && (item.leadId === leadId || item.relatedCustomerId === leadId || item.customerId === leadId)) return true;
-    if (customerNo && (item.customerNo === customerNo || item.leadNo === customerNo)) return true;
-    const itemName = toText(item.customerName || item.customer);
-    const itemPhone = toText(item.customerPhone || item.phone);
-    const itemAddress = toText(item.houseAddress || item.address);
-    return Boolean(
-      (oldPhone && itemPhone === oldPhone) ||
-      (oldName && itemName === oldName) ||
-      (oldAddress && itemAddress === oldAddress),
-    );
+    return Boolean(leadId && (
+      toText(item.leadId) === leadId ||
+      toText(item.relatedCustomerId) === leadId ||
+      toText(item.customerId) === leadId
+    ));
   };
 
   const projectFields: Record<string, any> = {
@@ -57,7 +50,6 @@ export async function syncLeadRelations(
   if (nextLead.area !== undefined) projectFields.area = nextLead.area;
   if (nextLead.budget !== undefined) projectFields.budget = nextLead.budget;
   if (nextLead.requirementType !== undefined) projectFields.requirementType = nextLead.requirementType;
-  if (leadId) projectFields.leadId = leadId;
   if (customerNo) projectFields.customerNo = customerNo;
 
   const contractFields: Partial<Contract> = {};
@@ -67,7 +59,6 @@ export async function syncLeadRelations(
   if (nextLead.sales !== undefined) contractFields.sales = joinNames(nextLead.sales);
   if (nextLead.designer !== undefined) contractFields.designer = joinNames(nextLead.designer);
   if (nextLead.manager !== undefined) contractFields.projectManager = joinNames(nextLead.manager);
-  if (leadId) contractFields.customerId = leadId;
   if (customerNo) contractFields.customerNo = customerNo;
 
   const [allProjects, allQuotes, allContracts, allReceipts, allInvoices, allQuotations] = await Promise.all([
@@ -79,20 +70,21 @@ export async function syncLeadRelations(
     quotationsAPI.toArray(),
   ]);
 
-  const relatedProjects = allProjects.filter(matchesLead);
-  const relatedQuotes = allQuotes.filter(matchesLead);
-  const relatedContracts = allContracts.filter(matchesLead);
+  // Identity fields are the only safe join keys for writes. Names, phone numbers,
+  // addresses, and customer numbers may be duplicated or mistyped.
+  const relatedProjects = allProjects.filter((project: any) => toText(project.leadId) === leadId);
+  const relatedQuotes = allQuotes.filter(matchesLeadId);
+  const relatedContracts = allContracts.filter((contract: any) => toText(contract.customerId) === leadId);
   const relatedContractKeys = new Set(
     relatedContracts.flatMap((contract: any) => [contract.id, contract._id]).filter(Boolean),
   );
 
   const relatedReceipts = allReceipts.filter((receipt: any) =>
-    relatedContractKeys.has(receipt.contractId) ||
-    (oldName && toText(receipt.customerName) === oldName),
+    relatedContractKeys.has(receipt.contractId),
   );
   const relatedInvoices = allInvoices.filter((invoice: any) => relatedContractKeys.has(invoice.contractId));
   const relatedQuotations = allQuotations.filter((quotation: any) =>
-    (quotation.contractId && relatedContractKeys.has(quotation.contractId)) || matchesLead(quotation),
+    (quotation.contractId && relatedContractKeys.has(quotation.contractId)) || matchesLeadId(quotation),
   );
 
   await Promise.all([
@@ -110,7 +102,6 @@ export async function syncLeadRelations(
     })),
     ...relatedQuotations.map((quotation: any) => quotationsAPI.put({
       ...quotation,
-      leadId,
       customerName: nextName || quotation.customerName,
       customerPhone: nextPhone || quotation.customerPhone,
       houseAddress: nextAddress || quotation.houseAddress,
