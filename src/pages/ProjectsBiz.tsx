@@ -376,6 +376,12 @@ export default function ProjectsBiz() {
     }
   };
 
+  useEffect(() => {
+    if (!loading && desktopProjectTableRef.current) {
+      desktopProjectTableRef.current.scrollLeft = 0;
+    }
+  }, [loading]);
+
   const [templateData, setTemplateData] = useState<any[]>([]);
   const [showTemplateLib, setShowTemplateLib] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
@@ -1112,8 +1118,8 @@ export default function ProjectsBiz() {
           <div className="py-20 text-center text-gray-400 text-sm">暂无工地数据</div>
         ) : (
           <div ref={desktopProjectTableRef} onWheel={handleDesktopTableWheel} className="project-table-scroll md:overflow-x-auto md:overscroll-x-contain">
-            <div className="erp-list-head min-w-[1420px] grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] gap-4">
-              <span>地址</span>
+            <div className="erp-list-head project-table-head min-w-[1470px] grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] gap-4">
+              <span className="sticky left-0 z-10 -ml-4 flex h-full items-center bg-gray-50/95 pl-4 pr-3">地址</span>
               <span>当前阶段</span>
               <span>下一阶段</span>
               <span>进度</span>
@@ -1123,7 +1129,7 @@ export default function ProjectsBiz() {
               </button>
               <span>跟进人员</span>
               <span>待解决问题</span>
-              <span className="text-right">操作</span>
+              <span className="sticky right-0 z-10 -mr-4 flex h-full items-center justify-end bg-gray-50/95 pl-3 pr-4">操作</span>
             </div>
             {visibleProjects.map(p => {
               const summary = isCurrentProjectProgressSummary(p.progressSummary)
@@ -1149,7 +1155,7 @@ export default function ProjectsBiz() {
               const unreadUpdates = projectUnreadCountById[projectId] || 0;
 
               return (
-              <div key={projectId} className="relative overflow-hidden border-b border-gray-50 last:border-b-0 md:overflow-visible">
+              <div key={projectId} className="group relative overflow-hidden border-b border-gray-50 last:border-b-0 md:min-w-[1470px] md:overflow-visible">
                 {/* 卡片主体 */}
                 {isAdmin && (
                   <button
@@ -1278,8 +1284,8 @@ export default function ProjectsBiz() {
                   </div>
                   
                   {/* 桌面端 */}
-                  <div className="hidden min-w-[1420px] md:grid grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] items-center gap-4">
-                    <div className="min-w-0">
+                  <div className="hidden w-full md:grid grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] items-center gap-4">
+                    <div className="sticky left-0 z-10 -ml-4 flex min-w-0 self-stretch flex-col justify-center bg-white pl-4 pr-3 group-hover:bg-gray-50">
                       <div className="mb-1 flex min-w-0 items-center gap-2">
                         <span className="relative inline-flex min-w-0 items-center text-sm font-semibold text-gray-900">
                           <span className="truncate" title={p.address || '无地址'}>{p.address || '无地址'}</span>
@@ -1356,7 +1362,7 @@ export default function ProjectsBiz() {
 
                     <div className="truncate text-xs text-gray-400" title="暂无待解决问题">-</div>
 
-                    <div className="flex items-center justify-end gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                    <div className="sticky right-0 z-10 -mr-4 flex self-stretch items-center justify-end gap-1 bg-white pl-3 pr-4 group-hover:bg-gray-50" onClick={e => e.stopPropagation()}>
                       {isRelated && (
                         <>
                           <button title="编辑工地" aria-label="编辑工地" onClick={() => setShowEdit({ ...p })} className="p-1.5 text-gray-400 hover:text-gold-500 rounded-lg hover:bg-gold-50 transition-colors"><Edit3 size={14} /></button>

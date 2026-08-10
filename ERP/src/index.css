@@ -323,6 +323,10 @@ body {
   }
 
   @media (min-width: 768px) {
+    .project-table-head {
+      position: static;
+    }
+
     .project-table-scroll {
       scrollbar-width: thin;
       scrollbar-color: #cbd5e1 #f8fafc;
