@@ -262,21 +262,15 @@ function toPersonList(value: any): string[] {
   return toText(value).split(/[,，、\s]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-function getProjectRoleBadges(project: any) {
-  const roleDefs: Array<[string, string]> = [
-    ['sales', '销'],
-    ['designer', '设'],
-    ['manager', '工'],
-  ];
-  const people = new Map<string, string[]>();
-  roleDefs.forEach(([field, label]) => {
+function getProjectDisplayPeople(project: any) {
+  const roleFields = ['manager', 'sales', 'designer'];
+  const people = new Set<string>();
+  roleFields.forEach((field) => {
     toPersonList(project[field]).forEach((name) => {
-      const roles = people.get(name) || [];
-      if (!roles.includes(label)) roles.push(label);
-      people.set(name, roles);
+      people.add(name);
     });
   });
-  return Array.from(people.entries()).map(([name, roles]) => ({ name, roles }));
+  return Array.from(people);
 }
 
 function isSignedLead(lead: any) {
@@ -1150,7 +1144,7 @@ export default function ProjectsBiz() {
               const dateMeta = getProjectDateMeta(p);
               const isRelated = isAdmin || getProjectPeople(p).includes(myName);
               const projectId = p._id;
-              const roleBadges = getProjectRoleBadges(p);
+              const displayPeople = getProjectDisplayPeople(p);
               const pendingAccess = pendingAccessByProject[projectId] || 0;
               const unreadUpdates = projectUnreadCountById[projectId] || 0;
 
@@ -1239,9 +1233,9 @@ export default function ProjectsBiz() {
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${STATUS_COLORS[lifecycleStatus] || 'bg-gold-50 text-gold-600'}`}>{currentStageLabel}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-1.5 flex-wrap">
-                      {roleBadges.length > 0 ? roleBadges.map((person) => (
-                        <span key={person.name} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
-                          {person.name} {person.roles.join('/')}
+                      {displayPeople.length > 0 ? displayPeople.map((person) => (
+                        <span key={person} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                          {person}
                         </span>
                       )) : <span>-</span>}
                     </div>
@@ -1287,7 +1281,7 @@ export default function ProjectsBiz() {
                   <div className="hidden w-full md:grid grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] items-center gap-4">
                     <div className="sticky left-0 z-10 -ml-4 flex min-w-0 self-stretch flex-col justify-center bg-white pl-4 pr-3 group-hover:bg-gray-50">
                       <div className="mb-1 flex min-w-0 items-center gap-2">
-                        <span className="relative inline-flex min-w-0 items-center text-sm font-semibold text-gray-900">
+                        <span className="relative inline-flex min-w-0 items-center text-sm font-medium text-gray-800">
                           <span className="truncate" title={p.address || '无地址'}>{p.address || '无地址'}</span>
                           {unreadUpdates > 0 && (
                             <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">
@@ -1312,7 +1306,7 @@ export default function ProjectsBiz() {
                       </div>
                     </div>
 
-                    <div className="truncate text-sm text-gray-700" title={nextStageName}>{nextStageName}</div>
+                    <div className="truncate text-sm font-medium text-gray-800" title={nextStageName}>{nextStageName}</div>
 
                     <div className="w-[90px] min-w-0">
                       <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
@@ -1352,9 +1346,9 @@ export default function ProjectsBiz() {
 
                     <div className="min-w-0 text-xs">
                       <div className="flex flex-wrap gap-1.5">
-                        {roleBadges.length > 0 ? roleBadges.map((person) => (
-                          <span key={person.name} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600" title={`${person.name} ${person.roles.join('/')}`}>
-                            {person.name} <span className="text-gray-400">{person.roles.join('/')}</span>
+                        {displayPeople.length > 0 ? displayPeople.map((person) => (
+                          <span key={person} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600" title={person}>
+                            {person}
                           </span>
                         )) : <span className="text-gray-400">-</span>}
                       </div>
