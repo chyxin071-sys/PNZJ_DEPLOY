@@ -22,7 +22,7 @@ import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 import { uploadFile as uploadToCloud } from '@/utils/cloudStorage';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
-import { useIncrementalList, usePageScrollRestore } from '@/hooks/useListViewportState';
+import { usePageScrollRestore } from '@/hooks/useListViewportState';
 import {
   buildProjectProgressSummary,
   isCurrentProjectProgressSummary,
@@ -43,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const TEMPLATE_DOC_ID = 'default_project_template';
 const LEGACY_TEMPLATE_DOC_ID = 'project_template';
+const PROJECT_PAGE_SIZE = 20;
 const PROJECT_LIST_FIELDS: Record<string, boolean> = {
   _id: true,
   leadId: true,
@@ -351,6 +352,7 @@ export default function ProjectsBiz() {
   const [filterScope, setFilterScope] = useState<'related' | 'all'>(() => isAdmin ? 'all' : 'related');
   const [showFilter, setShowFilter] = useState(false);
   const [timeSortOrder, setTimeSortOrder] = useState<'desc' | 'asc' | ''>('');
+  const [projectPage, setProjectPage] = useState(1);
   const [stats, setStats] = useState({ total: 0, ongoing: 0, completed: 0, paused: 0 });
   const [leads, setLeads] = useState<any[]>([]);
   const [pendingAccessByProject, setPendingAccessByProject] = useState<Record<string, number>>({});
@@ -509,12 +511,14 @@ export default function ProjectsBiz() {
     setTimeSortOrder((current) => current === '' ? 'desc' : current === 'desc' ? 'asc' : '');
   };
   const projectListKey = [filterScope, statFilter, filterEmployee, search.trim().toLowerCase(), myName, timeSortOrder].join('|');
-  const {
-    visibleItems: visibleProjects,
-    visibleCount: visibleProjectCount,
-    hasMore: hasMoreProjects,
-    loadMore: loadMoreProjects,
-  } = useIncrementalList(filtered, 'projects_biz_visible_count', projectListKey, 20, 20);
+  const projectTotalPages = Math.max(1, Math.ceil(filtered.length / PROJECT_PAGE_SIZE));
+  const visibleProjects = filtered.slice((projectPage - 1) * PROJECT_PAGE_SIZE, projectPage * PROJECT_PAGE_SIZE);
+  useEffect(() => {
+    setProjectPage(1);
+  }, [projectListKey]);
+  useEffect(() => {
+    setProjectPage((current) => Math.min(current, projectTotalPages));
+  }, [projectTotalPages]);
   const saveProjectListScroll = usePageScrollRestore('projects_biz_scroll_pos', !loading);
 
   const activeProjectFilters = [statFilter !== 'all', !!filterEmployee].filter(Boolean).length;
@@ -1371,15 +1375,13 @@ export default function ProjectsBiz() {
               </div>
               );
             })}
-            {hasMoreProjects && (
-              <div className="flex justify-center border-t border-gray-50 px-4 py-4">
-                <button
-                  type="button"
-                  onClick={loadMoreProjects}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700 transition-colors"
-                >
-                  加载更多（已显示 {visibleProjectCount} / 共 {filtered.length}）
-                </button>
+            {filtered.length > PROJECT_PAGE_SIZE && (
+              <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+                <span>第 {projectPage} / {projectTotalPages} 页，共 {filtered.length} 条</span>
+                <div className="flex gap-2">
+                  <button disabled={projectPage <= 1} onClick={() => setProjectPage((current) => Math.max(1, current - 1))} className="erp-btn-secondary !h-8 disabled:opacity-40">上一页</button>
+                  <button disabled={projectPage >= projectTotalPages} onClick={() => setProjectPage((current) => Math.min(projectTotalPages, current + 1))} className="erp-btn-secondary !h-8 disabled:opacity-40">下一页</button>
+                </div>
               </div>
             )}
           </div>

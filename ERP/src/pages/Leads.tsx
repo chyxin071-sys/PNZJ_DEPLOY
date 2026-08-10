@@ -15,7 +15,6 @@ import dayjs from 'dayjs';
 import DataTable from '@/components/DataTable';
 import BottomDrawer from '@/components/BottomDrawer';
 import Select from '@/components/Select';
-import { useIncrementalList } from '@/hooks/useListViewportState';
 import { useDialogStore } from '@/store/dialogStore';
 import {
   createNotificationEventSafely,
@@ -41,6 +40,7 @@ const SOURCE_OPTIONS = ['自然进店', '老介新', '抖音', '自有关系', '
 const BUDGET_OPTIONS = ['暂无', '10-20万', '20-30万', '30-50万', '50万以上'];
 const REQ_OPTIONS = ['毛坯', '旧改'];
 const LOST_REASONS = ['价格太高', '选择其他公司', '预算不足', '方案不满意', '暂时不需要', '其他'];
+const LEAD_PAGE_SIZE = 20;
 const ROLE_DEPT: Record<string, string> = {
   admin: '管理组', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
@@ -400,9 +400,9 @@ function sortEmployeesForFilter(list: any[]) {
   });
 }
 
-async function generateCustomerNo(): Promise<string> {
+async function generateCustomerNo(seedLeads?: any[]): Promise<string> {
   const year = new Date().getFullYear();
-  const allLeads = await leadsAPI.toArray(LEAD_LIST_FIELDS);
+  const allLeads = seedLeads && seedLeads.length > 0 ? seedLeads : await leadsAPI.toArray(LEAD_LIST_FIELDS);
   const prefix = `P${year}`;
   let maxSeq = 0;
   allLeads.forEach((l: any) => {
@@ -477,6 +477,8 @@ export default function Leads() {
   const isDesktopSignedView = statFilter === 'signed' && !isMobile && isAdmin;
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [leadPage, setLeadPage] = useState(1);
+  const [signedPage, setSignedPage] = useState(1);
   const [showLostModal, setShowLostModal] = useState(false);
   const [lostLeadId, setLostLeadId] = useState('');
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
@@ -849,12 +851,14 @@ export default function Leads() {
     sortOrder || '',
     myName,
   ].join('|');
-  const {
-    visibleItems: visibleLeads,
-    visibleCount: visibleLeadCount,
-    hasMore: hasMoreLeads,
-    loadMore: loadMoreLeads,
-  } = useIncrementalList(filtered, 'leads_visible_count', leadListKey, 20, 20);
+  const leadTotalPages = Math.max(1, Math.ceil(filtered.length / LEAD_PAGE_SIZE));
+  const visibleLeads = filtered.slice((leadPage - 1) * LEAD_PAGE_SIZE, leadPage * LEAD_PAGE_SIZE);
+  useEffect(() => {
+    setLeadPage(1);
+  }, [leadListKey]);
+  useEffect(() => {
+    setLeadPage((current) => Math.min(current, leadTotalPages));
+  }, [leadTotalPages]);
 
   // --- 已签单列表筛选与排序 ---
   const signedSalesOptions = employees
@@ -930,12 +934,14 @@ export default function Leads() {
     sortOrder || '',
     myName,
   ].join('|');
-  const {
-    visibleItems: visibleSignedItems,
-    visibleCount: visibleSignedCount,
-    hasMore: hasMoreSigned,
-    loadMore: loadMoreSigned,
-  } = useIncrementalList(signedFiltered, 'signed_leads_visible_count', signedListKey, 20, 20);
+  const signedTotalPages = Math.max(1, Math.ceil(signedFiltered.length / LEAD_PAGE_SIZE));
+  const visibleSignedItems = signedFiltered.slice((signedPage - 1) * LEAD_PAGE_SIZE, signedPage * LEAD_PAGE_SIZE);
+  useEffect(() => {
+    setSignedPage(1);
+  }, [signedListKey]);
+  useEffect(() => {
+    setSignedPage((current) => Math.min(current, signedTotalPages));
+  }, [signedTotalPages]);
 
   const activeSignedFilters = [filterReceipt !== '全部', filterSite !== '全部', !!filterSignedSales, !!filterSignedDesigner, !!filterSignedManager, !!(filterSignedDateFrom || filterSignedDateTo)].filter(Boolean).length;
 
@@ -959,7 +965,7 @@ export default function Leads() {
     if (!form.name || !form.phone || creatingLead) return;
     setCreatingLead(true);
     try {
-      const customerNo = await generateCustomerNo();
+      const customerNo = await generateCustomerNo(allLeads);
       const nowIso = new Date().toISOString();
       const now = formatDateTime(nowIso);
       const autoAssign: any = {};
@@ -987,6 +993,12 @@ export default function Leads() {
         content: `${myName}新建客户：${newLead.name}，电话 ${newLead.phone || '未填写'}，地址 ${newLead.address || '未填写'}；初始状态为跟进中。`,
         createdAt: nowIso,
       });
+
+      setAllLeads(prev => [newLead, ...prev.filter((item: any) => item._id !== newLead._id)]);
+      setShowCreate(false);
+      setForm(INIT_FORM);
+      setCreatingLead(false);
+      void fetchLeads(true);
 
       await createNotificationEventSafely({
         operationId: stableOperationId('lead-created', newLead._id),
@@ -1081,8 +1093,12 @@ export default function Leads() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!isAdmin) return;
     const lead = allLeads.find(l => l._id === id);
+    if (!lead) return;
+    if (!isAdmin && lead.creatorName !== myName) {
+      alert('只有管理员或客户创建人可以删除该客户');
+      return;
+    }
     const leadName = lead?.name || '未命名客户';
     const customerNo = lead?.customerNo || id;
     const customerPhone = lead?.phone || '';
@@ -1785,22 +1801,21 @@ export default function Leads() {
             ]}
             data={visibleLeads as unknown as Record<string, unknown>[]}
             onRowClick={handleRowClick}
-            onDelete={isAdmin ? (row: any) => handleDelete(row._id) : undefined}
+            onDelete={(row: any) => handleDelete(row._id)}
+            canDelete={(row: any) => isAdmin || row.creatorName === myName}
             rowKey={(row) => (row as any)._id as string}
             sortField={sortField}
             sortOrder={sortOrder}
             onSort={handleSort}
             horizontalScroll
           />
-          {hasMoreLeads && (
-            <div className="flex justify-center border-t border-gray-50 px-4 py-4">
-              <button
-                type="button"
-                onClick={loadMoreLeads}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700 transition-colors"
-              >
-                加载更多（已显示 {visibleLeadCount} / 共 {filtered.length}）
-              </button>
+          {filtered.length > LEAD_PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+              <span>第 {leadPage} / {leadTotalPages} 页，共 {filtered.length} 条</span>
+              <div className="flex gap-2">
+                <button disabled={leadPage <= 1} onClick={() => setLeadPage((current) => Math.max(1, current - 1))} className="erp-btn-secondary !h-8 disabled:opacity-40">上一页</button>
+                <button disabled={leadPage >= leadTotalPages} onClick={() => setLeadPage((current) => Math.min(leadTotalPages, current + 1))} className="erp-btn-secondary !h-8 disabled:opacity-40">下一页</button>
+              </div>
             </div>
           )}
           </>
@@ -1940,15 +1955,13 @@ export default function Leads() {
               onSort={handleSort}
               emptyText="暂无签单数据"
             />
-            {hasMoreSigned && (
-              <div className="flex justify-center border-t border-gray-50 px-4 py-4">
-                <button
-                  type="button"
-                  onClick={loadMoreSigned}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700 transition-colors"
-                >
-                  加载更多（已显示 {visibleSignedCount} / 共 {signedFiltered.length}）
-                </button>
+            {signedFiltered.length > LEAD_PAGE_SIZE && (
+              <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+                <span>第 {signedPage} / {signedTotalPages} 页，共 {signedFiltered.length} 条</span>
+                <div className="flex gap-2">
+                  <button disabled={signedPage <= 1} onClick={() => setSignedPage((current) => Math.max(1, current - 1))} className="erp-btn-secondary !h-8 disabled:opacity-40">上一页</button>
+                  <button disabled={signedPage >= signedTotalPages} onClick={() => setSignedPage((current) => Math.min(signedTotalPages, current + 1))} className="erp-btn-secondary !h-8 disabled:opacity-40">下一页</button>
+                </div>
               </div>
             )}
             </>
