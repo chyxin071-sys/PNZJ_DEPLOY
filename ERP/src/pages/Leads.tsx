@@ -54,7 +54,11 @@ const LEAD_LIST_FIELDS: Record<string, boolean> = {
   rating: true, source: true, sourceCustom: true, sales: true, designer: true,
   manager: true, signer: true, signDate: true, status: true, remark: true,
   lostReason: true, creatorName: true, createdAt: true, updatedAt: true,
-  lastFollowAt: true, lastFollowBy: true,
+  lastFollowUp: true, lastFollowUpAt: true, lastFollowAt: true, lastFollowBy: true,
+};
+const LEAD_FOLLOW_UP_LIST_FIELDS: Record<string, boolean> = {
+  _id: true, id: true, leadId: true, content: true, method: true,
+  createdBy: true, createdAt: true, displayTime: true,
 };
 const SIGNED_PROJECT_FIELDS = { _id: true, id: true, leadId: true, relatedCustomerId: true, nodes: true };
 const SIGNED_QUOTE_FIELDS = { _id: true, id: true, leadId: true };
@@ -616,7 +620,10 @@ export default function Leads() {
   const fetchLeads = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await leadsAPI.toArray(LEAD_LIST_FIELDS);
+      const [data, followUpRecords] = await Promise.all([
+        leadsAPI.toArray(LEAD_LIST_FIELDS),
+        followUpsAPI.recent(1000, LEAD_FOLLOW_UP_LIST_FIELDS),
+      ]);
       // 静默清理脏数据：删除 manager 字段中的 "1"（遗留的测试账号Bug）
       if (!silent && isAdmin) {
         let hasDirty = false;
@@ -631,7 +638,40 @@ export default function Leads() {
         }
         if (hasDirty) console.log('[Cleanup] Fixed dirty manager data');
       }
-      setAllLeads([...data]);
+      const leadByKey = new Map<string, any>();
+      data.forEach((lead: any) => {
+        [lead._id, lead.id, lead.customerNo].filter(Boolean).forEach(key => leadByKey.set(String(key), lead));
+      });
+
+      const latestFollowUpByLead = new Map<string, any>();
+      followUpRecords.forEach((record: any) => {
+        const lead = leadByKey.get(String(record.leadId || ''));
+        if (!lead) return;
+        const canonicalKey = String(lead._id || lead.id || lead.customerNo);
+        if (!latestFollowUpByLead.has(canonicalKey)) latestFollowUpByLead.set(canonicalKey, record);
+      });
+
+      const leadsWithLatestFollowUp = data.map((lead: any) => {
+        const canonicalKey = String(lead._id || lead.id || lead.customerNo);
+        const latest = latestFollowUpByLead.get(canonicalKey);
+        const recordTimestamp = latest?.createdAt ? dayjs(latest.createdAt).valueOf() : 0;
+        const summaryTimestamp = Number(lead.lastFollowUpAt || 0);
+        const latestFollowUpTime = latest?.displayTime
+          || (latest?.createdAt ? formatDateTime(latest.createdAt) : '')
+          || lead.lastFollowUp
+          || '';
+
+        return {
+          ...lead,
+          latestFollowUpContent: latest?.content || '',
+          latestFollowUpTime,
+          lastFollowUpAt: Math.max(
+            Number.isFinite(recordTimestamp) ? recordTimestamp : 0,
+            Number.isFinite(summaryTimestamp) ? summaryTimestamp : 0,
+          ),
+        };
+      });
+      setAllLeads(leadsWithLatestFollowUp);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1692,9 +1732,19 @@ export default function Leads() {
                   </div>
                 );
               }},
-              { key: 'lastFollowUp', title: '最新跟进', width: '170px', sortable: true, hideOn: 'md', render: (row: any) => (
-                <span className="text-xs text-gray-400 whitespace-nowrap">{row.lastFollowUp || '-'}</span>
-              )},
+              { key: 'lastFollowUp', title: '最新跟进', width: '260px', sortable: true, hideOn: 'md', render: (row: any) => {
+                const content = String(row.latestFollowUpContent || '').trim();
+                const time = row.latestFollowUpTime || row.lastFollowUp || '';
+                if (!content) {
+                  return <span className="text-xs text-gray-400 whitespace-nowrap">{time || '暂无跟进'}</span>;
+                }
+                return (
+                  <div className="min-w-0 max-w-[240px]">
+                    <div className="truncate text-xs text-gray-700" title={content}>{content}</div>
+                    {time && <div className="mt-0.5 text-[10px] text-gray-400 whitespace-nowrap">{time}</div>}
+                  </div>
+                );
+              }},
               { key: 'actions', title: '', width: '70px', render: (row: any) => {
                 const canEdit = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
                 return (
