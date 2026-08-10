@@ -1314,7 +1314,7 @@ export default function ProjectsBiz() {
 
                     <div className="truncate text-sm text-gray-700" title={nextStageName}>{nextStageName}</div>
 
-                    <div className="min-w-0">
+                    <div className="w-[90px] min-w-0">
                       <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
                         <span className="font-semibold text-gray-700">{progress}%</span>
                         <span className="text-[10px] text-gray-400">施工进度</span>
