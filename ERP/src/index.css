@@ -322,7 +322,21 @@ body {
     @apply bg-white transition-colors hover:bg-gray-50;
   }
 
+  .project-table-sticky-header {
+    display: none;
+  }
+
   @media (min-width: 768px) {
+    .project-table-sticky-header {
+      position: sticky;
+      top: var(--erp-list-sticky-offset, 0);
+      z-index: 26;
+      display: block;
+      overflow-x: hidden;
+      overflow-y: clip;
+      background: #f9fafb;
+    }
+
     .project-table-head {
       position: static;
     }

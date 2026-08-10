@@ -361,20 +361,13 @@ export default function ProjectsBiz() {
   const [openSwipeProjectId, setOpenSwipeProjectId] = useState<string | null>(null);
   const projectTouchStartRef = useRef<{ x: number; y: number; id: string } | null>(null);
   const suppressProjectClickRef = useRef<string | null>(null);
+  const desktopProjectHeaderRef = useRef<HTMLDivElement | null>(null);
   const desktopProjectTableRef = useRef<HTMLDivElement | null>(null);
-
-  const handleDesktopTableWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    const container = desktopProjectTableRef.current;
-    if (!container || container.scrollWidth <= container.clientWidth) return;
-    if (event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-      event.preventDefault();
-      container.scrollLeft += event.deltaY;
-    }
-  };
 
   useEffect(() => {
     if (!loading && desktopProjectTableRef.current) {
       desktopProjectTableRef.current.scrollLeft = 0;
+      if (desktopProjectHeaderRef.current) desktopProjectHeaderRef.current.scrollLeft = 0;
     }
   }, [loading]);
 
@@ -519,6 +512,26 @@ export default function ProjectsBiz() {
   useEffect(() => {
     setProjectPage((current) => Math.min(current, projectTotalPages));
   }, [projectTotalPages]);
+  useEffect(() => {
+    const header = desktopProjectHeaderRef.current;
+    const table = desktopProjectTableRef.current;
+    if (!header || !table) return;
+    const handleHeaderWheel = (event: WheelEvent) => {
+      if (table.scrollWidth <= table.clientWidth) return;
+      event.preventDefault();
+      table.scrollLeft += event.deltaY + event.deltaX;
+      header.scrollLeft = table.scrollLeft;
+    };
+    const syncHeader = () => {
+      header.scrollLeft = table.scrollLeft;
+    };
+    header.addEventListener('wheel', handleHeaderWheel, { passive: false });
+    table.addEventListener('scroll', syncHeader, { passive: true });
+    return () => {
+      header.removeEventListener('wheel', handleHeaderWheel);
+      table.removeEventListener('scroll', syncHeader);
+    };
+  }, [loading, filtered.length]);
   const saveProjectListScroll = usePageScrollRestore('projects_biz_scroll_pos', !loading);
 
   const activeProjectFilters = [statFilter !== 'all', !!filterEmployee].filter(Boolean).length;
@@ -1115,20 +1128,23 @@ export default function ProjectsBiz() {
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-gray-400 text-sm">暂无工地数据</div>
         ) : (
-          <div ref={desktopProjectTableRef} onWheel={handleDesktopTableWheel} className="project-table-scroll md:overflow-x-auto md:overscroll-x-contain">
-            <div className="erp-list-head project-table-head min-w-[1470px] grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] gap-4">
-              <span className="sticky left-0 z-10 -ml-4 flex h-full items-center bg-gray-50/95 pl-4 pr-3">地址</span>
-              <span>当前阶段</span>
-              <span>下一阶段</span>
-              <span>进度</span>
-              <button type="button" onClick={toggleTimeSort} className="inline-flex items-center gap-1 text-left transition-colors hover:text-gray-800">
-                <span>工期信息</span>
-                {timeSortOrder === 'desc' ? <ChevronDown size={13} /> : timeSortOrder === 'asc' ? <ChevronUp size={13} /> : <span className="text-xs text-gray-300">↕</span>}
-              </button>
-              <span>跟进人员</span>
-              <span>待解决问题</span>
-              <span className="sticky right-0 z-10 -mr-4 flex h-full items-center justify-end bg-gray-50/95 pl-3 pr-4">操作</span>
+          <div>
+            <div ref={desktopProjectHeaderRef} className="project-table-sticky-header">
+              <div className="erp-list-head project-table-head min-w-[1470px] grid-cols-[260px_120px_120px_180px_150px_240px_180px_72px] gap-4">
+                <span className="sticky left-0 z-10 -ml-4 flex h-full items-center bg-gray-50/95 pl-4 pr-3">地址</span>
+                <span>当前阶段</span>
+                <span>下一阶段</span>
+                <span>进度</span>
+                <button type="button" onClick={toggleTimeSort} className="inline-flex items-center gap-1 text-left transition-colors hover:text-gray-800">
+                  <span>工期信息</span>
+                  {timeSortOrder === 'desc' ? <ChevronDown size={13} /> : timeSortOrder === 'asc' ? <ChevronUp size={13} /> : <span className="text-xs text-gray-300">↕</span>}
+                </button>
+                <span>跟进人员</span>
+                <span>待解决问题</span>
+                <span className="sticky right-0 z-10 -mr-4 flex h-full items-center justify-end bg-gray-50/95 pl-3 pr-4">操作</span>
+              </div>
             </div>
+            <div ref={desktopProjectTableRef} className="project-table-scroll md:overflow-x-auto md:overscroll-x-contain">
             {visibleProjects.map(p => {
               const summary = isCurrentProjectProgressSummary(p.progressSummary)
                 ? p.progressSummary
@@ -1375,6 +1391,7 @@ export default function ProjectsBiz() {
               </div>
               );
             })}
+            </div>
             {filtered.length > PROJECT_PAGE_SIZE && (
               <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
                 <span>第 {projectPage} / {projectTotalPages} 页，共 {filtered.length} 条</span>
