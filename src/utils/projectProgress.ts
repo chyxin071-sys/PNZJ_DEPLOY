@@ -1,4 +1,4 @@
-export const PROJECT_PROGRESS_VERSION = 3;
+export const PROJECT_PROGRESS_VERSION = 4;
 
 type ProgressStatus = 'pending' | 'current' | 'completed';
 
@@ -33,6 +33,7 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
   const stages = (Array.isArray(nodesData) ? nodesData : []).map((node: any, index: number) => {
     let stageTotal = 0;
     let stageCompleted = 0;
+    let stageProgressed = 0;
     let anyStarted = hasStarted(node);
 
     (node?.sections || []).forEach((section: any) => {
@@ -43,6 +44,7 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
       if (subNodes.length === 0) {
         stageTotal += 1;
         if (sectionCompleted) stageCompleted += 1;
+        if (sectionCompleted || hasStarted(section)) stageProgressed += 1;
         return;
       }
 
@@ -50,6 +52,7 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
         stageTotal += 1;
         // A submitted section is authoritative: all checks in it are complete.
         if (sectionCompleted || isCompleted(subNode)) stageCompleted += 1;
+        if (sectionCompleted || hasStarted(subNode)) stageProgressed += 1;
         anyStarted = anyStarted || hasStarted(subNode);
       });
     });
@@ -62,6 +65,7 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
       name: String(node?.name || `阶段${index + 1}`),
       status,
       stageCompleted,
+      stageProgressed,
       stageTotal,
       isCurrentPosition: false,
     };
@@ -77,6 +81,7 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
   if (currentIndex >= 0) stages[currentIndex].isCurrentPosition = true;
 
   const completedSubNodes = stages.reduce((sum, stage) => sum + stage.stageCompleted, 0);
+  const progressedSubNodes = stages.reduce((sum, stage) => sum + stage.stageProgressed, 0);
   const totalSubNodes = stages.reduce((sum, stage) => sum + stage.stageTotal, 0);
   const completedStages = stages.filter((stage) => stage.status === 'completed').length;
   const nodesList = stages.map((stage) => stage.name);
@@ -101,10 +106,14 @@ export function buildProjectProgressSummary(nodesData: any[] = []) {
     stageStatuses: stages,
     currentProgress,
     progressPercent: totalSubNodes > 0
-      ? Math.round((completedSubNodes / totalSubNodes) * 100)
+      ? Math.min(
+          completedSubNodes >= totalSubNodes ? 100 : 99,
+          Math.round((progressedSubNodes / totalSubNodes) * 100),
+        )
       : Math.round(currentProgress * 100),
     completedStages,
     completedSubNodes,
+    progressedSubNodes,
     totalSubNodes,
     updatedAt: Date.now(),
   };

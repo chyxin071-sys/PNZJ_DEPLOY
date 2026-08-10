@@ -24,6 +24,7 @@ import {
 import { syncLeadRelations } from '@/utils/syncLeadRelations';
 import { addLeadAuditFollowUp, describeLeadChanges, namesText, notifyLeadAssignment, notifyLeadEvent } from '@/utils/leadAudit';
 import { getCurrentReturnPath } from '@/hooks/useSmartBack';
+import { buildProjectProgressSummary } from '@/utils/projectProgress';
 
 const STATUS_COLORS: Record<string, string> = {
   '跟进中': 'bg-blue-50 text-blue-600',
@@ -549,36 +550,13 @@ export default function Leads() {
         const primaryProject = relatedProjects[0] || null;
         let constructionProgress = 0;
         let currentNodeName = '';
-        if (primaryProject && primaryProject.nodes) {
-          const nodesData = Array.isArray(primaryProject.nodes) ? primaryProject.nodes : [];
-          const stageStatuses = nodesData.map((node: any) => {
-            let stageTotal = 0;
-            let stageCompleted = 0;
-            (node.sections || []).forEach((sec: any) => {
-              const subNodes = sec.subNodes || [];
-              if (subNodes.length === 0) {
-                stageTotal++;
-                if (sec.status === 'completed' || sec.submitted) stageCompleted++;
-              } else {
-                subNodes.forEach((sn: any) => {
-                  stageTotal++;
-                  if (sn.status === 'completed' || sn.submitted) stageCompleted++;
-                });
-              }
-            });
-            return { name: node.name || '', completed: stageCompleted, total: stageTotal };
-          });
-          const totalSubNodes = stageStatuses.reduce((s: number, st: any) => s + st.total, 0);
-          const completedSubNodes = stageStatuses.reduce((s: number, st: any) => s + st.completed, 0);
-          constructionProgress = totalSubNodes > 0 ? Math.round((completedSubNodes / totalSubNodes) * 100) : 0;
-
-          let found = false;
-          for (const st of stageStatuses) {
-            if (st.completed < st.total || st.total === 0) { currentNodeName = st.name; found = true; break; }
-          }
-          if (!found && stageStatuses.length > 0) {
-            currentNodeName = stageStatuses[stageStatuses.length - 1].name;
-          }
+        const nodesData = Array.isArray(primaryProject?.nodesData)
+          ? primaryProject.nodesData
+          : (Array.isArray(primaryProject?.nodes) ? primaryProject.nodes : []);
+        if (nodesData.length > 0) {
+          const summary = buildProjectProgressSummary(nodesData);
+          constructionProgress = summary.progressPercent;
+          currentNodeName = summary.currentNodeName;
         }
 
         return {

@@ -2141,7 +2141,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 统计 ---- */
   const progressSummary = buildProjectProgressSummary(project?.nodesData || []);
-  const completedCount = progressSummary.completedSubNodes;
+  const progressedCount = progressSummary.progressedSubNodes;
   const totalCount = progressSummary.totalSubNodes;
   const progress = progressSummary.progressPercent;
 
@@ -2610,7 +2610,7 @@ export default function ProjectBizDetail() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium text-gray-500">施工进度</span>
                       <div className="flex items-center gap-3">
-                        <span className="text-[11px] text-gray-400">已完成 {completedCount} / 总计 {totalCount} 项</span>
+                        <span className="text-[11px] text-gray-400">已施工 {progressedCount} / 总计 {totalCount} 项</span>
                         <span className="text-sm font-bold text-gold-600">{progress}%</span>
                       </div>
                     </div>
@@ -2648,7 +2648,7 @@ export default function ProjectBizDetail() {
                                           <Circle size={8} className="fill-gray-200 text-gray-200" />}
                                       </div>
                                       <div className="absolute opacity-0 group-hover:opacity-100 -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-20 transition-opacity">
-                                        {ns.node.name} ({ns.stageCompleted}/{ns.stageTotal})
+                                        {ns.node.name} ({ns.stageProgressed}/{ns.stageTotal})
                                       </div>
                                     </div>
                                     {!isLast && (
@@ -3575,22 +3575,23 @@ export default function ProjectBizDetail() {
               /* ===== 查看模式：保留原有布局 ===== */
               <div className="hidden md:block space-y-2">
                 {project.nodesData?.map((node: any, index: number) => {
-                  const nodeCompleted = node.sections?.flatMap((s: any) => s.subNodes || [])?.filter((sn: any) => sn.status === 'completed').length || 0;
-                  const nodeTotal = node.sections?.flatMap((s: any) => s.subNodes || [])?.length || 0;
-                  const nodeProgress = nodeTotal > 0 ? Math.round((nodeCompleted / nodeTotal) * 100) : 0;
+                  const stageSummary = progressSummary.stageStatuses[index];
+                  const nodeProgressed = stageSummary?.stageProgressed || 0;
+                  const nodeTotal = stageSummary?.stageTotal || 0;
+                  const nodeIsCompleted = stageSummary?.status === 'completed';
 
                   return (
                     <div key={node._id || `node-${index}`} className="bg-white rounded-xl border overflow-hidden transition-all border-gray-200">
                       <div className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
                         <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => toggleNodeCollapse(node._id)}>
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center border shrink-0 transition-colors ${
-                            nodeProgress === 100 ? 'border-emerald-500 bg-emerald-500 text-white' : nodeProgress > 0 ? 'border-gold-500 text-gold-500 bg-white' : 'border-gray-200 text-gray-300 bg-white'
+                            nodeIsCompleted ? 'border-emerald-500 bg-emerald-500 text-white' : nodeProgressed > 0 ? 'border-gold-500 text-gold-500 bg-white' : 'border-gray-200 text-gray-300 bg-white'
                           }`}>
-                            {nodeProgress === 100 ? <CheckCircle size={14} className="text-white" /> : <Circle size={10} className={nodeProgress > 0 ? 'fill-gold-500 text-gold-500' : 'fill-gray-200 text-gray-200'} />}
+                            {nodeIsCompleted ? <CheckCircle size={14} className="text-white" /> : <Circle size={10} className={nodeProgressed > 0 ? 'fill-gold-500 text-gold-500' : 'fill-gray-200 text-gray-200'} />}
                           </div>
                           <div className="flex-1 text-left flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-800">{node.name}</span>
-                            <span className="text-xs text-gray-400">{nodeCompleted}/{nodeTotal}</span>
+                            <span className="text-xs text-gray-400">{nodeProgressed}/{nodeTotal}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">

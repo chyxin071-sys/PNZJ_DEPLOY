@@ -13,6 +13,7 @@ import DataTable from '@/components/DataTable';
 import BottomDrawer from '@/components/BottomDrawer';
 import Select from '@/components/Select';
 import DatePicker from '@/components/DatePicker';
+import { buildProjectProgressSummary } from '@/utils/projectProgress';
 
 const SIGNED_LEAD_FIELDS = { _id: true, name: true, phone: true, address: true, status: true, sales: true, designer: true, manager: true, signer: true, signDate: true, updatedAt: true };
 const SIGNED_PROJECT_FIELDS = { _id: true, leadId: true, relatedCustomerId: true, status: true, nodesData: true };
@@ -122,36 +123,13 @@ export default function SignedContracts() {
         const primaryProject = relatedProjects[0] || null;
         let constructionProgress = 0;
         let currentNodeName = '';
-        if (primaryProject && primaryProject.nodes) {
-          const nodesData = Array.isArray(primaryProject.nodes) ? primaryProject.nodes : [];
-          const stageStatuses = nodesData.map((node: any) => {
-            let stageTotal = 0;
-            let stageCompleted = 0;
-            (node.sections || []).forEach((sec: any) => {
-              const subNodes = sec.subNodes || [];
-              if (subNodes.length === 0) {
-                stageTotal++;
-                if (sec.status === 'completed' || sec.submitted) stageCompleted++;
-              } else {
-                subNodes.forEach((sn: any) => {
-                  stageTotal++;
-                  if (sn.status === 'completed' || sn.submitted) stageCompleted++;
-                });
-              }
-            });
-            return { name: node.name || '', completed: stageCompleted, total: stageTotal };
-          });
-          const totalSubNodes = stageStatuses.reduce((s: number, st: any) => s + st.total, 0);
-          const completedSubNodes = stageStatuses.reduce((s: number, st: any) => s + st.completed, 0);
-          constructionProgress = totalSubNodes > 0 ? Math.round((completedSubNodes / totalSubNodes) * 100) : 0;
-
-          let found = false;
-          for (const st of stageStatuses) {
-            if (st.completed < st.total || st.total === 0) { currentNodeName = st.name; found = true; break; }
-          }
-          if (!found && stageStatuses.length > 0) {
-            currentNodeName = stageStatuses[stageStatuses.length - 1].name;
-          }
+        const nodesData = Array.isArray(primaryProject?.nodesData)
+          ? primaryProject.nodesData
+          : (Array.isArray(primaryProject?.nodes) ? primaryProject.nodes : []);
+        if (nodesData.length > 0) {
+          const summary = buildProjectProgressSummary(nodesData);
+          constructionProgress = summary.progressPercent;
+          currentNodeName = summary.currentNodeName;
         }
 
         return {
