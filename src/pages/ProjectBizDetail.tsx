@@ -1096,6 +1096,25 @@ export default function ProjectBizDetail() {
     }
   };
 
+  const getProjectBlockingUploadTasks = () => {
+    const projectId = getProjectDocId(project) || id;
+    return uploadTasks.filter(task =>
+      task.context?.scope === 'project-node-media' &&
+      task.context?.projectId === projectId &&
+      ['queued', 'uploading', 'error'].includes(task.status)
+    );
+  };
+
+  const showBlockingUploadMessage = (tasks: typeof uploadTasks, target: string) => {
+    const failedCount = tasks.filter(task => task.status === 'error').length;
+    const pendingCount = tasks.length - failedCount;
+    if (failedCount > 0) {
+      alert(`${target}还有 ${failedCount} 个文件上传失败${pendingCount > 0 ? `、${pendingCount} 个文件正在上传` : ''}，请先重试或移除失败文件后再提交。`);
+      return;
+    }
+    alert(`${target}还有 ${pendingCount} 个文件正在上传，上传并保存完成后才能提交。`);
+  };
+
   const completeSectionNode = async (nodeId: string, secIdx: number) => {
     const actionKey = `submit-${nodeId}-${secIdx}`;
     if (!project || pendingAction) return;
@@ -1107,6 +1126,14 @@ export default function ProjectBizDetail() {
     const node = newNodesData.find((n: any) => n._id === nodeId);
     if (!node) return;
     const section = node.sections[secIdx];
+    const subNodeIds = new Set((section?.subNodes || []).map((subNode: any) => subNode._id));
+    const blockingUploads = getProjectBlockingUploadTasks().filter(task =>
+      subNodeIds.has(task.context?.subNodeId)
+    );
+    if (blockingUploads.length > 0) {
+      showBlockingUploadMessage(blockingUploads, `“${section?.name || node.name || '当前阶段'}”`);
+      return;
+    }
     if (await confirmUser('完工提交后将记录为已完成状态，请确认无误后提交！', { title: '确认完工提交吗？' })) {
       setPendingAction(actionKey);
       const now = new Date();
@@ -2061,12 +2088,22 @@ export default function ProjectBizDetail() {
   }, [project?.nodesData, inspections]);
 
   const openCompletionModal = () => {
+    const blockingUploads = getProjectBlockingUploadTasks();
+    if (blockingUploads.length > 0) {
+      showBlockingUploadMessage(blockingUploads, '当前工地');
+      return;
+    }
     setCompletionDate(project?.endDate ? project.endDate.slice(0, 10) : new Date().toISOString().slice(0, 10));
     setShowCompletionModal(true);
   };
 
   const handleCompleteProject = async () => {
     if (!project || pendingAction) return;
+    const blockingUploads = getProjectBlockingUploadTasks();
+    if (blockingUploads.length > 0) {
+      showBlockingUploadMessage(blockingUploads, '当前工地');
+      return;
+    }
     const projectDocId = getProjectDocId(project);
     if (!projectDocId) return;
     setPendingAction('complete-project');
@@ -3149,7 +3186,7 @@ export default function ProjectBizDetail() {
                                           })),
                                         ];
                                         return (
-                                        <div key={sn._id || subIdx} className={`py-3 ${sn.status === 'current' ? 'border-2 border-amber-400 bg-amber-50/30 rounded-lg px-2 -mx-1' : 'border-b border-dashed border-gray-100 last:border-b-0'}`}>
+                                        <div key={sn._id || subIdx} className="border-b border-dashed border-gray-100 py-3 last:border-b-0">
                                           <div className="flex items-center gap-2">
                                             {shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx && subHasPhoto(sn) && (
                                               <span onClick={() => toggleShareSelectItem(subIdx)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer ${shareSelect.checked[subIdx] ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}>
@@ -3752,7 +3789,7 @@ export default function ProjectBizDetail() {
                                       })),
                                     ];
                                     return (
-                                    <div key={sn._id} className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 ${sn.status === 'completed' ? 'bg-emerald-50/20' : ''} ${sn.status === 'current' ? 'border-2 border-amber-400 bg-amber-50/30 rounded-lg' : ''} ${selectable ? 'cursor-pointer hover:bg-gold-50/40' : ''}`} onClick={selectable ? () => toggleShareSelectItem(subIdx) : undefined}>
+                                    <div key={sn._id} className={`flex items-center gap-3 border-b border-gray-50 px-4 py-3 last:border-0 ${sn.status === 'completed' ? 'bg-emerald-50/20' : ''} ${selectable ? 'cursor-pointer hover:bg-gold-50/40' : ''}`} onClick={selectable ? () => toggleShareSelectItem(subIdx) : undefined}>
                                       {inShareSelect && (
                                         selectable ? (
                                           <span className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${shareSelect!.checked[subIdx] ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}>

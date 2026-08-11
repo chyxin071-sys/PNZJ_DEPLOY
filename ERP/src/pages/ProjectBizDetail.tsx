@@ -3186,7 +3186,7 @@ export default function ProjectBizDetail() {
                                           })),
                                         ];
                                         return (
-                                        <div key={sn._id || subIdx} className={`py-3 ${sn.status === 'current' ? 'border-2 border-amber-400 bg-amber-50/30 rounded-lg px-2 -mx-1' : 'border-b border-dashed border-gray-100 last:border-b-0'}`}>
+                                        <div key={sn._id || subIdx} className="border-b border-dashed border-gray-100 py-3 last:border-b-0">
                                           <div className="flex items-center gap-2">
                                             {shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx && subHasPhoto(sn) && (
                                               <span onClick={() => toggleShareSelectItem(subIdx)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer ${shareSelect.checked[subIdx] ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}>
@@ -3789,7 +3789,7 @@ export default function ProjectBizDetail() {
                                       })),
                                     ];
                                     return (
-                                    <div key={sn._id} className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 ${sn.status === 'completed' ? 'bg-emerald-50/20' : ''} ${sn.status === 'current' ? 'border-2 border-amber-400 bg-amber-50/30 rounded-lg' : ''} ${selectable ? 'cursor-pointer hover:bg-gold-50/40' : ''}`} onClick={selectable ? () => toggleShareSelectItem(subIdx) : undefined}>
+                                    <div key={sn._id} className={`flex items-center gap-3 border-b border-gray-50 px-4 py-3 last:border-0 ${sn.status === 'completed' ? 'bg-emerald-50/20' : ''} ${selectable ? 'cursor-pointer hover:bg-gold-50/40' : ''}`} onClick={selectable ? () => toggleShareSelectItem(subIdx) : undefined}>
                                       {inShareSelect && (
                                         selectable ? (
                                           <span className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${shareSelect!.checked[subIdx] ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}>
