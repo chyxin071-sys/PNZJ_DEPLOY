@@ -181,16 +181,6 @@ function getProjectLifecycleStatus(project: any) {
   return project.status || '未开工';
 }
 
-function getCurrentStageLabel(project: any) {
-  if (project.status === '已完工' || project.status === '已暂停') return project.status;
-  if (isCurrentProjectProgressSummary(project.progressSummary)) {
-    const name = project.progressSummary.currentNodeName || project.progressSummary.nodeName;
-    return project.progressSummary.waitingForNextStage && name ? `${name}已完成` : name;
-  }
-  const summary = buildProjectProgressSummary(project.nodesData || []);
-  return summary.currentNodeName || (hasProjectStarted(project) ? '开工' : '未开工');
-}
-
 function extractTemplateNodes(doc: any) {
   if (doc?.data && !Array.isArray(doc.data) && Array.isArray(doc.data.nodesData) && doc.data.nodesData.length > 0) {
     return doc.data.nodesData;
@@ -1154,7 +1144,6 @@ export default function ProjectsBiz() {
               const progress = lifecycleStatus === '已完工'
                 ? 100
                 : (typeof summary.progressPercent === 'number' ? summary.progressPercent : getProgress(p.nodesData || []));
-              const currentStageLabel = getCurrentStageLabel(p);
               const currentStageIndex = Math.max(0, stageStatuses.findIndex((stage: any) => stage.isCurrentPosition));
               const currentStage = stageStatuses[currentStageIndex];
               const currentStageName = lifecycleStatus === '已完工'
@@ -1169,7 +1158,7 @@ export default function ProjectsBiz() {
               const unreadUpdates = projectUnreadCountById[projectId] || 0;
 
               return (
-              <div key={projectId} className="group relative overflow-hidden border-b border-gray-50 last:border-b-0 md:min-w-[1470px] md:overflow-visible">
+              <div key={projectId} className="group relative overflow-hidden border-b border-gray-200 last:border-b-0 md:min-w-[1470px] md:overflow-visible">
                 {/* 卡片主体 */}
                 {isAdmin && (
                   <button
@@ -1250,7 +1239,7 @@ export default function ProjectsBiz() {
                         </h3>
                         <div className="mt-0.5 truncate text-[11px] text-gray-500">{p.customer || '未命名'}</div>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${STATUS_COLORS[lifecycleStatus] || 'bg-gold-50 text-gold-600'}`}>{currentStageLabel}</span>
+                      <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[lifecycleStatus] || 'bg-gold-50 text-gold-600'}`}>{lifecycleStatus}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-1.5 flex-wrap">
                       {displayPeople.length > 0 ? displayPeople.map((person) => (
@@ -1259,34 +1248,20 @@ export default function ProjectsBiz() {
                         </span>
                       )) : <span>-</span>}
                     </div>
-                    {stageStatuses.length > 0 && (
-                      <div className="mt-1.5">
-                        <div className="flex items-center justify-between text-[10px] mb-1">
-                          <span className="text-gray-400">施工进度</span>
-                          <span className="font-bold text-gold-600">{progress}%</span>
-                        </div>
-                        <div className="flex items-center w-full px-0.5">
-                          {stageStatuses.map((ns: any, i: number) => {
-                              const isLast = i === stageStatuses.length - 1;
-                              const isCompleted = ns.status === 'completed';
-                              const isCurrent = ns.status === 'current';
-                              const isCurrentPosition = Boolean(ns.isCurrentPosition);
-                              return (
-                                <div key={`${ns.name || 'stage'}-${i}`} className={`flex items-center ${isLast ? '' : 'flex-1'}`}>
-                                  <div className={`relative w-3 h-3 rounded-full shrink-0 z-10 bg-white border transition-colors
-                                    ${isCurrentPosition && isCompleted ? 'ring-2 ring-gold-400 ring-offset-1' : ''}
-                                    ${isCompleted ? 'border-emerald-500' : isCurrent ? 'border-gold-500' : 'border-gray-200'}`}>
-                                    <span className={`absolute left-1/2 top-1/2 w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${
-                                      isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-gold-500' : 'bg-gray-200'
-                                    }`} />
-                                  </div>
-                                  {!isLast && <div className={`flex-1 h-[2px] mx-0 ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-gold-300' : 'bg-gray-100'}`} />}
-                                </div>
-                              );
-                            })}
-                        </div>
+                    <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-start gap-3 border-t border-gray-100 pt-2">
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-gray-400">当前阶段</div>
+                        <div className="mt-0.5 truncate text-xs font-medium text-gray-800">{currentStageName}</div>
                       </div>
-                    )}
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-gray-400">下一阶段</div>
+                        <div className="mt-0.5 truncate text-xs font-medium text-gray-800">{nextStageName}</div>
+                      </div>
+                      <div className="min-w-[52px] text-right">
+                        <div className="text-[10px] text-gray-400">施工进度</div>
+                        <div className="mt-0.5 text-xs font-semibold text-gold-600">{progress}%</div>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-2">
                       <div className="min-w-0 text-left">
                         {dateMeta.finishDate ? `完工日期 ${dateMeta.finishDate}` : dateMeta.pauseDate ? `暂停日期 ${dateMeta.pauseDate}` : dateMeta.startDate ? `开工日期 ${dateMeta.startDate}` : ''}
