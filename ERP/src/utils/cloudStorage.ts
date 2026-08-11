@@ -59,10 +59,12 @@ export function getWebFileProxyURL(fileID: string): string {
   return `/api/files/${toBase64Url(fileID)}`;
 }
 
-const nativeUploadResults = new WeakMap<File, UploadResult>();
-const nativeUploadResultsByName = new Map<string, UploadResult>();
+type NativeUploadResolution = UploadResult | Promise<UploadResult>;
 
-export function registerNativeUploadResult(file: File, result: UploadResult) {
+const nativeUploadResults = new WeakMap<File, NativeUploadResolution>();
+const nativeUploadResultsByName = new Map<string, NativeUploadResolution>();
+
+export function registerNativeUploadResult(file: File, result: NativeUploadResolution) {
   nativeUploadResults.set(file, result);
   nativeUploadResultsByName.set(file.name, result);
   if (nativeUploadResultsByName.size > 100) {
@@ -76,7 +78,10 @@ export async function uploadFile(
   folder: string,
 ): Promise<UploadResult> {
   const nativeResult = nativeUploadResults.get(file) || nativeUploadResultsByName.get(file.name);
-  if (nativeResult?.fileID) return nativeResult;
+  if (nativeResult) {
+    const resolved = await nativeResult;
+    if (resolved?.fileID) return resolved;
+  }
 
   await initCloudBase();
 
