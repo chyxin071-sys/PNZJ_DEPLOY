@@ -69,7 +69,9 @@ export default function Dashboard() {
   const roles = user?.roles;
   const userBizTypes = user?.bizTypes as any;
   const isAdmin = user?.role === 'admin';
-  const canOpenFinanceReports = isAdmin || role === 'finance' || (Array.isArray(roles) && roles.includes('finance'));
+  const canOpenFinanceReports = isAdmin
+    || role === 'finance'
+    || (Array.isArray(roles) && (roles.includes('admin') || roles.includes('finance')));
   const myName = user?.name || '';
   const ROLE_MAP: Record<string, string> = { admin: '管理', sales: '销售', designer: '设计', manager: '项目经理', finance: '财务', employee: '普通' };
   const includesPerson = (val: any, name: string): boolean => {
@@ -120,21 +122,28 @@ export default function Dashboard() {
   });
 
   const loadFinanceTargets = useCallback(async () => {
+    if (!canOpenFinanceReports) {
+      setFinanceTargets(EMPTY_FINANCE_TARGETS);
+      return;
+    }
     const doc = await systemConfigsAPI.doc(DASHBOARD_FINANCE_TARGET_CONFIG_ID).get();
     const scopedTargets = doc?.targets?.[currentBizType] || doc?.[currentBizType] || null;
     setFinanceTargets(normalizeFinanceTargets(scopedTargets));
-  }, [currentBizType]);
+  }, [canOpenFinanceReports, currentBizType]);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [leadsRes, todosRes, projectsRes, employeesRes, contractsRes, receiptsRes] = await Promise.all([
-        leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
-        todosAPI.toArray(DASHBOARD_TODO_FIELDS),
-        projectsAPI.toArray(DASHBOARD_PROJECT_FIELDS),
-        usersAPI.toArray(DASHBOARD_USER_FIELDS),
-        contractsAPI.toArray(),
-        receiptsAPI.toArray(),
+      const [[leadsRes, todosRes, projectsRes, employeesRes], [contractsRes, receiptsRes]] = await Promise.all([
+        Promise.all([
+          leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
+          todosAPI.toArray(DASHBOARD_TODO_FIELDS),
+          projectsAPI.toArray(DASHBOARD_PROJECT_FIELDS),
+          usersAPI.toArray(DASHBOARD_USER_FIELDS),
+        ]),
+        canOpenFinanceReports
+          ? Promise.all([contractsAPI.toArray(), receiptsAPI.toArray()])
+          : Promise.resolve([[], []]),
       ]);
       setLeads(leadsRes); setTodos(todosRes); setProjects(projectsRes);
       setEmployees(employeesRes);
@@ -159,7 +168,7 @@ export default function Dashboard() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [canOpenFinanceReports]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { loadFinanceTargets(); }, [loadFinanceTargets]);
@@ -823,11 +832,11 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section>
+      {canOpenFinanceReports && <section>
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h3 className="text-xs font-semibold text-gray-400">经营目标</h3>
-            <p className="mt-0.5 text-[11px] text-gray-400">{currentBizType} · 全员可见</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">{currentBizType} · 管理员及财务可见</p>
           </div>
           {isAdmin && (
             <button
@@ -844,7 +853,7 @@ export default function Dashboard() {
             <FinanceOverviewCard key={item.key} item={item} />
           ))}
         </div>
-      </section>
+      </section>}
 
       {isAdmin && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
