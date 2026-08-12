@@ -337,7 +337,7 @@ export default function ProjectsBiz() {
   const [showEdit, setShowEdit] = useState<any>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [statFilter, setStatFilter] = useState<string>('all');
+  const [statFilter, setStatFilter] = useState<string>('施工中');
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterScope, setFilterScope] = useState<'related' | 'all'>(() => isAdmin ? 'all' : 'related');
   const [showFilter, setShowFilter] = useState(false);
@@ -1263,6 +1263,11 @@ export default function ProjectsBiz() {
                           {person}
                         </span>
                       )) : <span>-</span>}
+                    </div>
+                    <div className="mt-2">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div className="h-full rounded-full bg-sky-500 transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+                      </div>
                     </div>
                     <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-start gap-3 pt-1">
                       <div className="min-w-0">

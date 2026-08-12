@@ -7,7 +7,7 @@ import {
   ClipboardList, Loader2, ExternalLink, Building2, Mail, Hash, Eye, EyeOff,
   Plus, Trash2, Shield, BookOpen, GripVertical, ChevronLeft, Settings, Share2,
   Receipt, Tag, Folder, DollarSign, BarChart3, AlertTriangle, RotateCcw,
-  PlayCircle,
+  Play, PlayCircle,
 } from 'lucide-react';
 import { projectsAPI, leadsAPI, usersAPI, contractsAPI, projectLogsAPI, projectInspectionsAPI, todosAPI } from '@/db/api';
 import type { ProjectLog, ProjectInspection } from '@/types';
@@ -125,6 +125,16 @@ function CloudVideo({ src, className, poster }: { src: string, className?: strin
   const validPoster = normalizeVideoPoster(poster);
   if (validPoster) return <img src={validPoster} className={className} alt="视频缩略图" loading="lazy" decoding="async" />;
   return <div className={`flex items-center justify-center bg-gray-100 text-gray-400 ${className}`}><ImageIcon className="h-4 w-4" /></div>;
+}
+
+function VideoPlayBadge({ className = '' }: { className?: string }) {
+  return (
+    <span className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/20 ${className}`}>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white shadow-sm ring-1 ring-white/70">
+        <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+      </span>
+    </span>
+  );
 }
 
 function CloudImage({ src, className, alt }: { src: string, className?: string, alt?: string }) {
@@ -1472,6 +1482,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 照片 ---- */
   const triggerSubNodePhoto = (subNodeId: string) => {
+    if (!canManageConstruction) return;
     setTargetSubNodeId(subNodeId);
     nodeFileInputRef.current?.click();
   };
@@ -1487,6 +1498,10 @@ export default function ProjectBizDetail() {
   const handleSubNodePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !targetSubNodeId || !project) return;
+    if (!canManageConstruction) {
+      e.target.value = '';
+      return;
+    }
     if (project.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       e.target.value = '';
@@ -1587,11 +1602,11 @@ export default function ProjectBizDetail() {
         return { photo: p, rawUrl, source };
       }).filter(Boolean) as { photo: any; rawUrl: string; source: string }[];
 
+      const targetSource = mediaSourceOf(photo);
+
       if (isMiniProgram && previewSources.length > 0) {
         let targetIndex = previewSources.findIndex(item => (
-          item.photo === photo
-          || item.photo.url === photo?.url
-          || item.photo.fileID === photo?.fileID
+          item.photo === photo || (!!targetSource && mediaSourceOf(item.photo) === targetSource)
         ));
         if (targetIndex < 0) targetIndex = 0;
 
@@ -1633,7 +1648,7 @@ export default function ProjectBizDetail() {
           ...(isVideo ? { poster: normalizeVideoPoster(p.poster || p.thumbUrl || p.thumbTempFilePath) } : {}),
         });
 
-        if (p === photo || p.url === photo.url || p.fileID === photo.fileID) {
+        if (p === photo || (!!targetSource && mediaSourceOf(p) === targetSource)) {
           targetIndex = images.length - 1;
         }
       }
@@ -1662,6 +1677,7 @@ export default function ProjectBizDetail() {
 
   const deletePhoto = async (nodeId: string, secIdx: number, subIdx: number, photoIdx: number) => {
     if (!project) return;
+    if (!canManageConstruction) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -2344,6 +2360,7 @@ export default function ProjectBizDetail() {
   const canEdit = isAdmin || project.creatorName === myName || includesPerson(project.manager, myName) || includesPerson(project.designer, myName) || (lead && includesPerson(lead.sales, myName));
   const isProjectCompleted = project.status === '已完工';
   const canEditSite = canEdit && !isProjectCompleted;
+  const canManageConstruction = !isAdmin && includesPerson(project.manager, myName) && !isProjectCompleted;
   const canEditProjectInfo = canEdit && !isProjectCompleted;
   const canCompleteTodo = (todo: any) => isAdmin || includesPerson(project.manager, myName) || (todo.assignees || []).some((assignee: any) => assignee.id === user?.id || assignee.name === myName);
   const completionChecks = getCompletionChecks();
@@ -3006,7 +3023,7 @@ export default function ProjectBizDetail() {
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">当前项目暂无施工节点，请选择模板进行生成</p>
                 </div>
-                {canEditSite && (
+                {canManageConstruction && (
                   <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded-lg hover:bg-gold-500 transition-colors">
                     套用模板
                   </button>
@@ -3018,7 +3035,7 @@ export default function ProjectBizDetail() {
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">管理和查看各阶段进度</p>
                 </div>
-                {canEditSite && (
+                {canManageConstruction && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={openQuickTodoModal}
@@ -3079,7 +3096,7 @@ export default function ProjectBizDetail() {
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-gray-700">施工动态</h3>
                   </div>
-                  {canEditSite && !isStageDetail && (
+                  {canManageConstruction && !isStageDetail && (
                     <div className="flex items-center gap-1.5">
                     <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
                       <ClipboardList className="h-3.5 w-3.5" />
@@ -3280,7 +3297,7 @@ export default function ProjectBizDetail() {
                                 <button
                                   type="button"
                                   onClick={(event) => {
-                                    if (actualRange || !canEditSite || !nodeSections[0]) return;
+                                    if (actualRange || !canManageConstruction || !nodeSections[0]) return;
                                     event.stopPropagation();
                                     setShowPlanDateModal({
                                       nodeId: node._id,
@@ -3290,7 +3307,7 @@ export default function ProjectBizDetail() {
                                       endDate: nodeSections[0].endDate || '',
                                     });
                                   }}
-                                  className={`mt-1 text-left text-xs text-slate-500 ${!actualRange && canEditSite && nodeSections[0] ? 'underline decoration-dashed underline-offset-2' : ''}`}
+                                  className={`mt-1 text-left text-xs text-slate-500 ${!actualRange && canManageConstruction && nodeSections[0] ? 'underline decoration-dashed underline-offset-2' : ''}`}
                                 >
                                   {actualRange ? `实际：${actualRange}` : planRange ? `计划：${planRange}` : '未设置计划时间'}
                                 </button>
@@ -3355,7 +3372,7 @@ export default function ProjectBizDetail() {
                               const isSecCurrent = section.status === 'current';
                               const isSecPending = !section.status || section.status === 'pending';
                               const isEditingRecord = editingRecordKey === `${node._id}-${secIdx}`;
-                              const canEditRecord = canEditSite && !isEditingNodes && (isSecCurrent || isEditingRecord);
+                              const canEditRecord = canManageConstruction && !isEditingNodes && (isSecCurrent || isEditingRecord);
                               const secBadge = isSecCompleted ? '已完成' : isSecCurrent ? '施工中' : '待开始';
                               const secBadgeClass = isSecCompleted ? 'bg-emerald-50 text-emerald-700' : isSecCurrent ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500';
                               const latestEditTime = section.updateTime || section.lastEditedAt || section.submitTime;
@@ -3407,7 +3424,7 @@ export default function ProjectBizDetail() {
                                           )}
                                         </div>
                                       )}
-                                      {canEditSite && !isEditingNodes && isSecPending && !section.submitted && !section.actualStartDate && (
+                                      {canManageConstruction && !isEditingNodes && isSecPending && !section.submitted && !section.actualStartDate && (
                                         <button
                                           type="button"
                                           onClick={(e) => {
@@ -3426,7 +3443,7 @@ export default function ProjectBizDetail() {
                                         </button>
                                       )}
                                     </div>
-                                    {canEditSite && !isEditingNodes && isSecPending && !section.submitted && (
+                                    {canManageConstruction && !isEditingNodes && isSecPending && !section.submitted && (
                                       <div className="mt-3 flex justify-end">
                                         <button
                                           onClick={(e) => {
@@ -3488,18 +3505,18 @@ export default function ProjectBizDetail() {
                                             ) : (
                                               <div className="flex-1 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap break-words">{sn.name}</div>
                                             )}
-                                            {canEditSite && isEditingNodes && (
+                                            {canManageConstruction && isEditingNodes && (
                                               <button onClick={() => deleteSubNode(node._id, secIdx, subIdx)} className="mt-1 rounded-lg p-1 text-gray-300 hover:bg-red-50 hover:text-red-500">
                                                 <Trash2 className="w-4 h-4" />
                                               </button>
                                             )}
                                           </div>
                                           {(photos.length > 0 || canEditRecord) && (
-                                            <div className="mt-2 flex flex-wrap gap-2">
+                                            <div className="mt-2 grid w-full grid-cols-4 gap-1.5">
                                               {photos.map((p: any, pi: number) => {
                                                 const isVideo = p.type === 'video' || (p.url && !!p.url.match(/\.(mp4|mov|avi)$/i));
                                                 return (
-                                                  <div key={pi} className="relative group">
+                                                  <div key={pi} className="relative aspect-square min-w-0">
                                                   <button onClick={() => {
                                                     if (p.isUploading) return;
                                                     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -3507,9 +3524,9 @@ export default function ProjectBizDetail() {
                                                     if (canEditRecord && isMobile && !isSecCompleted) {
                                                       setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
                                                     } else {
-                                                      openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi });
+                                                      openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null);
                                                     }
-                                                  }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
+                                                  }} className="relative h-full w-full overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
                                                     ) : isVideo ? (
@@ -3517,7 +3534,7 @@ export default function ProjectBizDetail() {
                                                     ) : (
                                                       <CloudImage src={p.url || p.fileID} className="h-full w-full object-cover" alt="现场照片" />
                                                     )}
-                                                    {isVideo && <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-[5px]"><div className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center"><div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[5px] border-l-black border-b-[3px] border-b-transparent ml-0.5"></div></div></div>}
+                                                    {isVideo && <VideoPlayBadge className="rounded-[5px]" />}
                                                   </button>
                                                   <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                                                   </div>
@@ -3527,7 +3544,7 @@ export default function ProjectBizDetail() {
                                                 <button
                                                   onClick={() => triggerSubNodePhoto(sn._id)}
                                                   disabled={uploadingSubNode === sn._id}
-                                                  className="flex h-14 w-14 items-center justify-center rounded-[5px] border border-dashed border-gray-300 bg-gray-50 text-gray-500 disabled:opacity-50"
+                                                  className="flex aspect-square h-full w-full items-center justify-center rounded-[5px] border border-dashed border-gray-300 bg-gray-50 text-gray-500 disabled:opacity-50"
                                                 >
                                                   {uploadingSubNode === sn._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                                                 </button>
@@ -3553,12 +3570,12 @@ export default function ProjectBizDetail() {
                                           ) : null}
                                         </div>
                                       )}
-                                      {canEditSite && isEditingNodes && (
+                                      {canManageConstruction && isEditingNodes && (
                                         <button onClick={() => addBlankSubNode(node._id, secIdx)} className="my-2 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-500">
                                           <Plus className="h-4 w-4" /> 新增检查项
                                         </button>
                                       )}
-                                      {canEditSite && !isEditingNodes && (
+                                      {canManageConstruction && !isEditingNodes && (
                                         <div className="space-y-2 pt-1">
                                           {latestEditTime && (
                                             <div className="text-right text-[11px] text-gray-400">最近编辑：{latestEditTime}</div>
@@ -3968,7 +3985,7 @@ export default function ProjectBizDetail() {
                             const isSecCurrent = section.status === 'current';
                             const isSecPending = !section.status || section.status === 'pending';
                             const isEditingRecord = editingRecordKey === `${node._id}-${secIdx}`;
-                            const canEditRecord = canEditSite && (isSecCurrent || isEditingRecord);
+                            const canEditRecord = canManageConstruction && (isSecCurrent || isEditingRecord);
                             const latestEditTime = section.updateTime || section.lastEditedAt || section.submitTime;
                             const planStart = section.startDate || null;
                             const planEnd = section.endDate || null;
@@ -4035,9 +4052,9 @@ export default function ProjectBizDetail() {
                                         <div className="mt-1 bg-red-50 border border-red-100 text-red-600 p-2 rounded">
                                           <span className="font-bold">逾期原因：</span>
                                           {section.delayReason ? (
-                                            <span onClick={() => canEditSite && setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: section.delayReason })} className={canEditSite ? 'cursor-pointer' : ''}>{section.delayReason}</span>
+                                            <span onClick={() => canManageConstruction && setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: section.delayReason })} className={canManageConstruction ? 'cursor-pointer' : ''}>{section.delayReason}</span>
                                           ) : (
-                                            <span>* 此阶段已逾期，请补充填写逾期原因 {canEditSite && <span onClick={() => setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: '' })} className="ml-2 text-gold-600 underline cursor-pointer">去填写</span>}</span>
+                                            <span>* 此阶段已逾期，请补充填写逾期原因 {canManageConstruction && <span onClick={() => setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: '' })} className="ml-2 text-gold-600 underline cursor-pointer">去填写</span>}</span>
                                           )}
                                         </div>
                                       )}
@@ -4086,7 +4103,7 @@ export default function ProjectBizDetail() {
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between gap-2">
                                           <div className="text-sm leading-relaxed text-gray-700">{sn.name}</div>
-                                          {canEditSite && canEditRecord && (
+                                          {canManageConstruction && canEditRecord && (
                                             <div className="flex items-center gap-1 shrink-0 mt-0.5">
                                               <button onClick={() => triggerSubNodePhoto(sn._id)} disabled={uploadingSubNode === sn._id} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gold-600 transition-colors">
                                                 {uploadingSubNode === sn._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
@@ -4098,7 +4115,7 @@ export default function ProjectBizDetail() {
                                           <div className="mt-2 space-y-1">
                                             {sn.checklist.map((item: string, ci: number) => (
                                               <label key={ci} className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                                                <input type="checkbox" disabled={!canEditSite || sn.status === 'completed'} checked={sn.acceptanceRecord?.checklist?.[ci] || false}
+                                                <input type="checkbox" disabled={!canManageConstruction || sn.status === 'completed'} checked={sn.acceptanceRecord?.checklist?.[ci] || false}
                                                   onChange={() => {
                                                     const newNodesData = [...(project.nodesData || [])];
                                                     const nd = newNodesData.find((n: any) => n._id === node._id);
@@ -4132,7 +4149,7 @@ export default function ProjectBizDetail() {
                                                     if (canEditRecord && isMobile && !isSecCompleted) {
                                                       setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
                                                     } else {
-                                                      openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi });
+                                                      openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null);
                                                     }
                                                   }} className="relative w-full h-full rounded-[5px] bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
                                                     {p.isUploading ? (
@@ -4142,7 +4159,7 @@ export default function ProjectBizDetail() {
                                                     ) : (
                                                       <CloudImage src={p.url || p.fileID} className="w-full h-full object-cover" alt="现场照片" />
                                                     )}
-                                                    {isVideo && <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded"><div className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center"><div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[5px] border-l-black border-b-[3px] border-b-transparent ml-0.5"></div></div></div>}
+                                                    {isVideo && <VideoPlayBadge className="rounded-[5px]" />}
                                                   </button>
                                                   <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                                                 </div>
@@ -4156,7 +4173,7 @@ export default function ProjectBizDetail() {
                                               const isVideo = p.type === 'video' || (p.url && !!p.url.match(/\.(mp4|mov|avi)$/i));
                                               return (
                                                 <div key={pi} className="relative group">
-                                                  <button onClick={() => { if (!p.isUploading) openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi }); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
+                                                  <button onClick={() => { if (!p.isUploading) openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
                                                     ) : isVideo ? (
@@ -4164,7 +4181,7 @@ export default function ProjectBizDetail() {
                                                     ) : (
                                                       <CloudImage src={p.url || p.fileID} className="h-full w-full object-cover" alt="现场照片" />
                                                     )}
-                                                    {isVideo && <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-[5px]"><div className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center"><div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[5px] border-l-black border-b-[3px] border-b-transparent ml-0.5"></div></div></div>}
+                                                    {isVideo && <VideoPlayBadge className="rounded-[5px]" />}
                                                   </button>
                                                   <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                                                 </div>
@@ -4186,7 +4203,7 @@ export default function ProjectBizDetail() {
                                         <div className="rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
                                       )
                                     )}
-                {canEditSite && (
+                {canManageConstruction && (
                                       <div className="space-y-2">
                                         {latestEditTime && <div className="text-right text-xs text-gray-400">最近编辑：{latestEditTime}</div>}
                                         <div className="flex justify-end gap-2">
@@ -4259,7 +4276,7 @@ export default function ProjectBizDetail() {
                   <div className="text-center py-12 text-gray-400">
                     <HardHat className="w-10 h-10 mx-auto mb-2 text-gray-200" />
                     <p className="text-sm">暂无施工节点</p>
-                    {canEditSite && (
+                    {canManageConstruction && (
                       <button onClick={openTemplateModal} className="mt-2 text-xs text-gold-600 hover:underline">套用模板</button>
                     )}
                   </div>
@@ -4374,19 +4391,15 @@ export default function ProjectBizDetail() {
                     </div>
                     <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mt-2">{log.content}</p>
                         {log.photos && log.photos.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-3">
+                          <div className="mt-3 grid grid-cols-4 gap-1.5 md:flex md:flex-wrap md:gap-2">
                             {log.photos.map((photo, idx) => {
-                              const isVideo = !!(photo as string).match(/\.(mp4|mov|avi)$/i);
+                              const isVideo = isVideoMedia(photo);
                               return (
-                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: !!(p as string).match(/\.(mp4|mov|avi)$/i) ? 'video' : 'image' })))} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                                <CloudImage src={photo as string} className="w-full h-full object-cover" />
-                                {isVideo && (
-                                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                    <div className="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center">
-                                      <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-black border-b-[4px] border-b-transparent ml-0.5"></div>
-                                    </div>
-                                  </div>
-                                )}
+                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: isVideoMedia(p) ? 'video' : 'image' })))} className="relative aspect-square min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 md:h-16 md:w-16">
+                                {isVideo
+                                  ? <CloudVideo src={photo as string} className="h-full w-full object-cover" />
+                                  : <CloudImage src={photo as string} className="h-full w-full object-cover" />}
+                                {isVideo && <VideoPlayBadge className="rounded-lg" />}
                               </button>
                               );
                             })}
