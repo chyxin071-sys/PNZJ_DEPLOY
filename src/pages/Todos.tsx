@@ -34,7 +34,7 @@ const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, 
 const RELATED_TYPE_MAP: Record<string, string> = { none: '无', lead: '客户', project: '工地' };
 const TODO_USER_FIELDS = { _id: true, id: true, name: true, role: true, roles: true, department: true, status: true };
 const TODO_LEAD_FIELDS = { _id: true, name: true };
-const TODO_PROJECT_FIELDS = { _id: true, address: true, customer: true };
+const TODO_PROJECT_FIELDS = { _id: true, address: true, customer: true, manager: true, sales: true, designer: true, creatorName: true };
 
 type StatFilter = 'all' | 'pending' | 'completed' | 'overdue';
 
@@ -650,6 +650,7 @@ export default function Todos() {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const [showCreate, setShowCreate] = useState(false);
+  const projectPrefillAppliedRef = useRef(false);
 
   useEffect(() => {
     if (searchParams.get('action') === 'new') setShowCreate(true);
@@ -696,9 +697,44 @@ export default function Todos() {
     };
   }, [fetchData]);
 
+  useEffect(() => {
+    const projectId = searchParams.get('projectId');
+    if (!projectId || projects.length === 0 || projectPrefillAppliedRef.current) return;
+    const linkedProject = projects.find(project => (project._id || project.id) === projectId);
+    if (!linkedProject) return;
+    const managerNames = Array.isArray(linkedProject.manager)
+      ? linkedProject.manager
+      : String(linkedProject.manager || '').split(/[、,，]/).map(name => name.trim()).filter(Boolean);
+    const defaultAssignees = managerNames.map(name => {
+      const employee = employees.find(item => item.name === name);
+      return employee ? { id: employee._id || employee.id, name: employee.name } : null;
+    }).filter(Boolean) as { id: string; name: string }[];
+    setForm(current => ({
+      ...current,
+      relatedType: 'project',
+      relatedId: projectId,
+      relatedName: `${linkedProject.customer || ''}${linkedProject.address ? ` - ${linkedProject.address}` : ''}`.replace(/^\s*-\s*/, ''),
+      assignees: current.assignees.length > 0 ? current.assignees : defaultAssignees,
+    }));
+    setShowCreate(true);
+    projectPrefillAppliedRef.current = true;
+  }, [searchParams, projects, employees]);
+
   const baseFiltered = todos.filter(t => {
     if (!isAdmin && filterScope === 'related') {
-      if (!t.assignees?.some((a: any) => a.id === myId || a.name === myName) && t.creatorName !== myName) return false;
+      const linkedProject = t.relatedTo?.type === 'project'
+        ? projects.find(project => (project._id || project.id) === t.relatedTo?.id)
+        : null;
+      const participantNames = linkedProject
+        ? [linkedProject.manager, linkedProject.sales, linkedProject.designer, linkedProject.creatorName]
+          .flatMap(value => Array.isArray(value) ? value : String(value || '').split(/[、,，]/))
+          .map(name => String(name).trim())
+          .filter(Boolean)
+        : [];
+      const isRelated = t.assignees?.some((a: any) => a.id === myId || a.name === myName)
+        || t.creatorName === myName
+        || participantNames.includes(myName);
+      if (!isRelated) return false;
     }
     if (search) {
       const q = search.toLowerCase();
@@ -798,6 +834,8 @@ export default function Todos() {
       setForm(INIT_FORM);
       setTodos(prev => [newTodo, ...prev]);
       fetchData(true);
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) navigate(returnTo);
     } catch (e) {
       console.error(e);
     } finally {

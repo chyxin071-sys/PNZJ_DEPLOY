@@ -13,7 +13,7 @@ import { projectsAPI, leadsAPI, usersAPI, contractsAPI, projectLogsAPI, projectI
 import type { ProjectLog, ProjectInspection } from '@/types';
 import { cloudDB, cloudApp } from '@/db/cloudbase';
 import { uploadFile as uploadToCloud, getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
-import { formatDate } from '@/utils/format';
+import { formatDate, generateId } from '@/utils/format';
 import { openNativeMediaPreview, isMiniProgramWebView } from '@/utils/miniProgramPreview';
 import { openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
@@ -382,7 +382,10 @@ export default function ProjectBizDetail() {
     { key: 'files', label: currentBizType === '工装' ? '合同资料' : '项目资料' },
   ];
   const standaloneSection = (['logs', 'inspections'] as const).includes(section as any) ? section as 'logs' | 'inspections' : null;
-  const smartBack = useSmartBack(standaloneSection ? `/projects-biz/${id}` : '/projects-biz');
+  const stageParam = new URLSearchParams(location.search).get('stage');
+  const stageDetailIndex = section?.startsWith('stage-') ? Number(section.slice(6)) : Number(stageParam ?? -1);
+  const isStageDetail = Number.isInteger(stageDetailIndex) && stageDetailIndex >= 0;
+  const smartBack = useSmartBack((standaloneSection || isStageDetail) ? `/projects-biz/${id}` : '/projects-biz');
 
   const [project, setProject] = useState<any>(null);
   const [lead, setLead] = useState<any>(null);
@@ -396,6 +399,11 @@ export default function ProjectBizDetail() {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ manager: [] as string[], startDate: '', endDate: '', entryPassword: '' });
   const [employees, setEmployees] = useState<any[]>([]);
+  const [projectTodos, setProjectTodos] = useState<any[]>([]);
+  const [completingTodoId, setCompletingTodoId] = useState<string | null>(null);
+  const [showQuickTodoModal, setShowQuickTodoModal] = useState(false);
+  const [quickTodoForm, setQuickTodoForm] = useState({ title: '', dueDate: '' });
+  const [submittingQuickTodo, setSubmittingQuickTodo] = useState(false);
 
   const [uploadingSubNode, setUploadingSubNode] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -719,6 +727,14 @@ export default function ProjectBizDetail() {
     } catch (e) { console.error('加载日志/巡检失败', e); }
   }, [id]);
 
+  const loadProjectTodos = useCallback(async () => {
+    if (!id || id === 'new') return;
+    const allTodos = await todosAPI.toArray().catch(() => []);
+    setProjectTodos(allTodos
+      .filter((todo: any) => todo.status !== 'completed' && todo.relatedTo?.type === 'project' && todo.relatedTo?.id === id)
+      .sort((a: any, b: any) => String(a.dueDate || a.createdAt || '').localeCompare(String(b.dueDate || b.createdAt || ''))));
+  }, [id]);
+
   const loadQuickReplies = useCallback(async () => {
     try {
       const res = await cloudDB.collection('system_configs').doc('log_quick_replies').get();
@@ -746,12 +762,39 @@ export default function ProjectBizDetail() {
     }
   };
 
-  useEffect(() => { loadProject(true); loadLogsAndInspections(); loadQuickReplies(); fetchEmployees(); }, [loadProject, loadLogsAndInspections, loadQuickReplies]);
+  useEffect(() => { loadProject(true); loadLogsAndInspections(); loadProjectTodos(); loadQuickReplies(); fetchEmployees(); }, [loadProject, loadLogsAndInspections, loadProjectTodos, loadQuickReplies]);
+
+  useEffect(() => {
+    if (!isStageDetail || !project?.nodesData?.[stageDetailIndex]) return;
+    setProject((current: any) => {
+      if (!current?.nodesData?.[stageDetailIndex]) return current;
+      const nodesData = current.nodesData.map((node: any, index: number) => index === stageDetailIndex ? {
+        ...node,
+        collapsed: false,
+        sections: (node.sections || []).map((item: any) => ({ ...item, collapsed: false })),
+      } : node);
+      return { ...current, nodesData };
+    });
+    const scrollContainer = document.querySelector<HTMLElement>('[data-scroll="main"]');
+    window.requestAnimationFrame(() => scrollContainer?.scrollTo({ top: 0, behavior: 'auto' }));
+  }, [isStageDetail, stageDetailIndex, project?._id]);
+
+  useEffect(() => {
+    if (isStageDetail || loading) return;
+    const savedPosition = sessionStorage.getItem(`project_detail_scroll_${id}`);
+    if (!savedPosition) return;
+    const scrollContainer = document.querySelector<HTMLElement>('[data-scroll="main"]');
+    window.requestAnimationFrame(() => {
+      scrollContainer?.scrollTo({ top: Number(savedPosition) || 0, behavior: 'auto' });
+      sessionStorage.removeItem(`project_detail_scroll_${id}`);
+    });
+  }, [id, isStageDetail, loading]);
 
   // 页面可见时刷新关联合同（从合同页返回时不会重新挂载组件）
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && project) {
+        void loadProjectTodos();
         (async () => {
           const leadData = project.leadId ? await leadsAPI.doc(project.leadId).get().catch(() => null) : null;
           const lead = Array.isArray(leadData) ? leadData[0] : leadData;
@@ -760,9 +803,13 @@ export default function ProjectBizDetail() {
         })();
       }
     };
+    window.addEventListener('focus', onVisible);
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [project, findRelatedContracts]);
+    return () => {
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [project, findRelatedContracts, loadProjectTodos]);
 
   useEffect(() => {
     if (section && ['logs', 'inspections'].includes(section)) setActiveTab(section);
@@ -2182,6 +2229,93 @@ export default function ProjectBizDetail() {
   const totalCount = progressSummary.totalSubNodes;
   const progress = progressSummary.progressPercent;
 
+  const handleCompleteProjectTodo = async (todo: any) => {
+    if (!todo?._id || completingTodoId) return;
+    setCompletingTodoId(todo._id);
+    try {
+      const completedAt = new Date().toISOString();
+      await todosAPI.update(todo._id, { status: 'completed', completedAt, updatedAt: completedAt });
+      setProjectTodos(current => current.filter(item => item._id !== todo._id));
+      void createNotificationEventSafely({
+        operationId: stableOperationId('todo-completed-from-project', todo._id, completedAt),
+        eventType: 'TODO_COMPLETED',
+        actorUserId: user?.id || '',
+        recipientUserIds: [todo.creatorId, ...(todo.assignees || []).map((assignee: any) => assignee.id)].filter(Boolean),
+        recipientRoles: ['admin'],
+        category: 'todo',
+        title: '工地待办已完成',
+        content: `${myName}完成了“${todo.title}”`,
+        link: `/todos?todoId=${todo._id}`,
+        relatedTo: { type: 'todo', id: todo._id, name: todo.title },
+        channels: ['station', 'wechat'],
+      });
+    } finally {
+      setCompletingTodoId(null);
+    }
+  };
+
+  const openQuickTodoModal = () => {
+    setQuickTodoForm({ title: '', dueDate: '' });
+    setShowQuickTodoModal(true);
+  };
+
+  const handleCreateQuickTodo = async () => {
+    const title = quickTodoForm.title.trim();
+    if (!title || !quickTodoForm.dueDate || submittingQuickTodo) return;
+    setSubmittingQuickTodo(true);
+    try {
+      const managerNames = toPersonArray(project.manager);
+      if (managerNames.length === 0) {
+        alert('当前工地尚未设置项目经理，请先完善工地资料。');
+        return;
+      }
+      const managerUserIds = await resolveUserIdsByNames(managerNames);
+      const assignees = managerNames.map((name: string) => {
+        const employee = employees.find((item: any) => item.name === name);
+        return { id: employee?._id || employee?.id || '', name };
+      }).filter((item: any) => item.id || item.name);
+      const todo = {
+        _id: generateId(),
+        title,
+        description: '',
+        priority: 'high',
+        dueDate: quickTodoForm.dueDate,
+        status: 'pending',
+        assignees,
+        creatorId: user?.id || '',
+        creatorName: myName,
+        createdAt: new Date().toISOString(),
+        relatedTo: {
+          type: 'project',
+          id: project._id || id,
+          name: `${project.customer || ''}${project.address ? ` - ${project.address}` : ''}`.replace(/^\s*-\s*/, ''),
+        },
+        attachments: [],
+      };
+      await todosAPI.add(todo);
+      setProjectTodos(current => [...current, todo].sort((a: any, b: any) => String(a.dueDate || '').localeCompare(String(b.dueDate || ''))));
+      setShowQuickTodoModal(false);
+      setQuickTodoForm({ title: '', dueDate: '' });
+      void createNotificationEventSafely({
+        operationId: stableOperationId('todo-assigned', todo._id),
+        eventType: 'TODO_ASSIGNED',
+        actorUserId: user?.id || '',
+        recipientUserIds: managerUserIds,
+        category: 'todo',
+        title: '工地新增待办',
+        content: `${myName}为“${project.address || project.customer || '工地'}”新增了待办“${title}”`,
+        link: `/projects-biz/${project._id || id}`,
+        relatedTo: { type: 'todo', id: todo._id, name: title },
+        channels: ['station', 'wechat'],
+      });
+    } catch (error) {
+      console.error('创建工地待办失败', error);
+      alert('待办创建失败，请稍后重试。');
+    } finally {
+      setSubmittingQuickTodo(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -2204,10 +2338,23 @@ export default function ProjectBizDetail() {
   const isProjectCompleted = project.status === '已完工';
   const canEditSite = canEdit && !isProjectCompleted;
   const canEditProjectInfo = canEdit && !isProjectCompleted;
+  const canCompleteTodo = (todo: any) => isAdmin || includesPerson(project.manager, myName) || (todo.assignees || []).some((assignee: any) => assignee.id === user?.id || assignee.name === myName);
   const completionChecks = getCompletionChecks();
   const completionIssueCount = completionChecks.unfinished.length + completionChecks.pendingRectifications.length;
   const relatedContract = contracts?.[0];
   const currentNodeName = progressSummary.currentNodeName || progressSummary.nodeName || '';
+  const selectedStage = isStageDetail ? project.nodesData?.[stageDetailIndex] : null;
+  const selectedStageSummary = isStageDetail ? progressSummary.stageStatuses[stageDetailIndex] : null;
+  const selectedStageSections = selectedStage?.sections || [];
+  const selectedStageActualStarts = selectedStageSections.map((item: any) => item.actualStartDate).filter(Boolean);
+  const selectedStageActualEnds = selectedStageSections.map((item: any) => item.actualEndDate).filter(Boolean);
+  const selectedStagePercent = selectedStageSummary?.stageTotal > 0
+    ? Math.min(100, Math.round((selectedStageSummary.stageProgressed / selectedStageSummary.stageTotal) * 100))
+    : selectedStageSummary?.status === 'completed' ? 100 : 0;
+  const selectedStageStatus = selectedStageSummary?.status === 'completed' ? '已完成' : selectedStageSummary?.status === 'current' ? '施工中' : '待开始';
+  const selectedStageDateText = selectedStageActualStarts.length > 0
+    ? `${String(selectedStageActualStarts[0]).slice(5, 10)} ~ ${selectedStageSummary?.status === 'current' ? '至今' : String(selectedStageActualEnds[selectedStageActualEnds.length - 1] || selectedStageActualStarts[0]).slice(5, 10)}`
+    : '尚未开工';
   const projectDuration = getPlanDays(project.startDate, project.endDate);
   const followPeople = [
     { label: '销售', value: toPersonArray(project.sales).join('、') || toPersonArray(lead?.sales).join('、') || '-' },
@@ -2414,48 +2561,53 @@ export default function ProjectBizDetail() {
   return (
     <div className="erp-page max-w-[1500px] mx-auto space-y-4">
       {/* ========== 基本信息置顶 ========== */}
-      {!standaloneSection && (
+      {!standaloneSection && !isStageDetail && (
       <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-start justify-between px-3 md:px-6 py-4 gap-3 md:gap-4">
-          <div className="flex items-start gap-2.5 md:gap-3 min-w-0 flex-1">
-            <button onClick={() => smartBack()} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-              <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight leading-[1.35] break-words">
-                {project.address || '未命名工地'}
-              </h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[15px] md:text-sm text-gray-500 font-medium">
-                <span>{project.customer || '-'}</span>
-                {isProjectCompleted && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
-                    <CheckCircle className="h-3 w-3" /> 已完工
-                  </span>
-                )}
-              </div>
-            </div>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1.5 px-3 py-4 md:gap-x-3 md:px-6">
+          <button onClick={() => smartBack()} className="col-start-1 row-start-1 -ml-1.5 rounded-lg p-1.5 transition-colors hover:bg-gray-100 md:row-span-2">
+            <ArrowLeft className="h-[18px] w-[18px] text-gray-400" />
+          </button>
+          <h1 className="col-span-2 col-start-2 row-start-1 min-w-0 break-words text-base font-bold leading-[1.4] tracking-tight text-gray-900 md:col-span-1 md:text-xl">
+            {project.address || '未命名工地'}
+          </h1>
+          <div className="col-start-2 row-start-2 flex min-h-7 min-w-0 flex-wrap items-center gap-1.5 text-sm font-medium leading-none text-gray-500">
+            <span>{project.customer || '-'}</span>
+            {isProjectCompleted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
+                <CheckCircle className="h-3 w-3" /> 已完工
+              </span>
+            )}
           </div>
 
-          <div className="flex flex-col items-end gap-1.5 shrink-0 md:flex-row md:items-start">
+          <div className="col-start-3 row-start-2 flex shrink-0 flex-row items-center self-center gap-1.5 md:row-span-2 md:row-start-1 md:self-start">
               {canEdit && (
               <>
                 {canEditProjectInfo && (
                   <button
                     onClick={editMode ? saveProject : startEdit}
                     disabled={isProjectActionBusy('save-project')}
-                    className="flex items-center justify-center h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap disabled:opacity-50"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 md:h-9 md:w-auto md:gap-1.5 md:px-4 md:text-xs md:font-medium"
+                    title={editMode ? '保存资料' : '编辑资料'}
+                    aria-label={editMode ? '保存资料' : '编辑资料'}
                   >
-                    {editMode ? (isProjectActionBusy('save-project') ? '保存中' : '保存资料') : '编辑资料'}
+                    {isProjectActionBusy('save-project') ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin md:h-4 md:w-4" />
+                    ) : editMode ? (
+                      <Check className="h-3.5 w-3.5 md:hidden" />
+                    ) : (
+                      <Edit3 className="h-3.5 w-3.5 md:hidden" />
+                    )}
+                    <span className="hidden md:inline">{editMode ? '保存资料' : '编辑资料'}</span>
                   </button>
                 )}
-                <button onClick={handleShareProject} className="inline-flex items-center justify-center gap-1 h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs rounded-lg font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">
-                  <Share2 className="w-3.5 h-3.5" /> 分享
+                <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享" aria-label="分享">
+                  <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
                 </button>
               </>
             )}
             {!canEdit && (
-              <button onClick={handleShareProject} className="inline-flex items-center justify-center gap-1 h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs rounded-lg font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">
-                <Share2 className="w-3.5 h-3.5" /> 分享
+              <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享" aria-label="分享">
+                <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
               </button>
             )}
           </div>
@@ -2520,15 +2672,17 @@ export default function ProjectBizDetail() {
             <button
               type="button"
               onClick={() => setMobileInfoOpen(v => !v)}
-              className="w-full flex items-center justify-between rounded-xl bg-gray-50 px-3 py-3 text-left"
+              className="w-full rounded-xl bg-gray-50 px-3 py-3 text-left"
             >
-              <div>
-                <div className="text-[13px] font-semibold text-gray-900">工地信息</div>
-                <div className="mt-0.5 text-[11px] text-gray-400">
-                  开工 {project.startDate ? formatDate(project.startDate) : '-'} · 工期 {projectDuration ? `${projectDuration}天` : '-'}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-gray-900">工地信息</div>
+                  <div className="mt-0.5 truncate text-[11px] text-gray-400">
+                    当前 {currentNodeName || '未开始'} · 开工 {project.startDate ? formatDate(project.startDate) : '-'} · 工期 {projectDuration ? `${projectDuration}天` : '-'}
+                  </div>
                 </div>
+                <ChevronDown size={15} className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${mobileInfoOpen ? 'rotate-180' : ''}`} />
               </div>
-              <ChevronDown size={15} className={`text-gray-400 transition-transform ${mobileInfoOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {mobileInfoOpen && (
@@ -2786,10 +2940,58 @@ export default function ProjectBizDetail() {
         </div>
       )}
 
+      {isStageDetail && (
+        <div className="px-1 py-2 md:hidden">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(`/projects-biz/${id}`)} className="-ml-1.5 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-gray-100">
+              <ArrowLeft className="h-[18px] w-[18px] text-gray-400" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className={`truncate text-lg font-semibold ${selectedStageSummary?.status === 'current' ? 'text-amber-600' : 'text-gray-900'}`}>{selectedStage?.name || '施工阶段'}</h1>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${selectedStageSummary?.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : selectedStageSummary?.status === 'current' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{selectedStageStatus}</span>
+              </div>
+              <div className="mt-1 text-xs text-gray-500">{selectedStageDateText}</div>
+            </div>
+            <div
+              className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
+              style={{ background: `conic-gradient(${selectedStageSummary?.status === 'completed' ? '#10b981' : selectedStageSummary?.status === 'current' ? '#d4a72c' : '#d1d5db'} ${selectedStagePercent * 3.6}deg, #e5e7eb 0deg)` }}
+              aria-label={`节点进度 ${selectedStagePercent}%`}
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-50 text-xs font-semibold text-gray-800">{selectedStagePercent}%</div>
+            </div>
+          </div>
+          <div className="mt-2 truncate pl-9 text-[11px] text-gray-400">{project.address || '未命名工地'}</div>
+        </div>
+      )}
+
       <div id="project-detail-workspace" className="space-y-4">
         {/* ========== Tab: 施工进度 ========== */}
         {activeTab === 'site' && (
           <div className="relative space-y-4 rounded-xl">
+            {!isStageDetail && projectTodos.length > 0 && (
+              <div className="hidden overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm md:block">
+                <div className="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-4 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-red-600"><AlertTriangle className="h-4 w-4" /> 当前待办 {projectTodos.length} 项</div>
+                  <button onClick={openQuickTodoModal} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Plus className="h-3.5 w-3.5" /> 新增待办</button>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {projectTodos.map(todo => (
+                    <div key={todo._id} className="flex items-center gap-3 px-4 py-3">
+                      {canCompleteTodo(todo) ? (
+                        <button onClick={() => handleCompleteProjectTodo(todo)} disabled={completingTodoId === todo._id} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-gray-300 text-white hover:border-emerald-500 hover:bg-emerald-500 disabled:opacity-50" aria-label="完成待办" title="完成待办">
+                          {completingTodoId === todo._id ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : <Check className="h-3 w-3" />}
+                        </button>
+                      ) : <span className="h-3 w-3 shrink-0 rounded-full border border-red-300 bg-red-50" />}
+                      <button onClick={() => navigate(`/todos?todoId=${todo._id}`)} className="min-w-0 flex-1 text-left">
+                        <span className="font-medium text-gray-800">{todo.title}</span>
+                        <span className="ml-3 text-xs text-gray-400">{todo.dueDate ? `截止 ${todo.dueDate}` : ''}{(todo.assignees || []).length > 0 ? ` · ${todo.assignees.map((item: any) => item.name).join('、')}` : ''}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* 模板操作 (仅在没有节点时显示) */}
             {(!project.nodesData || project.nodesData.length === 0) ? (
               <div className="hidden md:flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -2811,7 +3013,13 @@ export default function ProjectBizDetail() {
                 </div>
                 {canEditSite && (
                   <div className="flex items-center gap-2">
-                    {!isEditingNodes && (
+                    <button
+                      onClick={openQuickTodoModal}
+                      className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-8 md:text-xs"
+                    >
+                      <ClipboardList className="h-3.5 w-3.5" /> 新增待办
+                    </button>
+                    {!isEditingNodes && !isStageDetail && (
                       !isProjectCompleted ? (
                         <button
                           onClick={openCompletionModal}
@@ -2859,12 +3067,16 @@ export default function ProjectBizDetail() {
             )}
 
             <div className="md:hidden space-y-3">
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50/70 border-b border-gray-100">
+              <div className={isStageDetail ? '' : 'overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm'}>
+                {!isStageDetail && <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-gray-700">施工动态</h3>
                   </div>
-                  {canEditSite && (
+                  {canEditSite && !isStageDetail && (
+                    <div className="flex items-center gap-1.5">
+                    <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
+                      <ClipboardList className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={() => {
                         if (!isEditingNodes && project.nodesData) {
@@ -2877,12 +3089,36 @@ export default function ProjectBizDetail() {
                         }
                         setIsEditingNodes(!isEditingNodes);
                       }}
-                      className="flex items-center h-7 px-2.5 text-[11px] font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
+                      title={isEditingNodes ? '保存节点' : '编辑节点'}
+                      aria-label={isEditingNodes ? '保存节点' : '编辑节点'}
                     >
-                      {isEditingNodes ? '保存节点' : '编辑节点'}
+                      {isEditingNodes ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
                     </button>
+                    </div>
                   )}
-                </div>
+                </div>}
+
+                {!isStageDetail && projectTodos.length > 0 && (
+                  <div className="border-b border-red-100 bg-red-50/40 px-4 py-2.5">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-red-600">
+                      <AlertTriangle className="h-3.5 w-3.5" /> 当前待办 {projectTodos.length} 项
+                    </div>
+                    <div className="divide-y divide-red-100/70">
+                      {projectTodos.map(todo => (
+                        <div key={todo._id} className="flex items-center gap-2 py-2">
+                          {canCompleteTodo(todo) ? (
+                            <button onClick={() => handleCompleteProjectTodo(todo)} disabled={completingTodoId === todo._id} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-white transition-colors hover:border-emerald-500 hover:bg-emerald-500 disabled:opacity-50" aria-label="完成待办" title="完成待办">
+                              {completingTodoId === todo._id ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : <Check className="h-3 w-3" />}
+                            </button>
+                          ) : <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-400" />}
+                          <div className="min-w-0 flex-1 text-sm leading-snug text-gray-800">{todo.title}</div>
+                          {todo.dueDate && <span className="shrink-0 text-[11px] text-red-500">{String(todo.dueDate).slice(5, 10)}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
             {/* 移动端节点编辑 — 对齐模板库 UI */}
             {isEditingNodes ? (
@@ -2975,8 +3211,9 @@ export default function ProjectBizDetail() {
               </div>
             ) : (
               /* ===== 移动端：查看模式 ===== */
-                <div className="p-3 space-y-3 bg-gray-50/60">
+                <div className={isStageDetail ? 'space-y-3' : 'space-y-3 bg-gray-50/60 p-3'}>
                   {project.nodesData?.map((node: any, index: number) => {
+                    if (isStageDetail && index !== stageDetailIndex) return null;
                     const sections = node.sections || [];
                     const nodeSections = sections.flatMap((s: any) => s ? [s] : []);
                     const stageSummary = progressSummary.stageStatuses[index];
@@ -2987,12 +3224,30 @@ export default function ProjectBizDetail() {
                     const badgeClass = allCompleted ? 'bg-emerald-50 text-emerald-700' : hasCurrent ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500';
                     const actualStarts = nodeSections.map((s: any) => s.actualStartDate).filter(Boolean);
                     const actualEnds = nodeSections.map((s: any) => s.actualEndDate || (s.status === 'current' ? '至今' : '')).filter(Boolean);
-                    const actualRange = actualStarts.length ? `${actualStarts[0]} ~ ${actualEnds[actualEnds.length - 1] || '至今'}` : '';
+                    const toMonthDay = (value: string) => value === '至今' ? value : String(value).slice(5, 10);
+                    const actualRange = actualStarts.length ? `${toMonthDay(actualStarts[0])} ~ ${toMonthDay(actualEnds[actualEnds.length - 1] || '至今')}` : '';
+                    const planStarts = nodeSections.map((s: any) => s.startDate).filter(Boolean);
+                    const planEnds = nodeSections.map((s: any) => s.endDate).filter(Boolean);
+                    const planRange = planStarts.length ? `${toMonthDay(planStarts[0])} ~ ${planEnds.length ? toMonthDay(planEnds[planEnds.length - 1]) : '未设置'}` : '';
+                    const stagePercent = stageSummary?.stageTotal > 0
+                      ? Math.min(100, Math.round((stageSummary.stageProgressed / stageSummary.stageTotal) * 100))
+                      : (allCompleted ? 100 : 0);
 
                     return (
-                      <div key={node._id || `mobile-node-${index}`} className="space-y-2">
-                        <div onClick={() => !isEditingNodes && toggleNodeCollapse(node._id)} className={`w-full px-1 py-2 text-left ${isCurrentPosition && allCompleted ? 'rounded-lg ring-2 ring-gold-300 ring-offset-1' : ''}`}>
-                          <div className="flex items-center justify-between gap-2">
+                      <div key={node._id || `mobile-node-${index}`} className={`relative ${!isStageDetail && index < (project.nodesData?.length || 0) - 1 ? 'pb-1' : ''}`}>
+                        {!isStageDetail && index < (project.nodesData?.length || 0) - 1 && <div className="absolute bottom-0 left-[8px] top-[28px] w-px bg-gray-200" />}
+                        {!isStageDetail && <div onClick={() => {
+                          if (isStageDetail || isEditingNodes) return;
+                          const scrollContainer = document.querySelector<HTMLElement>('[data-scroll="main"]');
+                          sessionStorage.setItem(`project_detail_scroll_${id}`, String(scrollContainer?.scrollTop || 0));
+                          navigate(`/projects-biz/${id}?stage=${index}`);
+                        }} className={`w-full py-2 text-left ${!isStageDetail ? 'cursor-pointer' : ''}`}>
+                          <div className="flex items-start gap-3">
+                            {!isStageDetail && (
+                              <span className={`relative z-10 mt-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 bg-white ${allCompleted ? 'border-emerald-500' : hasCurrent || isCurrentPosition ? 'border-amber-500' : 'border-gray-300'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${allCompleted ? 'bg-emerald-500' : hasCurrent || isCurrentPosition ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                              </span>
+                            )}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 min-w-0">
                                 {isEditingNodes ? (
@@ -3014,7 +3269,25 @@ export default function ProjectBizDetail() {
                                 )}
                                 {!isEditingNodes && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}>{badge}</span>}
                               </div>
-                              {!isEditingNodes && actualRange && <div className="mt-1 text-xs text-slate-500">实际：{actualRange}</div>}
+                              {!isEditingNodes && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    if (actualRange || !canEditSite || !nodeSections[0]) return;
+                                    event.stopPropagation();
+                                    setShowPlanDateModal({
+                                      nodeId: node._id,
+                                      secIdx: 0,
+                                      name: `${node.name} · ${nodeSections[0].name || '阶段计划'}`,
+                                      startDate: nodeSections[0].startDate || '',
+                                      endDate: nodeSections[0].endDate || '',
+                                    });
+                                  }}
+                                  className={`mt-1 text-left text-xs text-slate-500 ${!actualRange && canEditSite && nodeSections[0] ? 'underline decoration-dashed underline-offset-2' : ''}`}
+                                >
+                                  {actualRange ? `实际：${actualRange}` : planRange ? `计划：${planRange}` : '未设置计划时间'}
+                                </button>
+                              )}
                             </div>
                             {isEditingNodes ? (
                               <button
@@ -3026,19 +3299,22 @@ export default function ProjectBizDetail() {
                               >
                                 {node.collapsed ? '展开' : '收起'}
                               </button>
-                            ) : (
-                              <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${node.collapsed ? '-rotate-90' : ''}`} />
+                            ) : isStageDetail ? null : (
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span className={`text-xs font-semibold ${allCompleted ? 'text-emerald-600' : hasCurrent || isCurrentPosition ? 'text-amber-600' : 'text-gray-400'}`}>{stagePercent}%</span>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              </div>
                             )}
                           </div>
-                        </div>
+                        </div>}
 
-                        {!node.collapsed && (
+                        {isStageDetail && (
                           <div className="space-y-2">
                             {(node.craftsmanship && node.craftsmanship.length > 0) && (
-                              <details className="group rounded-xl border border-gray-100 bg-white shadow-sm p-3">
-                                <summary className="cursor-pointer list-none flex items-center justify-between text-sm font-medium text-gray-800">
-                                  <span>工艺标准</span>
-                                  <ChevronDown className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+                              <details className="group border-y border-gray-200 bg-transparent px-1 py-2">
+                                <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-gray-500">
+                                  <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> 工艺标准</span>
+                                  <ChevronDown className="h-3.5 w-3.5 text-gray-400 transition-transform group-open:rotate-180" />
                                 </summary>
                                 <div className="mt-3 space-y-2">
                                   {node.craftsmanship.map((craft: any, cIdx: number) => (
@@ -3983,7 +4259,7 @@ export default function ProjectBizDetail() {
                 )}
               </div>
             )}
-            {canEdit && (
+            {canEdit && !isStageDetail && (
               <div className="md:hidden px-1 pb-2 pt-1">
                 {!isProjectCompleted ? (
                   <button
@@ -5160,6 +5436,68 @@ export default function ProjectBizDetail() {
                 className="flex-1 rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white"
               >
                 保存
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showQuickTodoModal && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-5" onClick={() => setShowQuickTodoModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">新增工地待办</h3>
+                <p className="mt-1 text-xs text-gray-400">自动通知项目经理，关联当前工地</p>
+              </div>
+              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100" aria-label="关闭">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600">待办事项</label>
+                <textarea
+                  autoFocus
+                  rows={2}
+                  value={quickTodoForm.title}
+                  onChange={event => setQuickTodoForm(current => ({ ...current, title: event.target.value }))}
+                  placeholder="例如：确认厨房水电定位"
+                  className="min-h-[72px] w-full resize-none overflow-y-hidden rounded-xl border border-gray-200 px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-gold-400"
+                  onInput={event => {
+                    const target = event.currentTarget;
+                    target.style.height = 'auto';
+                    const nextHeight = Math.min(target.scrollHeight, 168);
+                    target.style.height = `${Math.max(72, nextHeight)}px`;
+                    target.style.overflowY = target.scrollHeight > 168 ? 'auto' : 'hidden';
+                  }}
+                  onKeyDown={event => {
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && quickTodoForm.title.trim() && quickTodoForm.dueDate) void handleCreateQuickTodo();
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600">截止日期</label>
+                <DatePicker
+                  mode="single"
+                  value={quickTodoForm.dueDate}
+                  onChange={value => setQuickTodoForm(current => ({ ...current, dueDate: value }))}
+                  placeholder="选择截止日期"
+                  dropUp
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600">取消</button>
+              <button
+                type="button"
+                onClick={() => void handleCreateQuickTodo()}
+                disabled={!quickTodoForm.title.trim() || !quickTodoForm.dueDate || submittingQuickTodo}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-900 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {submittingQuickTodo && <Loader2 className="h-4 w-4 animate-spin" />}
+                创建
               </button>
             </div>
           </div>
