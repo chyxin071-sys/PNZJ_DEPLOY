@@ -988,6 +988,7 @@ export default function ProjectBizDetail() {
 
   const handleDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    if (!canManageConstructionStructure) return;
     if (draggedNodeIndex === null || draggedNodeIndex === index) {
       handleDragEnd(e);
       return;
@@ -1001,6 +1002,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 节点编辑（对齐模板库UI） ---- */
   const moveNode = (index: number, direction: -1 | 1) => {
+    if (!canManageConstructionStructure) return;
     if (project?.status === '已完工') return;
     const target = index + direction;
     if (target < 0 || target >= (project.nodesData || []).length) return;
@@ -1011,6 +1013,7 @@ export default function ProjectBizDetail() {
   };
   const moveSection = (nodeIdx: number, secIdx: number, direction: -1 | 1) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const sections = project.nodesData[nodeIdx]?.sections || [];
     const target = secIdx + direction;
@@ -1022,6 +1025,7 @@ export default function ProjectBizDetail() {
   };
   const moveSubNode = (nodeIdx: number, secIdx: number, subIdx: number, direction: -1 | 1) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const subNodes = project.nodesData[nodeIdx]?.sections?.[secIdx]?.subNodes || [];
     const target = subIdx + direction;
@@ -1033,6 +1037,7 @@ export default function ProjectBizDetail() {
   };
   const addSection = (nodeIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     if (!newNodesData[nodeIdx].sections) newNodesData[nodeIdx].sections = [];
@@ -1047,6 +1052,7 @@ export default function ProjectBizDetail() {
   };
   const addNode = () => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     newNodesData.push({ _id: makeId(), name: '新节点', collapsed: false, sections: [], craftsmanship: [] });
@@ -1348,6 +1354,7 @@ export default function ProjectBizDetail() {
 
   const saveEditSubNode = async () => {
     if (!editingSubNode || !project || pendingAction) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -1392,6 +1399,7 @@ export default function ProjectBizDetail() {
   /* ---- 删除节点 ---- */
   const deleteSubNode = (nodeId: string, secIdx: number, subIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1409,6 +1417,7 @@ export default function ProjectBizDetail() {
   /* ---- 添加节点 ---- */
   const addSubNode = () => {
     if (!showAddNodePanel || !project || !newNodeForm.name.trim()) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const { nodeId, sectionIdx } = showAddNodePanel;
     const newNodesData = [...(project.nodesData || [])];
@@ -1447,6 +1456,7 @@ export default function ProjectBizDetail() {
 
   const addBlankSubNode = (nodeId: string, sectionIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
     if (!node) return;
@@ -1474,6 +1484,7 @@ export default function ProjectBizDetail() {
 
   const updateSubNodeName = (nodeIdx: number, secIdx: number, subIdx: number, value: string) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     newNodesData[nodeIdx].sections[secIdx].subNodes[subIdx].name = value;
@@ -1688,6 +1699,7 @@ export default function ProjectBizDetail() {
 
   const updateProjectCraftsmanship = (nodeId: string, craftIdx: number, updates: any, persist = false) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1700,6 +1712,7 @@ export default function ProjectBizDetail() {
 
   const addProjectCraftsmanship = (nodeId: string) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1712,6 +1725,7 @@ export default function ProjectBizDetail() {
 
   const removeProjectCraftsmanship = (nodeId: string, craftIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1723,6 +1737,7 @@ export default function ProjectBizDetail() {
 
   const uploadProjectCraftsmanshipImages = async (nodeId: string, craftIdx: number, files: FileList | null) => {
     if (!project || !files || files.length === 0) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -1752,6 +1767,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 模板套用 ---- */
   const openTemplateModal = async () => {
+    if (!canManageConstructionStructure) return;
     if (project?.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -1774,6 +1790,7 @@ export default function ProjectBizDetail() {
   };
 
   const applyTemplate = async () => {
+    if (!canManageConstructionStructure) return;
     if (project?.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -2361,6 +2378,8 @@ export default function ProjectBizDetail() {
   const isProjectCompleted = project.status === '已完工';
   const canEditSite = canEdit && !isProjectCompleted;
   const canManageConstruction = !isAdmin && includesPerson(project.manager, myName) && !isProjectCompleted;
+  const canManageConstructionStructure = isAdmin && !isProjectCompleted;
+  const canCreateProjectTodo = isAdmin || includesPerson(project.manager, myName);
   const canEditProjectInfo = canEdit && !isProjectCompleted;
   const canCompleteTodo = (todo: any) => isAdmin || includesPerson(project.manager, myName) || (todo.assignees || []).some((assignee: any) => assignee.id === user?.id || assignee.name === myName);
   const completionChecks = getCompletionChecks();
@@ -2997,7 +3016,7 @@ export default function ProjectBizDetail() {
               <div className="hidden overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm md:block">
                 <div className="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-4 py-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-red-600"><AlertTriangle className="h-4 w-4" /> 当前待办 {projectTodos.length} 项</div>
-                  <button onClick={openQuickTodoModal} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Plus className="h-3.5 w-3.5" /> 新增待办</button>
+                  {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Plus className="h-3.5 w-3.5" /> 新增待办</button>}
                 </div>
                 <div className="divide-y divide-gray-100">
                   {projectTodos.map(todo => (
@@ -3023,10 +3042,19 @@ export default function ProjectBizDetail() {
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">当前项目暂无施工节点，请选择模板进行生成</p>
                 </div>
-                {canManageConstruction && (
-                  <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded-lg hover:bg-gold-500 transition-colors">
-                    套用模板
-                  </button>
+                {(canCreateProjectTodo || canManageConstructionStructure) && (
+                  <div className="flex items-center gap-2">
+                    {canCreateProjectTodo && (
+                      <button onClick={openQuickTodoModal} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50">
+                        <ClipboardList className="h-3.5 w-3.5" /> 新增待办
+                      </button>
+                    )}
+                    {canManageConstructionStructure && (
+                      <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded-lg hover:bg-gold-500 transition-colors">
+                        套用模板
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
@@ -3035,15 +3063,15 @@ export default function ProjectBizDetail() {
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">管理和查看各阶段进度</p>
                 </div>
-                {canManageConstruction && (
+                {(canCreateProjectTodo || canManageConstruction || canManageConstructionStructure) && (
                   <div className="flex items-center gap-2">
-                    <button
+                    {canCreateProjectTodo && <button
                       onClick={openQuickTodoModal}
                       className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-8 md:text-xs"
                     >
                       <ClipboardList className="h-3.5 w-3.5" /> 新增待办
-                    </button>
-                    {!isEditingNodes && !isStageDetail && (
+                    </button>}
+                    {canManageConstruction && !isEditingNodes && !isStageDetail && (
                       !isProjectCompleted ? (
                         <button
                           onClick={openCompletionModal}
@@ -3062,7 +3090,7 @@ export default function ProjectBizDetail() {
                         </button>
                       ) : null
                     )}
-                    {isEditingNodes && (
+                    {canManageConstructionStructure && isEditingNodes && (
                       <>
                         <button onClick={applyTemplate} className="text-sm px-4 py-2 bg-white border border-gold-400 text-gold-600 font-medium rounded-lg hover:bg-gold-50 transition-colors flex items-center gap-1">
                           ↻ 同步模板库
@@ -3072,7 +3100,7 @@ export default function ProjectBizDetail() {
                         </button>
                       </>
                     )}
-                    <button onClick={() => {
+                    {canManageConstructionStructure && <button onClick={() => {
                       if (!isEditingNodes && project.nodesData) {
                         const newNodes = project.nodesData.map((n: any) => ({
                           ...n,
@@ -3084,7 +3112,7 @@ export default function ProjectBizDetail() {
                       setIsEditingNodes(!isEditingNodes);
                     }} className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap">
                       {isEditingNodes ? '保存编辑' : '编辑节点'}
-                    </button>
+                    </button>}
                   </div>
                 )}
               </div>
@@ -3096,12 +3124,12 @@ export default function ProjectBizDetail() {
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-gray-700">施工动态</h3>
                   </div>
-                  {canManageConstruction && !isStageDetail && (
+                  {(canCreateProjectTodo || canManageConstructionStructure) && !isStageDetail && (
                     <div className="flex items-center gap-1.5">
-                    <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
+                    {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
                       <ClipboardList className="h-3.5 w-3.5" />
-                    </button>
-                    <button
+                    </button>}
+                    {canManageConstructionStructure && <button
                       onClick={() => {
                         if (!isEditingNodes && project.nodesData) {
                           const newNodes = project.nodesData.map((n: any) => ({
@@ -3118,7 +3146,7 @@ export default function ProjectBizDetail() {
                       aria-label={isEditingNodes ? '保存节点' : '编辑节点'}
                     >
                       {isEditingNodes ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-                    </button>
+                    </button>}
                     </div>
                   )}
                 </div>}
@@ -3505,7 +3533,7 @@ export default function ProjectBizDetail() {
                                             ) : (
                                               <div className="flex-1 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap break-words">{sn.name}</div>
                                             )}
-                                            {canManageConstruction && isEditingNodes && (
+                                            {canManageConstructionStructure && isEditingNodes && (
                                               <button onClick={() => deleteSubNode(node._id, secIdx, subIdx)} className="mt-1 rounded-lg p-1 text-gray-300 hover:bg-red-50 hover:text-red-500">
                                                 <Trash2 className="w-4 h-4" />
                                               </button>
@@ -3570,7 +3598,7 @@ export default function ProjectBizDetail() {
                                           ) : null}
                                         </div>
                                       )}
-                                      {canManageConstruction && isEditingNodes && (
+                                      {canManageConstructionStructure && isEditingNodes && (
                                         <button onClick={() => addBlankSubNode(node._id, secIdx)} className="my-2 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-500">
                                           <Plus className="h-4 w-4" /> 新增检查项
                                         </button>
@@ -4276,7 +4304,7 @@ export default function ProjectBizDetail() {
                   <div className="text-center py-12 text-gray-400">
                     <HardHat className="w-10 h-10 mx-auto mb-2 text-gray-200" />
                     <p className="text-sm">暂无施工节点</p>
-                    {canManageConstruction && (
+                    {canManageConstructionStructure && (
                       <button onClick={openTemplateModal} className="mt-2 text-xs text-gold-600 hover:underline">套用模板</button>
                     )}
                   </div>
