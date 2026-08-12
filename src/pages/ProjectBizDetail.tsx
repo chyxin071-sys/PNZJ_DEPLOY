@@ -402,7 +402,14 @@ export default function ProjectBizDetail() {
   const [projectTodos, setProjectTodos] = useState<any[]>([]);
   const [completingTodoId, setCompletingTodoId] = useState<string | null>(null);
   const [showQuickTodoModal, setShowQuickTodoModal] = useState(false);
-  const [quickTodoForm, setQuickTodoForm] = useState({ title: '', dueDate: '' });
+  const todayDateValue = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const [quickTodoForm, setQuickTodoForm] = useState({ title: '', dueDate: todayDateValue() });
   const [submittingQuickTodo, setSubmittingQuickTodo] = useState(false);
 
   const [uploadingSubNode, setUploadingSubNode] = useState<string | null>(null);
@@ -2255,7 +2262,7 @@ export default function ProjectBizDetail() {
   };
 
   const openQuickTodoModal = () => {
-    setQuickTodoForm({ title: '', dueDate: '' });
+    setQuickTodoForm({ title: '', dueDate: todayDateValue() });
     setShowQuickTodoModal(true);
   };
 
@@ -2295,7 +2302,7 @@ export default function ProjectBizDetail() {
       await todosAPI.add(todo);
       setProjectTodos(current => [...current, todo].sort((a: any, b: any) => String(a.dueDate || '').localeCompare(String(b.dueDate || ''))));
       setShowQuickTodoModal(false);
-      setQuickTodoForm({ title: '', dueDate: '' });
+      setQuickTodoForm({ title: '', dueDate: todayDateValue() });
       void createNotificationEventSafely({
         operationId: stableOperationId('todo-assigned', todo._id),
         eventType: 'TODO_ASSIGNED',

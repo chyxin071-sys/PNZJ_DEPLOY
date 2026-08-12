@@ -416,6 +416,10 @@ export default function ProjectsBiz() {
       (todoData || []).forEach((todo: any) => {
         const related = todo.relatedTo;
         if (todo.status === 'completed' || related?.type !== 'project' || !related.id) return;
+        const isAssignedToMe = (todo.assignees || []).some((assignee: any) =>
+          assignee.id === user?.id || assignee.name === myName
+        );
+        if (!isAdmin && !isAssignedToMe) return;
         if (!todoGroups[related.id]) todoGroups[related.id] = [];
         todoGroups[related.id].push(todo);
       });
@@ -435,7 +439,7 @@ export default function ProjectsBiz() {
         })
         .catch(() => setPendingAccessByProject({}));
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, []);
+  }, [isAdmin, myName, user?.id]);
 
   const fetchTemplate = useCallback(async () => {
     try {
@@ -1260,7 +1264,7 @@ export default function ProjectsBiz() {
                         </span>
                       )) : <span>-</span>}
                     </div>
-                    <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-start gap-3 border-t border-gray-100 pt-2">
+                    <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-start gap-3 pt-1">
                       <div className="min-w-0">
                         <div className="text-[10px] text-gray-400">当前阶段</div>
                         <div className="mt-0.5 truncate text-xs font-medium text-gray-800">{currentStageName}</div>
@@ -1282,6 +1286,12 @@ export default function ProjectsBiz() {
                         {dateMeta.days > 0 ? `工期 ${dateMeta.days} 天` : ''}
                       </div>
                     </div>
+                    {pendingTodos.length > 0 && (
+                      <div className="mt-2 flex min-w-0 items-start gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px]">
+                        <span className="shrink-0 font-medium text-red-500">{isAdmin ? '待解决' : '我的待办'}{pendingTodos.length > 1 ? ` ${pendingTodos.length}项` : ''}</span>
+                        <span className="line-clamp-2 text-gray-700">{pendingTodos[0].title}</span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* 桌面端 */}
@@ -1305,13 +1315,6 @@ export default function ProjectsBiz() {
                       </div>
                       <div className="truncate text-xs text-gray-500" title={p.customer || '未命名'}>{p.customer || '未命名'}</div>
                     </div>
-                    {pendingTodos.length > 0 && (
-                      <div className="mt-2 flex min-w-0 items-center gap-1.5 border-t border-red-100 pt-2 text-[11px]">
-                        <span className="shrink-0 font-medium text-red-500">待解决{pendingTodos.length > 1 ? ` ${pendingTodos.length}项` : ''}</span>
-                        <span className="truncate text-gray-700">{pendingTodos[0].title}</span>
-                      </div>
-                    )}
-
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium text-gray-800" title={currentStageName}>{currentStageName}</div>
                       <div className={`mt-1 text-[10px] ${lifecycleStatus === '已完工' ? 'text-emerald-600' : currentStage?.status === 'current' ? 'text-amber-600' : currentStage?.status === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
