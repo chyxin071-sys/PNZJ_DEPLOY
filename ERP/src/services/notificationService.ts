@@ -36,7 +36,7 @@ export type NotificationEventResult = {
   }>;
 };
 
-export const WECHAT_SUBSCRIPTION_NEEDED_EVENT = 'pnzj:wechat-subscription-needed';
+export const TODO_NOTIFICATION_TEMPLATE_ID = '4Q1FEem5Y-aOYcXN92aLg1kCfBuENtu0zedLmi6PSuA';
 
 export function stableOperationId(...parts: Array<string | number | null | undefined>) {
   return parts.map(part => String(part ?? '').trim()).join(':');
@@ -122,11 +122,5 @@ export async function createNotificationEventSafely(input: NotificationEventInpu
   } catch (error) {
     console.error('[notification] event call failed', input.eventType, error);
     return { success: false, code: 'CALL_FAILED', message: error instanceof Error ? error.message : String(error) };
-  } finally {
-    if (typeof window !== 'undefined' && input.channels?.includes('wechat')) {
-      window.dispatchEvent(new CustomEvent(WECHAT_SUBSCRIPTION_NEEDED_EVENT, {
-        detail: { eventType: input.eventType },
-      }));
-    }
   }
 }

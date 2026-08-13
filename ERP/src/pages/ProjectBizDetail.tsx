@@ -2204,6 +2204,14 @@ export default function ProjectBizDetail() {
   const isProjectCompleted = project.status === '已完工';
   const canEditSite = canEdit && !isProjectCompleted;
   const canEditProjectInfo = canEdit && !isProjectCompleted;
+  const canShareCustomerProgress = isAdmin
+    || project.creatorName === myName
+    || includesPerson(project.sales, myName)
+    || includesPerson(project.designer, myName)
+    || includesPerson(project.manager, myName)
+    || includesPerson(lead?.sales, myName)
+    || includesPerson(lead?.designer, myName)
+    || includesPerson(lead?.manager, myName);
   const completionChecks = getCompletionChecks();
   const completionIssueCount = completionChecks.unfinished.length + completionChecks.pendingRectifications.length;
   const relatedContract = contracts?.[0];
@@ -2312,6 +2320,7 @@ export default function ProjectBizDetail() {
     action.onClick();
   };
   const handleShareProject = async () => {
+    if (!canShareCustomerProgress) return;
     await openCustomerShare({
       id: String(project._id || id),
       title: getProjectShareTitle(),
@@ -2320,6 +2329,7 @@ export default function ProjectBizDetail() {
   };
 
   const handleShareCraft = async (majorIdx: number, nodeName?: string) => {
+    if (!canShareCustomerProgress) return;
     await openCustomerShare({
       id: String(project._id || id),
       title: `[品诺筑家] 客户须知：${nodeName || '工艺标准'}`,
@@ -2333,6 +2343,7 @@ export default function ProjectBizDetail() {
   const subHasPhoto = (sn: any) => !!(sn?.acceptanceRecord?.photos && sn.acceptanceRecord.photos.length > 0);
 
   const enterShareSelect = (nodeIdx: number, secIdx: number, section: any) => {
+    if (!canShareCustomerProgress) return;
     const checked: Record<number, boolean> = {};
     let any = false;
     (section.subNodes || []).forEach((sn: any, idx: number) => {
@@ -2347,7 +2358,7 @@ export default function ProjectBizDetail() {
   };
 
   const confirmShareSelect = async () => {
-    if (!shareSelect) return;
+    if (!shareSelect || !canShareCustomerProgress) return;
     const selected = Object.keys(shareSelect.checked).filter(k => shareSelect.checked[+k]).map(Number);
     if (selected.length === 0) { alert('请至少选择1个检查项'); return; }
     await openCustomerShare({
@@ -2448,14 +2459,16 @@ export default function ProjectBizDetail() {
                     {editMode ? (isProjectActionBusy('save-project') ? '保存中' : '保存资料') : '编辑资料'}
                   </button>
                 )}
-                <button onClick={handleShareProject} className="inline-flex items-center justify-center gap-1 h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs rounded-lg font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">
-                  <Share2 className="w-3.5 h-3.5" /> 分享
-                </button>
+                {canShareCustomerProgress && (
+                  <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
+                    <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
+                  </button>
+                )}
               </>
             )}
-            {!canEdit && (
-              <button onClick={handleShareProject} className="inline-flex items-center justify-center gap-1 h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs rounded-lg font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">
-                <Share2 className="w-3.5 h-3.5" /> 分享
+            {!canEdit && canShareCustomerProgress && (
+              <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
+                <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
               </button>
             )}
           </div>
@@ -3056,14 +3069,14 @@ export default function ProjectBizDetail() {
                                     </div>
                                   ))}
                                 </div>
-                                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+                                {canShareCustomerProgress && <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                                   <button
                                     onClick={() => handleShareCraft(index, node.name)}
                                     className="flex items-center gap-1 rounded-lg border border-gray-900 bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white"
                                   >
                                     <Share2 className="w-3 h-3" /> 分享给客户
                                   </button>
-                                </div>
+                                </div>}
                               </details>
                             )}
 
@@ -3275,13 +3288,13 @@ export default function ProjectBizDetail() {
                                           <Plus className="h-4 w-4" /> 新增检查项
                                         </button>
                                       )}
-                                      {canEditSite && !isEditingNodes && (
+                                      {(canEditSite || canShareCustomerProgress) && !isEditingNodes && (
                                         <div className="space-y-2 pt-1">
                                           {latestEditTime && (
                                             <div className="text-right text-[11px] text-gray-400">最近编辑：{latestEditTime}</div>
                                           )}
                                           <div className="grid grid-cols-2 gap-2">
-                                            {isSecCurrent && (
+                                            {canEditSite && isSecCurrent && (
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
@@ -3290,7 +3303,7 @@ export default function ProjectBizDetail() {
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                               </button>
                                             )}
-                                            {isSecCompleted && isEditingRecord && (
+                                            {canEditSite && isSecCompleted && isEditingRecord && (
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
@@ -3299,7 +3312,7 @@ export default function ProjectBizDetail() {
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                               </button>
                                             )}
-                                            {isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
+                                            {canEditSite && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                               <button
                                                 onClick={() => startEditingSectionRecord(node._id, secIdx)}
                                                 className="rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-700"
@@ -3308,7 +3321,7 @@ export default function ProjectBizDetail() {
                                               </button>
                                             )}
                                             {/* 开工后任意时刻均可分享，不要求阶段已完工 */}
-                                            {!isSecPending && !isEditingRecord && (
+                                            {canShareCustomerProgress && !isSecPending && !isEditingRecord && (
                                               shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx ? (
                                                 <div className="col-span-2 flex gap-2">
                                                   <button
@@ -3667,7 +3680,7 @@ export default function ProjectBizDetail() {
                                   </div>
                                 ))}
                               </div>
-                              <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                              {canShareCustomerProgress && <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
                                 <button
                                   onClick={() => handleShareCraft(index, node.name)}
                                   className="flex items-center gap-1.5 rounded-lg border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
@@ -3675,7 +3688,7 @@ export default function ProjectBizDetail() {
                                   <Share2 className="w-3.5 h-3.5" />
                                   分享给客户
                                 </button>
-                              </div>
+                              </div>}
                             </details>
                           )}
 
@@ -3903,11 +3916,11 @@ export default function ProjectBizDetail() {
                                         <div className="rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
                                       )
                                     )}
-                {canEditSite && (
+                {(canEditSite || canShareCustomerProgress) && (
                                       <div className="space-y-2">
                                         {latestEditTime && <div className="text-right text-xs text-gray-400">最近编辑：{latestEditTime}</div>}
                                         <div className="flex justify-end gap-2">
-                                          {isSecPending && !section.submitted && !section.actualStartDate && (
+                                          {canEditSite && isSecPending && !section.submitted && !section.actualStartDate && (
                                             <button
                                               type="button"
                                               onClick={() => setShowPlanDateModal({
@@ -3922,29 +3935,29 @@ export default function ProjectBizDetail() {
                                               {section.startDate || section.endDate ? '修改计划时间' : '设置计划时间'}
                                             </button>
                                           )}
-                                          {isSecPending && !section.submitted && (
+                                          {canEditSite && isSecPending && !section.submitted && (
                                             <button onClick={() => startSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`start-${node._id}-${secIdx}`)}
                                               className="rounded-lg border border-gold-500 px-4 py-2 text-xs font-medium text-gold-600 hover:bg-gold-50 disabled:opacity-50">
                                               {isProjectActionBusy(`start-${node._id}-${secIdx}`) ? '处理中...' : '开工'}
                                             </button>
                                           )}
-                                          {isSecCurrent && (
+                                          {canEditSite && isSecCurrent && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
                                               className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                             </button>
                                           )}
-                                          {isSecCompleted && isEditingRecord && (
+                                          {canEditSite && isSecCompleted && isEditingRecord && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
                                               className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                             </button>
                                           )}
-                                          {isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
+                                          {canEditSite && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                             <button onClick={() => startEditingSectionRecord(node._id, secIdx)} className="rounded-lg bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700">编辑记录</button>
                                           )}
                                           {/* 开工后任意时刻均可分享，不要求阶段已完工 */}
-                                          {!isSecPending && !isEditingRecord && (
+                                          {canShareCustomerProgress && !isSecPending && !isEditingRecord && (
                                             shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx ? (
                                               <div className="flex gap-1.5 w-full">
                                                 <button onClick={() => toggleShareSelectAll(section)} className={`flex-none rounded-lg px-3 py-2 text-[11px] font-medium transition-colors ${isAllShareSelected(section) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>全选</button>
@@ -4072,7 +4085,7 @@ export default function ProjectBizDetail() {
                             <button type="button" onClick={() => void handleDeleteLog(log)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="删除日志"><Trash2 size={14} /></button>
                           </div>
                         )}
-                        {log.visibleToCustomer !== false && (
+                        {canShareCustomerProgress && log.visibleToCustomer !== false && (
                           <button
                             onClick={() => openCustomerShare({
                               id: String(project._id || id),
