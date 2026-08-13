@@ -12,14 +12,14 @@ import {
   bindCurrentUserToWechat,
   buildWechatAccountLinkMessage,
   buildWechatRebindMessage,
+  canAutoRenewWechatSubscription,
+  getWechatSubscriptionAutoRenewTemplateIds,
   isWechatBridgeAvailable,
+  markWechatSubscriptionAuthorizationNeeded,
   needsWechatSubscriptionAuthorization,
 } from '@/services/wechatBridge';
 import { useDialogStore } from '@/store/dialogStore';
-import {
-  hasOpenedWechatSubscriptionThisSession,
-  openNativeSubscriptionSettings,
-} from '@/utils/miniProgramPreview';
+import { openNativeSubscriptionSettings } from '@/utils/miniProgramPreview';
 import { WECHAT_SUBSCRIPTION_NEEDED_EVENT } from '@/services/notificationService';
 
 const LoginPage = lazy(() => import('@/pages/Login'));
@@ -57,6 +57,7 @@ const Profile = lazy(() => import('@/pages/Profile'));
 const INIT_TIMEOUT_MS = 25000;
 const SUBSCRIPTION_LOGIN_PROMPT_KEY = 'pnzj:wechat-subscription-login-prompt';
 const SUBSCRIPTION_OPERATION_PROMPT_KEY = 'pnzj:wechat-subscription-operation-prompt';
+const SUBSCRIPTION_RENEW_COOLDOWN_MS = 60_000;
 
 function withTimeout<T>(promise: Promise<T>, message: string, timeout = INIT_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -193,11 +194,26 @@ function AppInit() {
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const subscriptionPromptBusy = useRef(false);
+  const lastSubscriptionRenewAt = useRef(0);
 
   const promptForWechatSubscription = useCallback(async (source: 'login' | 'operation') => {
     if (!cloudReady || !isLoggedIn || !user?.id || !isWechatBridgeAvailable()) return;
     if (!needsWechatSubscriptionAuthorization(user.id)) return;
-    if (subscriptionPromptBusy.current || hasOpenedWechatSubscriptionThisSession()) return;
+    if (subscriptionPromptBusy.current) return;
+
+    if (canAutoRenewWechatSubscription(user.id)) {
+      // Subscription requests must follow a real user action. Login/foreground
+      // refreshes only cache the need; the next business operation renews it.
+      if (source !== 'operation') return;
+      const now = Date.now();
+      if (now - lastSubscriptionRenewAt.current < SUBSCRIPTION_RENEW_COOLDOWN_MS) return;
+      lastSubscriptionRenewAt.current = now;
+      openNativeSubscriptionSettings(user.id, {
+        autoClose: true,
+        templateIds: getWechatSubscriptionAutoRenewTemplateIds(user.id),
+      });
+      return;
+    }
 
     const storageKey = source === 'login'
       ? `${SUBSCRIPTION_LOGIN_PROMPT_KEY}:${user.id}`
@@ -359,12 +375,46 @@ function AppInit() {
   }, [cloudReady, isLoggedIn, promptForWechatSubscription, showConfirm, user?.id]);
 
   useEffect(() => {
-    const handleSubscriptionNeeded = () => {
+    const handleSubscriptionNeeded = async () => {
+      if (!user?.id) return;
+      markWechatSubscriptionAuthorizationNeeded(user.id);
+      try {
+        await bindCurrentUserToWechat(user.id);
+      } catch (error) {
+        console.warn('[wechat-subscription] failed to refresh authorization state', error);
+      }
+      await promptForWechatSubscription('operation');
+    };
+    const listener = () => void handleSubscriptionNeeded();
+    window.addEventListener(WECHAT_SUBSCRIPTION_NEEDED_EVENT, listener);
+    return () => window.removeEventListener(WECHAT_SUBSCRIPTION_NEEDED_EVENT, listener);
+  }, [promptForWechatSubscription, user?.id]);
+
+  useEffect(() => {
+    const renewOnTrustedClick = () => {
+      if (!user?.id || !needsWechatSubscriptionAuthorization(user.id)) return;
+      if (!canAutoRenewWechatSubscription(user.id)) return;
       void promptForWechatSubscription('operation');
     };
-    window.addEventListener(WECHAT_SUBSCRIPTION_NEEDED_EVENT, handleSubscriptionNeeded);
-    return () => window.removeEventListener(WECHAT_SUBSCRIPTION_NEEDED_EVENT, handleSubscriptionNeeded);
-  }, [promptForWechatSubscription]);
+    document.addEventListener('click', renewOnTrustedClick, true);
+    return () => document.removeEventListener('click', renewOnTrustedClick, true);
+  }, [promptForWechatSubscription, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !isWechatBridgeAvailable()) return;
+    const refreshAfterNativePage = () => {
+      if (document.visibilityState !== 'visible') return;
+      void bindCurrentUserToWechat(user.id).catch((error) => {
+        console.warn('[wechat-subscription] failed to refresh after native authorization', error);
+      });
+    };
+    document.addEventListener('visibilitychange', refreshAfterNativePage);
+    window.addEventListener('pageshow', refreshAfterNativePage);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshAfterNativePage);
+      window.removeEventListener('pageshow', refreshAfterNativePage);
+    };
+  }, [user?.id]);
 
   if (cloudError) {
     return (

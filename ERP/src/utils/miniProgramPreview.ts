@@ -30,7 +30,6 @@ const SUBSCRIPTION_PAGE = '/pages/subscribe/subscribe';
 const MAX_ROUTE_LENGTH = 7000;
 const MAX_PREVIEW_ITEMS = 20;
 const MINI_PROGRAM_SESSION_KEY = 'pnzj:mini-program-webview';
-const SUBSCRIPTION_OPENED_SESSION_KEY = 'pnzj:wechat-subscription-opened';
 
 function hasMiniProgramQuery() {
   if (typeof window === 'undefined') return false;
@@ -49,11 +48,6 @@ export function captureMiniProgramContext() {
 
 export function isMiniProgramWebView() {
   return captureMiniProgramContext();
-}
-
-export function hasOpenedWechatSubscriptionThisSession() {
-  if (typeof window === 'undefined') return false;
-  return window.sessionStorage.getItem(SUBSCRIPTION_OPENED_SESSION_KEY) === '1';
 }
 
 captureMiniProgramContext();
@@ -140,20 +134,21 @@ export function openNativeFile(
   return true;
 }
 
-export function openNativeSubscriptionSettings(currentUserId = '') {
+export function openNativeSubscriptionSettings(
+  currentUserId = '',
+  options: { autoClose?: boolean; templateIds?: string[] } = {},
+) {
   if (!isMiniProgramWebView()) return false;
   const bridge = window.wx?.miniProgram;
   if (!bridge?.navigateTo) return false;
-  window.sessionStorage.setItem(SUBSCRIPTION_OPENED_SESSION_KEY, '1');
-  const route = currentUserId
-    ? `${SUBSCRIPTION_PAGE}?currentUserId=${encodeURIComponent(currentUserId)}&autoAuthorize=1`
-    : `${SUBSCRIPTION_PAGE}?autoAuthorize=1`;
+  const params = new URLSearchParams({ autoAuthorize: '1' });
+  if (currentUserId) params.set('currentUserId', currentUserId);
+  if (options.autoClose) params.set('autoClose', '1');
+  if (options.templateIds?.length) params.set('templateIds', options.templateIds.join(','));
+  const route = `${SUBSCRIPTION_PAGE}?${params.toString()}`;
   bridge.navigateTo({
     url: route,
-    fail: (error) => {
-      window.sessionStorage.removeItem(SUBSCRIPTION_OPENED_SESSION_KEY);
-      console.warn('[mini-program-subscription] navigateTo failed', error);
-    },
+    fail: (error) => console.warn('[mini-program-subscription] navigateTo failed', error),
   });
   return true;
 }

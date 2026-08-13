@@ -4,6 +4,7 @@ import { readCloudFunctionResult } from '@/utils/cloudFunctionResult';
 const SESSION_STORAGE_KEY = 'pnzj:wechat-bridge-session';
 const BOUND_USER_KEY = 'pnzj:wechat-bridge-bound-user';
 const SUBSCRIPTION_NEEDED_KEY = 'pnzj:wechat-subscription-needed';
+const SUBSCRIPTION_AUTO_RENEW_KEY = 'pnzj:wechat-subscription-auto-renew';
 
 export type WechatBindingResult = {
   success: boolean;
@@ -17,6 +18,7 @@ export type WechatBindingResult = {
   linkedAccounts?: WechatAccountSummary[];
   requestedAccount?: WechatAccountSummary | null;
   needsSubscriptionAuthorization?: boolean;
+  autoRenewTemplateIds?: string[];
   templates?: Record<string, { status?: string }>;
 };
 
@@ -79,6 +81,22 @@ export function needsWechatSubscriptionAuthorization(userId: string) {
   return window.sessionStorage.getItem(`${SUBSCRIPTION_NEEDED_KEY}:${userId}`) !== '0';
 }
 
+export function canAutoRenewWechatSubscription(userId: string) {
+  if (typeof window === 'undefined' || !userId) return false;
+  return getWechatSubscriptionAutoRenewTemplateIds(userId).length > 0;
+}
+
+export function getWechatSubscriptionAutoRenewTemplateIds(userId: string) {
+  if (typeof window === 'undefined' || !userId) return [];
+  const value = window.sessionStorage.getItem(`${SUBSCRIPTION_AUTO_RENEW_KEY}:${userId}`) || '';
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+export function markWechatSubscriptionAuthorizationNeeded(userId: string) {
+  if (typeof window === 'undefined' || !userId) return;
+  window.sessionStorage.setItem(`${SUBSCRIPTION_NEEDED_KEY}:${userId}`, '1');
+}
+
 export function isWechatBridgeAvailable() {
   return Boolean(getWechatBridgeSession());
 }
@@ -114,6 +132,10 @@ export async function bindCurrentUserToWechat(
         result.needsSubscriptionAuthorization ? '1' : '0',
       );
     }
+    window.sessionStorage.setItem(
+      `${SUBSCRIPTION_AUTO_RENEW_KEY}:${userId}`,
+      result.autoRenewTemplateIds?.join(',') || '',
+    );
   }
   return result;
 }
