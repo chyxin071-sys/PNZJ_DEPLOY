@@ -37,6 +37,7 @@ export type NotificationEventResult = {
 };
 
 export const WECHAT_SUBSCRIPTION_NEEDED_EVENT = 'pnzj:wechat-subscription-needed';
+export const TODO_NOTIFICATION_TEMPLATE_ID = '4Q1FEem5Y-aOYcXN92aLg1kCfBuENtu0zedLmi6PSuA';
 
 export function stableOperationId(...parts: Array<string | number | null | undefined>) {
   return parts.map(part => String(part ?? '').trim()).join(':');

@@ -19,7 +19,7 @@ import {
   openAttachment,
   uploadFinanceAttachments,
 } from '@/utils/financeAttachments';
-import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
+import { createNotificationEventSafely, stableOperationId, TODO_NOTIFICATION_TEMPLATE_ID } from '@/services/notificationService';
 
 const PRIORITY_MAP: Record<string, string> = { high: '紧急', medium: '重要', low: '普通' };
 const PRIORITY_BADGE: Record<string, string> = {
@@ -829,6 +829,13 @@ export default function Todos() {
         link: '/todos',
         relatedTo: { type: 'todo', id: newTodo._id, name: newTodo.title },
         channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: newTodo.title.slice(0, 20) },
+          time2: { value: newTodo.dueDate || formatDate(new Date().toISOString()) },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: newTodo.assignees.map(assignee => assignee.name).join('、').slice(0, 20) },
+        },
       });
       setShowCreate(false);
       setForm(INIT_FORM);
@@ -891,6 +898,13 @@ export default function Todos() {
         link: '/todos',
         relatedTo: { type: 'todo', id: todo._id, name: todo.title },
         channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: String(todo.title || '待办任务').slice(0, 20) },
+          time2: { value: String(updateData.completedAt || '').slice(0, 16) },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: '管理员' },
+        },
       });
     }
     fetchData(true);

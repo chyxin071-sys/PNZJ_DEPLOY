@@ -35,6 +35,7 @@ import {
   resolveProjectParticipantUserIds,
   resolveUserIdsByNames,
   stableOperationId,
+  TODO_NOTIFICATION_TEMPLATE_ID,
 } from '@/services/notificationService';
 import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
@@ -2288,6 +2289,13 @@ export default function ProjectBizDetail() {
         link: `/todos?todoId=${todo._id}`,
         relatedTo: { type: 'todo', id: todo._id, name: todo.title },
         channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: String(todo.title || '工地待办').slice(0, 20) },
+          time2: { value: completedAt.slice(0, 16).replace('T', ' ') },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: '管理员' },
+        },
       });
     } finally {
       setCompletingTodoId(null);
@@ -2309,10 +2317,19 @@ export default function ProjectBizDetail() {
         alert('当前工地尚未设置项目经理，请先完善工地资料。');
         return;
       }
-      const managerUserIds = await resolveUserIdsByNames(managerNames);
-      const assignees = managerNames.map((name: string) => {
+      const managerAccounts = await Promise.all(managerNames.map(async name => ({
+        name,
+        userIds: await resolveUserIdsByNames(name),
+      })));
+      const unresolvedManagerNames = managerAccounts.filter(item => item.userIds.length === 0).map(item => item.name);
+      if (unresolvedManagerNames.length > 0) {
+        alert(`以下项目经理未找到有效 ERP 账号，暂时无法创建并发送待办提醒：${unresolvedManagerNames.join('、')}。请先检查工地负责人和员工账号。`);
+        return;
+      }
+      const managerUserIds = [...new Set(managerAccounts.flatMap(item => item.userIds))];
+      const assignees = managerAccounts.map(({ name, userIds }) => {
         const employee = employees.find((item: any) => item.name === name);
-        return { id: employee?._id || employee?.id || '', name };
+        return { id: userIds[0] || employee?._id || employee?.id || '', name };
       }).filter((item: any) => item.id || item.name);
       const todo = {
         _id: generateId(),
@@ -2347,6 +2364,13 @@ export default function ProjectBizDetail() {
         link: `/projects-biz/${project._id || id}`,
         relatedTo: { type: 'todo', id: todo._id, name: title },
         channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: title.slice(0, 20) },
+          time2: { value: quickTodoForm.dueDate },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: managerNames.join('、').slice(0, 20) },
+        },
       });
     } catch (error) {
       console.error('创建工地待办失败', error);
