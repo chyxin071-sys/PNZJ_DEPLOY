@@ -13,6 +13,7 @@ interface DataTableProps<T> {
   rowKey?: (row: T) => string;
   /** @deprecated 不再需要，保留以兼容旧代码 */
   onDelete?: (row: T) => void;
+  canDelete?: (row: T) => boolean;
   /** 移动端卡片模式下显示的列（传数字取前 N 列，传数组用指定列） */
   mobileCardColumns?: number | Column<T>[];
   /** 需要固定在左侧的列数，默认固定第一列 */
@@ -37,7 +38,7 @@ function hideClass(hideOn?: 'md' | 'lg') {
 }
 
 export default function DataTable<T>({
-  columns, data, onRowClick, onDelete,
+  columns, data, onRowClick, onDelete, canDelete,
   emptyText = '暂无数据',
   sortField, sortOrder, onSort, rowKey,
   mobileCardColumns,
@@ -214,9 +215,10 @@ export default function DataTable<T>({
           {data.map((row, idx) => {
             const key = getRowKey(row, idx);
             const isSwipeOpen = openSwipeKey === key;
+            const rowCanDelete = Boolean(onDelete && (!canDelete || canDelete(row)));
             return (
               <div key={key} className="relative overflow-hidden bg-white">
-                {onDelete && (
+                {rowCanDelete && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -233,14 +235,14 @@ export default function DataTable<T>({
                 )}
                 <div
                   className={`px-4 py-3 bg-white active:bg-gray-50 transition-transform duration-200 ease-out ${onRowClick ? 'cursor-pointer' : ''}`}
-                  style={{ transform: onDelete && isSwipeOpen ? 'translateX(-88px)' : 'translateX(0)' }}
+                  style={{ transform: rowCanDelete && isSwipeOpen ? 'translateX(-88px)' : 'translateX(0)' }}
                   onTouchStart={(e) => {
-                    if (!onDelete) return;
+                    if (!rowCanDelete) return;
                     const touch = e.touches[0];
                     touchStartRef.current = { x: touch.clientX, y: touch.clientY, key };
                   }}
                   onTouchMove={(e) => {
-                    if (!onDelete || touchStartRef.current?.key !== key) return;
+                    if (!rowCanDelete || touchStartRef.current?.key !== key) return;
                     const touch = e.touches[0];
                     const dx = touch.clientX - touchStartRef.current.x;
                     const dy = touch.clientY - touchStartRef.current.y;
@@ -250,7 +252,7 @@ export default function DataTable<T>({
                     }
                   }}
                   onTouchEnd={(e) => {
-                    if (!onDelete || touchStartRef.current?.key !== key) return;
+                    if (!rowCanDelete || touchStartRef.current?.key !== key) return;
                     const touch = e.changedTouches[0];
                     const dx = touch.clientX - touchStartRef.current.x;
                     const dy = touch.clientY - touchStartRef.current.y;
