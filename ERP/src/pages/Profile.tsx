@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
-  Camera, CalendarDays, IdCard, Lock, Save, ShieldCheck, User as UserIcon,
+  CalendarDays, IdCard, Lock, Save, ShieldCheck, User as UserIcon,
   Edit3, ChevronDown, ChevronRight, X, Check, Eye, EyeOff, LogOut, Bell,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useDialogStore } from '@/store/dialogStore';
 import { usersAPI } from '@/db/api';
-import { getTempFileURL, uploadFile } from '@/utils/cloudStorage';
-import ImagePreviewModal from '@/components/ImagePreviewModal';
 import {
   isMiniProgramWebView,
-  openNativeMediaPreview,
   openNativeSubscriptionSettings,
 } from '@/utils/miniProgramPreview';
 import { syncEmployeeName } from '@/db/sync';
@@ -58,7 +55,6 @@ function persistLocalUser(nextUser: any) {
       status: nextUser.status || 'active',
       account: nextUser.account || nextUser.username,
       joinDate: nextUser.joinDate || nextUser.createdAt,
-      avatarUrl: nextUser.avatarUrl || '',
       bizTypes: nextUser.bizTypes || [],
       defaultEntry: nextUser.role === 'finance' ? '/erp/' : '/',
     });
@@ -74,12 +70,9 @@ export default function Profile() {
   const { user, changePassword, logout } = useAuthStore();
   const { showAlert, showConfirm } = useDialogStore();
   const [saving, setSaving] = useState(false);
-  const [loadingAvatar, setLoadingAvatar] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  const [refreshedAvatarUrl, setRefreshedAvatarUrl] = useState<string>('');
   const [openingWechatNotifications, setOpeningWechatNotifications] = useState(false);
 
   // 表单数据（编辑态才使用）
@@ -88,7 +81,6 @@ export default function Profile() {
     phone: user?.phone || '',
     account: user?.account || user?.username || '',
     joinDate: user?.joinDate || '',
-    avatarUrl: user?.avatarUrl || '',
   });
 
   useEffect(() => {
@@ -100,17 +92,7 @@ export default function Profile() {
 
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [showPwd, setShowPwd] = useState({ old: false, new: false, confirm: false });
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const avatarImgKey = useRef(0);
-
-  // 每次 displayAvatar 变化时重置失败状态并强制刷新 img key
-  const displayAvatar = refreshedAvatarUrl || form.avatarUrl;
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-    avatarImgKey.current++;
-  }, [displayAvatar]);
-
-  // 加载最新用户数据并刷新头像临时链接
+  // 加载最新用户数据
   useEffect(() => {
     let cancelled = false;
     async function loadFullUser() {
@@ -126,7 +108,6 @@ export default function Profile() {
         account: latest.account || latest.username || user.account || '',
         phone: latest.phone || '',
         joinDate: latest.joinDate || user.joinDate || '',
-        avatarUrl: latest.avatarUrl || '',
       };
       persistLocalUser(nextUser);
       setForm({
@@ -134,19 +115,7 @@ export default function Profile() {
         phone: nextUser.phone || '',
         account: nextUser.account || nextUser.username || '',
         joinDate: nextUser.joinDate || '',
-        avatarUrl: nextUser.avatarUrl || '',
       });
-      // 刷新云存储头像临时链接
-      if (nextUser.avatarUrl && nextUser.avatarUrl.startsWith('cloud://')) {
-        try {
-          const urls = await getTempFileURL([nextUser.avatarUrl]);
-          setRefreshedAvatarUrl(urls[nextUser.avatarUrl] || nextUser.avatarUrl);
-        } catch {
-          setRefreshedAvatarUrl(nextUser.avatarUrl);
-        }
-      } else {
-        setRefreshedAvatarUrl(nextUser.avatarUrl || '');
-      }
     }
     void loadFullUser();
     return () => { cancelled = true; };
@@ -156,36 +125,6 @@ export default function Profile() {
     (user?.roles && user.roles.length > 0 ? user.roles : [user?.role]).filter(Boolean) as string[]
   ), [user?.roles, user?.role]);
   const days = tenureDays(form.joinDate || user?.createdAt);
-
-  const openAvatarPreview = () => {
-    const url = displayAvatar;
-    if (!url) return;
-    if (openNativeMediaPreview([{ url, type: 'image' }])) return;
-    setAvatarPreview(url);
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
-    setLoadingAvatar(true);
-    try {
-      const uploaded = await uploadFile(file, `avatars/${user.id}`);
-      const urls = await getTempFileURL([uploaded.fileID]);
-      const displayUrl = urls[uploaded.fileID] || uploaded.fileID;
-      // 保存 cloud:// ID 到数据库（永久），同时缓存临时链接用于本次显示
-      await usersAPI.update(user.id, { avatarUrl: uploaded.fileID } as any);
-      const nextUser = { ...user, avatarUrl: uploaded.fileID };
-      persistLocalUser(nextUser);
-      setForm(prev => ({ ...prev, avatarUrl: uploaded.fileID }));
-      setRefreshedAvatarUrl(displayUrl);
-    } catch (error: any) {
-      console.error('Avatar upload failed:', error);
-      alert(error?.message || '头像上传失败');
-    } finally {
-      setLoadingAvatar(false);
-      e.currentTarget.value = '';
-    }
-  };
 
   const handleSaveProfile = async () => {
     if (!user?.id || saving) return;
@@ -201,7 +140,6 @@ export default function Profile() {
         name: nextName,
         phone: form.phone.trim(),
         joinDate: form.joinDate,
-        avatarUrl: form.avatarUrl,
       } as any);
       if (oldName && oldName !== nextName) {
         await syncEmployeeName(oldName, nextName);
@@ -211,7 +149,6 @@ export default function Profile() {
         name: nextName,
         phone: form.phone.trim(),
         joinDate: form.joinDate,
-        avatarUrl: form.avatarUrl,
       };
       persistLocalUser(nextUser);
       setEditMode(false);
@@ -230,7 +167,6 @@ export default function Profile() {
       phone: user?.phone || '',
       account: user?.account || user?.username || '',
       joinDate: user?.joinDate || '',
-      avatarUrl: user?.avatarUrl || '',
     });
     setEditMode(false);
   };
@@ -353,32 +289,7 @@ export default function Profile() {
       {/* 主要内容区域 */}
       {!isMobile ? (
         /* ---- 桌面端 ---- */
-        <div className="flex gap-6">
-          {/* 左侧头像 */}
-          <div className="flex flex-col items-center gap-3 bg-white rounded-xl border border-gray-100 p-6 w-[200px] shrink-0 self-start">
-            <button
-              type="button"
-              onClick={openAvatarPreview}
-              disabled={!displayAvatar}
-              className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-100 shadow-lg cursor-zoom-in"
-            >
-              {displayAvatar && !avatarLoadFailed ? (
-                <img key={avatarImgKey.current} src={displayAvatar} alt="头像" className="h-full w-full object-cover" onError={() => setAvatarLoadFailed(true)} />
-              ) : (
-                <span className="text-4xl font-bold text-gray-300">{form.name?.[0] || 'U'}</span>
-              )}
-            </button>
-            {editMode && (
-              <label className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-gold-500 text-white shadow-md hover:bg-gold-600 -mt-8 mr-2 self-end relative z-10">
-                <Camera size={15} />
-                <input type="file" className="hidden" accept="image/*" disabled={loadingAvatar} onChange={handleAvatarUpload} />
-              </label>
-            )}
-            <div className="text-sm font-bold text-gray-900">{form.name || '未设置'}</div>
-            <div className="text-xs text-gray-400 font-mono">{form.account || '-'}</div>
-          </div>
-
-          {/* 右侧资料 */}
+        <div>
           <div className="flex-1 bg-white rounded-xl border border-gray-100">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900"><UserIcon size={16} className="text-gold-500" /> 基本信息</h2>
@@ -469,32 +380,6 @@ export default function Profile() {
       ) : (
         /* ---- 移动端 ---- */
         <div className="space-y-4">
-          {/* 头像区域 */}
-          <div className="bg-white rounded-xl border border-gray-100 p-6 flex flex-col items-center">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={openAvatarPreview}
-                disabled={!displayAvatar}
-                className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-100 shadow-md cursor-zoom-in"
-              >
-                {displayAvatar && !avatarLoadFailed ? (
-                  <img key={avatarImgKey.current} src={displayAvatar} alt="头像" className="h-full w-full object-cover" onError={() => setAvatarLoadFailed(true)} />
-                ) : (
-                  <span className="text-3xl font-bold text-gray-300">{form.name?.[0] || 'U'}</span>
-                )}
-              </button>
-              {editMode && (
-                <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-gold-500 text-white shadow-md hover:bg-gold-600">
-                  <Camera size={14} />
-                  <input type="file" className="hidden" accept="image/*" disabled={loadingAvatar} onChange={handleAvatarUpload} />
-                </label>
-              )}
-            </div>
-            <div className="mt-3 text-base font-bold text-gray-900">{form.name || '未设置'}</div>
-            <div className="text-xs text-gray-400 font-mono">{form.account || '-'}</div>
-          </div>
-
           {/* 基本信息 */}
           <div className="bg-white rounded-xl border border-gray-100 p-5">
             <div className="space-y-4">
@@ -626,15 +511,6 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* 头像预览 */}
-      {avatarPreview && (
-        <ImagePreviewModal
-          images={[avatarPreview]}
-          index={0}
-          onIndexChange={() => {}}
-          onClose={() => setAvatarPreview(null)}
-        />
-      )}
     </div>
   );
 }
