@@ -18,6 +18,7 @@ const MONTHS = ['一月', '二月', '三月', '四月', '五月', '六月', '七
 
 const roleLabels: Record<string, { label: string; cls: string }> = {
   admin: { label: '管理员', cls: 'bg-purple-50 text-purple-700' },
+  operations: { label: '运营', cls: 'bg-cyan-50 text-cyan-700' },
   sales: { label: '销售', cls: 'bg-blue-50 text-blue-700' },
   designer: { label: '设计师', cls: 'bg-emerald-50 text-emerald-700' },
   manager: { label: '项目经理', cls: 'bg-amber-50 text-amber-700' },

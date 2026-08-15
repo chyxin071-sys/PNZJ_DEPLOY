@@ -6,7 +6,7 @@ import {
   LayoutTemplate, X, Save, BookOpen, ChevronDown, Eye, Layers, CheckCircle,
   ChevronUp, ImagePlus, Filter,
 } from 'lucide-react';
-import { projectsAPI, usersAPI, leadsAPI, systemConfigsAPI } from '@/db/api';
+import { projectsAPI, usersAPI, leadsAPI, systemConfigsAPI, todosAPI } from '@/db/api';
 import { cloudDB } from '@/db/cloudbase';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -77,11 +77,11 @@ const PROJECT_USER_FIELDS: Record<string, boolean> = {
   department: true, status: true, disabled: true, isDisabled: true, enabled: true,
 };
 const ROLE_DEPT: Record<string, string> = {
-  admin: '管理组', sales: '销售部', designer: '设计部',
+  admin: '管理组', operations: '运营', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
 };
-const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
-const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
+const DEPT_ORDER = [ROLE_DEPT.operations, ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
+const ROLE_ORDER: Record<string, number> = { operations: 0, sales: 1, designer: 2, manager: 3, finance: 4, admin: 5, employee: 6 };
 const CLOUD_FILE_PREFIX = 'https://636c-cloud1-8grodf5s3006f004-1421470557.tcb.qcloud.la/';
 
 function resolveCloudImageSrc(src?: string) {
@@ -337,7 +337,7 @@ export default function ProjectsBiz() {
   const [showEdit, setShowEdit] = useState<any>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [statFilter, setStatFilter] = useState<string>('all');
+  const [statFilter, setStatFilter] = useState<string>('施工中');
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterScope, setFilterScope] = useState<'related' | 'all'>(() => isAdmin ? 'all' : 'related');
   const [showFilter, setShowFilter] = useState(false);
@@ -346,6 +346,7 @@ export default function ProjectsBiz() {
   const [stats, setStats] = useState({ total: 0, ongoing: 0, completed: 0, paused: 0 });
   const [leads, setLeads] = useState<any[]>([]);
   const [pendingAccessByProject, setPendingAccessByProject] = useState<Record<string, number>>({});
+  const [pendingTodosByProject, setPendingTodosByProject] = useState<Record<string, any[]>>({});
   const [leadSearch, setLeadSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [openSwipeProjectId, setOpenSwipeProjectId] = useState<string | null>(null);
@@ -388,10 +389,11 @@ export default function ProjectsBiz() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [projData, userData, leadData] = await Promise.all([
+      const [projData, userData, leadData, todoData] = await Promise.all([
         projectsAPI.toArray(PROJECT_LIST_FIELDS),
         usersAPI.toArray(PROJECT_USER_FIELDS),
         leadsAPI.toArray(PROJECT_LEAD_FIELDS),
+        todosAPI.toArray(),
       ]);
       const repairedProjects = await Promise.all((projData || []).map(async (project: any) => {
         if (isCurrentProjectProgressSummary(project.progressSummary)) return project;
@@ -410,6 +412,19 @@ export default function ProjectsBiz() {
       setProjects(repairedProjects);
       setEmployees(userData);
       setLeads(leadData);
+      const todoGroups: Record<string, any[]> = {};
+      (todoData || []).forEach((todo: any) => {
+        const related = todo.relatedTo;
+        if (todo.status === 'completed' || related?.type !== 'project' || !related.id) return;
+        const isAssignedToMe = (todo.assignees || []).some((assignee: any) =>
+          assignee.id === user?.id || assignee.name === myName
+        );
+        if (!isAdmin && !isAssignedToMe) return;
+        if (!todoGroups[related.id]) todoGroups[related.id] = [];
+        todoGroups[related.id].push(todo);
+      });
+      Object.values(todoGroups).forEach(items => items.sort((a, b) => String(a.dueDate || a.createdAt || '').localeCompare(String(b.dueDate || b.createdAt || ''))));
+      setPendingTodosByProject(todoGroups);
       cloudDB.collection('shareAccess')
         .where({ status: 'pending' })
         .limit(1000)
@@ -424,7 +439,7 @@ export default function ProjectsBiz() {
         })
         .catch(() => setPendingAccessByProject({}));
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, []);
+  }, [isAdmin, myName, user?.id]);
 
   const fetchTemplate = useCallback(async () => {
     try {
@@ -1156,6 +1171,7 @@ export default function ProjectsBiz() {
               const displayPeople = getProjectDisplayPeople(p);
               const pendingAccess = pendingAccessByProject[projectId] || 0;
               const unreadUpdates = projectUnreadCountById[projectId] || 0;
+              const pendingTodos = pendingTodosByProject[projectId] || [];
 
               return (
               <div key={projectId} className="group relative overflow-hidden border-b border-gray-200 last:border-b-0 md:min-w-[1470px] md:overflow-visible">
@@ -1248,7 +1264,12 @@ export default function ProjectsBiz() {
                         </span>
                       )) : <span>-</span>}
                     </div>
-                    <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-start gap-3 border-t border-gray-100 pt-2">
+                    <div className="mt-2">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div className="h-full rounded-full bg-sky-500 transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+                      </div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-start gap-3 pt-1">
                       <div className="min-w-0">
                         <div className="text-[10px] text-gray-400">当前阶段</div>
                         <div className="mt-0.5 truncate text-xs font-medium text-gray-800">{currentStageName}</div>
@@ -1270,6 +1291,12 @@ export default function ProjectsBiz() {
                         {dateMeta.days > 0 ? `工期 ${dateMeta.days} 天` : ''}
                       </div>
                     </div>
+                    {pendingTodos.length > 0 && (
+                      <div className="mt-2 flex min-w-0 items-start gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px]">
+                        <span className="shrink-0 font-medium text-red-500">{isAdmin ? '待解决' : '我的待办'}{pendingTodos.length > 1 ? ` ${pendingTodos.length}项` : ''}</span>
+                        <span className="line-clamp-2 text-gray-700">{pendingTodos[0].title}</span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* 桌面端 */}
@@ -1293,7 +1320,6 @@ export default function ProjectsBiz() {
                       </div>
                       <div className="truncate text-xs text-gray-500" title={p.customer || '未命名'}>{p.customer || '未命名'}</div>
                     </div>
-
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium text-gray-800" title={currentStageName}>{currentStageName}</div>
                       <div className={`mt-1 text-[10px] ${lifecycleStatus === '已完工' ? 'text-emerald-600' : currentStage?.status === 'current' ? 'text-amber-600' : currentStage?.status === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
@@ -1349,7 +1375,14 @@ export default function ProjectsBiz() {
                       </div>
                     </div>
 
-                    <div className="truncate text-xs text-gray-400" title="暂无待解决问题">-</div>
+                    <div className="min-w-0 text-xs">
+                      {pendingTodos.length > 0 ? (
+                        <div title={pendingTodos.map(item => item.title).join('；')}>
+                          <div className="truncate font-medium text-red-500">{pendingTodos[0].title}</div>
+                          {pendingTodos.length > 1 && <div className="mt-1 text-[10px] text-gray-400">共 {pendingTodos.length} 项未完成</div>}
+                        </div>
+                      ) : <span className="text-gray-400">-</span>}
+                    </div>
 
                     <div className="sticky right-0 z-10 -mr-4 flex self-stretch items-center justify-end gap-1 bg-white pl-3 pr-4 group-hover:bg-gray-50" onClick={e => e.stopPropagation()}>
                       {isRelated && (

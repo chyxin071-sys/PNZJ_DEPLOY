@@ -9,7 +9,7 @@ import {
 import { leadsAPI, usersAPI, followUpsAPI, projectsAPI, quotesAPI, contractsAPI, receiptsAPI, expensesAPI } from '@/db/api';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { canViewFinancialData, hasRole, getHighestRole } from '@/store/authStore';
+import { canManageAllCustomers, canViewFinancialData, hasRole, getHighestRole } from '@/store/authStore';
 import { formatDate, formatDateTime, formatMoney, generateId } from '@/utils/format';
 import dayjs from 'dayjs';
 import DataTable from '@/components/DataTable';
@@ -43,11 +43,11 @@ const REQ_OPTIONS = ['毛坯', '旧改'];
 const LOST_REASONS = ['价格太高', '选择其他公司', '预算不足', '方案不满意', '暂时不需要', '其他'];
 const LEAD_PAGE_SIZE = 20;
 const ROLE_DEPT: Record<string, string> = {
-  admin: '管理组', sales: '销售部', designer: '设计部',
+  admin: '管理组', operations: '运营', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
 };
-const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
-const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
+const DEPT_ORDER = [ROLE_DEPT.operations, ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
+const ROLE_ORDER: Record<string, number> = { operations: 0, sales: 1, designer: 2, manager: 3, finance: 4, admin: 5, employee: 6 };
 const LEAD_LIST_FIELDS: Record<string, boolean> = {
   _id: true, customerNo: true, name: true, phone: true, address: true,
   doorPassword: true, area: true, budget: true, requirementType: true,
@@ -449,6 +449,7 @@ export default function Leads() {
   const myId = user?.id || '';
   const { showConfirm } = useDialogStore();
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
+  const canManageAll = canManageAllCustomers(user?.roles, user?.role);
   const canViewFinance = canViewFinancialData(user?.roles, user?.role);
   const myName = user?.name || '';
   const myRole = user?.role || '';
@@ -471,7 +472,7 @@ export default function Leads() {
   const [showEdit, setShowEdit] = useState<any>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [filterScope, setFilterScope] = useState<'all' | 'related'>(() => isAdmin ? 'all' : 'related');
+  const [filterScope, setFilterScope] = useState<'all' | 'related'>(() => canManageAll ? 'all' : 'related');
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [filterRatings, setFilterRatings] = useState<string[]>([]);
   const [filterSources, setFilterSources] = useState<string[]>([]);
@@ -503,8 +504,8 @@ export default function Leads() {
   const [assignSelected, setAssignSelected] = useState<string[]>([]);
 
   useEffect(() => {
-    setFilterScope(isAdmin ? 'all' : 'related');
-  }, [user?.id, isAdmin]);
+    setFilterScope(canManageAll ? 'all' : 'related');
+  }, [user?.id, canManageAll]);
 
   // --- 已签单列表（签单管理视图）---
   const [signedItems, setSignedItems] = useState<any[]>([]);
@@ -774,7 +775,7 @@ export default function Leads() {
 
   const handleRowClick = (row: any) => {
     // 打*的线索（非本人相关且非已签单）不可点击
-    const isRelated = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
+    const isRelated = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
     const showFull = isRelated || row.status === '已签单';
     if (!showFull) return;
     saveScroll();
@@ -1588,7 +1589,7 @@ export default function Leads() {
           <DataTable
             columns={[
               { key: 'name', title: '客户', width: '320px', render: (row: any) => {
-                const isRelated = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
+                const isRelated = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
                 const showFull = isRelated || row.status === '已签单';                const displayName = showFull ? row.name : (row.name ? row.name.charAt(0) + '**' : '-');
                 const displayAddress = showFull ? (row.address || '') : (row.address ? '***' : '');
                 return (
@@ -1696,10 +1697,10 @@ export default function Leads() {
                 <span className="text-xs text-gray-500">{row.budget && row.budget !== '暂无' ? row.budget : '-'}</span>
               )},
               { key: 'team', title: '跟进人员', width: '300px', render: (row: any) => {
-                const isRelated2 = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
+                const isRelated2 = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
                 const sf = isRelated2 || row.status === '已签单';
                 if (!sf) return <span className="text-xs text-gray-300">-</span>;
-                const canAssign = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
+                const canAssign = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
                 const roles = [
                   { role: 'sales', label: '销售', names: toPersonArray(row.sales), color: 'bg-blue-50 text-blue-600' },
                   { role: 'designer', label: '设计', names: toPersonArray(row.designer), color: 'bg-violet-50 text-violet-600' },
@@ -1746,11 +1747,11 @@ export default function Leads() {
                 );
               }},
               { key: 'actions', title: '', width: '70px', render: (row: any) => {
-                const canEdit = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
+                const canEdit = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
                 return (
                 <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                   {canEdit && <button onClick={() => setShowEdit({ ...row })} className="p-1 text-gray-400 hover:text-gold-500 rounded hover:bg-gold-50 transition-colors"><Edit3 size={13} /></button>}
-                  {isAdmin && (
+                  {(isAdmin || row.creatorName === myName) && (
                     <button onClick={() => handleDelete(row._id)} className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
                   )}
                 </div>
@@ -1758,7 +1759,7 @@ export default function Leads() {
             ]}
             mobileCardColumns={[
               { key: 'mobileLead', title: '客户', render: (row: any) => {
-                const isRelated = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
+                const isRelated = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
                 const showFull = isRelated || row.status === '已签单';                const displayName = showFull ? row.name : (row.name ? row.name.charAt(0) + '**' : '-');
                 const displayAddress = showFull ? (row.address || '无地址') : (row.address ? '***' : '无地址');
                 return (
@@ -1786,10 +1787,10 @@ export default function Leads() {
                 </div>
               )},
               { key: 'mobileTeam', title: '跟进人员', render: (row: any) => {
-                const isRelated3 = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
+                const isRelated3 = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName) || row.signer === myName;
                 const sf2 = isRelated3 || row.status === '已签单';
                 if (!sf2) return <span className="text-xs text-gray-300">-</span>;
-                const canAssign = isAdmin || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
+                const canAssign = canManageAll || row.creatorName === myName || includesPerson(row.sales, myName) || includesPerson(row.designer, myName) || includesPerson(row.manager, myName);
                 const roles = [
                   { role: 'sales', label: '销售', names: toPersonArray(row.sales), color: 'bg-blue-50 text-blue-600' },
                   { role: 'designer', label: '设计', names: toPersonArray(row.designer), color: 'bg-violet-50 text-violet-600' },

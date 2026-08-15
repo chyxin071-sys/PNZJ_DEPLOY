@@ -10,6 +10,7 @@ import { Trash2, Plus, X, Pencil, RefreshCw } from 'lucide-react';
 const roleLabels: Record<Role, string> = {
   admin: '管理员',
   finance: '财务主管',
+  operations: '运营',
   sales: '销售',
   designer: '设计师',
   manager: '项目经理',
@@ -19,6 +20,7 @@ const roleLabels: Record<Role, string> = {
 const ROLE_OPTIONS = [
   { value: 'admin', label: '管理员' },
   { value: 'finance', label: '财务主管' },
+  { value: 'operations', label: '运营' },
   { value: 'sales', label: '销售' },
   { value: 'designer', label: '设计师' },
   { value: 'manager', label: '项目经理' },

@@ -19,22 +19,22 @@ import {
   openAttachment,
   uploadFinanceAttachments,
 } from '@/utils/financeAttachments';
-import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
+import { createNotificationEventSafely, stableOperationId, TODO_NOTIFICATION_TEMPLATE_ID } from '@/services/notificationService';
 
 const PRIORITY_MAP: Record<string, string> = { high: '紧急', medium: '重要', low: '普通' };
 const PRIORITY_BADGE: Record<string, string> = {
   high: 'bg-red-50 text-red-600', medium: 'bg-orange-50 text-orange-600', low: 'bg-blue-50 text-blue-600',
 };
 const ROLE_DEPT: Record<string, string> = {
-  admin: '管理组', sales: '销售部', designer: '设计部',
+  admin: '管理组', operations: '运营', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
 };
-const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
-const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
+const DEPT_ORDER = [ROLE_DEPT.operations, ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
+const ROLE_ORDER: Record<string, number> = { operations: 0, sales: 1, designer: 2, manager: 3, finance: 4, admin: 5, employee: 6 };
 const RELATED_TYPE_MAP: Record<string, string> = { none: '无', lead: '客户', project: '工地' };
 const TODO_USER_FIELDS = { _id: true, id: true, name: true, role: true, roles: true, department: true, status: true };
 const TODO_LEAD_FIELDS = { _id: true, name: true };
-const TODO_PROJECT_FIELDS = { _id: true, address: true, customer: true };
+const TODO_PROJECT_FIELDS = { _id: true, address: true, customer: true, manager: true, sales: true, designer: true, creatorName: true };
 
 type StatFilter = 'all' | 'pending' | 'completed' | 'overdue';
 
@@ -650,6 +650,7 @@ export default function Todos() {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const [showCreate, setShowCreate] = useState(false);
+  const projectPrefillAppliedRef = useRef(false);
 
   useEffect(() => {
     if (searchParams.get('action') === 'new') setShowCreate(true);
@@ -696,9 +697,44 @@ export default function Todos() {
     };
   }, [fetchData]);
 
+  useEffect(() => {
+    const projectId = searchParams.get('projectId');
+    if (!projectId || projects.length === 0 || projectPrefillAppliedRef.current) return;
+    const linkedProject = projects.find(project => (project._id || project.id) === projectId);
+    if (!linkedProject) return;
+    const managerNames = Array.isArray(linkedProject.manager)
+      ? linkedProject.manager
+      : String(linkedProject.manager || '').split(/[、,，]/).map(name => name.trim()).filter(Boolean);
+    const defaultAssignees = managerNames.map(name => {
+      const employee = employees.find(item => item.name === name);
+      return employee ? { id: employee._id || employee.id, name: employee.name } : null;
+    }).filter(Boolean) as { id: string; name: string }[];
+    setForm(current => ({
+      ...current,
+      relatedType: 'project',
+      relatedId: projectId,
+      relatedName: `${linkedProject.customer || ''}${linkedProject.address ? ` - ${linkedProject.address}` : ''}`.replace(/^\s*-\s*/, ''),
+      assignees: current.assignees.length > 0 ? current.assignees : defaultAssignees,
+    }));
+    setShowCreate(true);
+    projectPrefillAppliedRef.current = true;
+  }, [searchParams, projects, employees]);
+
   const baseFiltered = todos.filter(t => {
     if (!isAdmin && filterScope === 'related') {
-      if (!t.assignees?.some((a: any) => a.id === myId || a.name === myName) && t.creatorName !== myName) return false;
+      const linkedProject = t.relatedTo?.type === 'project'
+        ? projects.find(project => (project._id || project.id) === t.relatedTo?.id)
+        : null;
+      const participantNames = linkedProject
+        ? [linkedProject.manager, linkedProject.sales, linkedProject.designer, linkedProject.creatorName]
+          .flatMap(value => Array.isArray(value) ? value : String(value || '').split(/[、,，]/))
+          .map(name => String(name).trim())
+          .filter(Boolean)
+        : [];
+      const isRelated = t.assignees?.some((a: any) => a.id === myId || a.name === myName)
+        || t.creatorName === myName
+        || participantNames.includes(myName);
+      if (!isRelated) return false;
     }
     if (search) {
       const q = search.toLowerCase();
@@ -793,11 +829,20 @@ export default function Todos() {
         link: '/todos',
         relatedTo: { type: 'todo', id: newTodo._id, name: newTodo.title },
         channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: newTodo.title.slice(0, 20) },
+          time2: { value: newTodo.dueDate || formatDate(new Date().toISOString()) },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: newTodo.assignees.map(assignee => assignee.name).join('、').slice(0, 20) },
+        },
       });
       setShowCreate(false);
       setForm(INIT_FORM);
       setTodos(prev => [newTodo, ...prev]);
       fetchData(true);
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) navigate(returnTo);
     } catch (e) {
       console.error(e);
     } finally {
@@ -853,6 +898,13 @@ export default function Todos() {
         link: '/todos',
         relatedTo: { type: 'todo', id: todo._id, name: todo.title },
         channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: String(todo.title || '待办任务').slice(0, 20) },
+          time2: { value: String(updateData.completedAt || '').slice(0, 16) },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: '管理员' },
+        },
       });
     }
     fetchData(true);

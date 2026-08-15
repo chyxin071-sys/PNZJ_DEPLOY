@@ -7,7 +7,7 @@ import {
   CheckCircle2, Package, PenTool, HardHat, Grid3X3,
 } from 'lucide-react';
 import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI, contractsAPI, receiptsAPI, systemConfigsAPI } from '@/db/api';
-import { useAuthStore } from '@/store/authStore';
+import { canManageAllCustomers, useAuthStore } from '@/store/authStore';
 import { useBizStore } from '@/store/bizStore';
 import { getErpVisibleNavGroups, getErpVisibleBottomItems } from '@/components/navConfig';
 import Select from '@/components/Select';
@@ -69,11 +69,12 @@ export default function Dashboard() {
   const roles = user?.roles;
   const userBizTypes = user?.bizTypes as any;
   const isAdmin = user?.role === 'admin';
+  const canViewAllCustomers = canManageAllCustomers(roles, role);
   const canOpenFinanceReports = isAdmin
     || role === 'finance'
     || (Array.isArray(roles) && (roles.includes('admin') || roles.includes('finance')));
   const myName = user?.name || '';
-  const ROLE_MAP: Record<string, string> = { admin: '管理', sales: '销售', designer: '设计', manager: '项目经理', finance: '财务', employee: '普通' };
+  const ROLE_MAP: Record<string, string> = { admin: '管理', operations: '运营', sales: '销售', designer: '设计', manager: '项目经理', finance: '财务', employee: '普通' };
   const includesPerson = (val: any, name: string): boolean => {
     if (!val) return false;
     if (Array.isArray(val)) return val.some((v: any) => (typeof v === 'string' ? v : v?.name || '') === name);
@@ -194,11 +195,11 @@ export default function Dashboard() {
     const t = new Date(l.createdAt || 0).getTime();
     return t >= rangeStartMs && t <= rangeEndMs;
     // 非管理员只看自己相关的客户
-  }).filter(l => isAdmin || l.creatorName === myName || includesPerson(l.sales, myName) || includesPerson(l.designer, myName) || includesPerson(l.manager, myName));
+  }).filter(l => canViewAllCustomers || l.creatorName === myName || includesPerson(l.sales, myName) || includesPerson(l.designer, myName) || includesPerson(l.manager, myName));
   const filteredFollowUps = followUps.filter(f => {
     const t = new Date(f.createdAt || 0).getTime();
     return t >= rangeStartMs && t <= rangeEndMs;
-  }).filter(f => isAdmin || f.creatorName === myName || includesPerson(f.relatedPerson, myName));
+  }).filter(f => canViewAllCustomers || f.creatorName === myName || includesPerson(f.relatedPerson, myName));
   const filteredProjects = projects.filter(p => {
     const t = new Date(p.createdAt || 0).getTime();
     return t >= rangeStartMs && t <= rangeEndMs;
@@ -375,7 +376,7 @@ export default function Dashboard() {
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthLeads = leads.filter(l => {
-    if (!isAdmin && l.creatorName !== myName && !includesPerson(l.sales, myName) && !includesPerson(l.designer, myName) && !includesPerson(l.manager, myName)) return false;
+    if (!canViewAllCustomers && l.creatorName !== myName && !includesPerson(l.sales, myName) && !includesPerson(l.designer, myName) && !includesPerson(l.manager, myName)) return false;
     const d = l.createdAt ? new Date(l.createdAt).toISOString().slice(0, 7) : '';
     return d === thisMonth;
   }).length;
@@ -383,7 +384,7 @@ export default function Dashboard() {
   weekStart.setDate(now.getDate() - now.getDay());
   weekStart.setHours(0, 0, 0, 0);
   const weekLeads = leads.filter(l => {
-    if (!isAdmin && l.creatorName !== myName && !includesPerson(l.sales, myName) && !includesPerson(l.designer, myName) && !includesPerson(l.manager, myName)) return false;
+    if (!canViewAllCustomers && l.creatorName !== myName && !includesPerson(l.sales, myName) && !includesPerson(l.designer, myName) && !includesPerson(l.manager, myName)) return false;
     return new Date(l.createdAt || 0).getTime() >= weekStart.getTime();
   }).length;
 

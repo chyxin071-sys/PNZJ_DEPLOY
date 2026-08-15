@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 
 const ROLE_MAP: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: '管理员', color: 'text-purple-700', bg: 'bg-purple-50' },
+  operations: { label: '运营', color: 'text-cyan-700', bg: 'bg-cyan-50' },
   sales: { label: '销售', color: 'text-blue-700', bg: 'bg-blue-50' },
   designer: { label: '设计师', color: 'text-emerald-700', bg: 'bg-emerald-50' },
   manager: { label: '项目经理', color: 'text-amber-700', bg: 'bg-amber-50' },
@@ -169,6 +170,7 @@ export default function EmployeeManagement() {
 
   const stats = {
     total: users.length,
+    operations: users.filter(u => u.role === 'operations').length,
     sales: users.filter(u => u.role === 'sales').length,
     designer: users.filter(u => u.role === 'designer').length,
     manager: users.filter(u => u.role === 'manager').length,
@@ -178,6 +180,7 @@ export default function EmployeeManagement() {
 
   const STAT_CARDS = [
     { key: 'all', label: '全部', count: stats.total, color: 'text-gray-900', activeColor: 'bg-gray-900 text-white', border: 'border-gray-400' },
+    { key: 'operations', label: '运营', count: stats.operations, color: 'text-cyan-600', activeColor: 'bg-cyan-500 text-white', border: 'border-cyan-400' },
     { key: 'sales', label: '销售', count: stats.sales, color: 'text-blue-600', activeColor: 'bg-blue-500 text-white', border: 'border-blue-400' },
     { key: 'designer', label: '设计', count: stats.designer, color: 'text-emerald-600', activeColor: 'bg-emerald-500 text-white', border: 'border-emerald-400' },
     { key: 'manager', label: '工程', count: stats.manager, color: 'text-amber-600', activeColor: 'bg-amber-500 text-white', border: 'border-amber-400' },
@@ -193,7 +196,7 @@ export default function EmployeeManagement() {
           <p className="mt-1 text-gold-500 text-xs md:text-sm">查看团队成员信息</p>
         </div>
         <div className="space-y-4">
-          {['admin', 'sales', 'designer', 'manager', 'finance'].map(role => {
+          {['admin', 'operations', 'sales', 'designer', 'manager', 'finance'].map(role => {
             const members = users.filter(u => u.role === role && u.status !== 'inactive');
             if (members.length === 0) return null;
             return (
@@ -264,7 +267,7 @@ export default function EmployeeManagement() {
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-3 md:grid-cols-7 gap-3 mb-6">
           {STAT_CARDS.map(card => {
             const isActive = activeTab === card.key;
             const activeBg = card.key === 'all' ? 'bg-gray-900' : card.activeColor.split(' ')[0];
