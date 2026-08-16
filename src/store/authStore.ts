@@ -161,6 +161,31 @@ function buildSharedPortalUser(user: User) {
   };
 }
 
+function buildUserFromRecord(record: UserRecord): User {
+  const raw = record as UserRecord & Record<string, any>;
+  const roles = resolveStoredRoles(raw.roles, (raw.role || 'employee') as Role);
+  const primaryRole = getHighestRole(roles);
+  return {
+    id: raw._id || raw.id || '',
+    username: raw.account || raw.username || raw.name || '',
+    account: raw.account || '',
+    phone: raw.phone || '',
+    password: raw.password || '',
+    passwordPlain: raw.passwordPlain || '',
+    passwordHash: raw.passwordHash || '',
+    name: raw.name || '',
+    role: primaryRole,
+    roles,
+    department: raw.department || '',
+    bizTypes: (raw.bizTypes && raw.bizTypes.length > 0) ? raw.bizTypes : getDefaultBizTypes(primaryRole),
+    joinDate: raw.joinDate || '',
+    status: raw.status === 'inactive' ? 'inactive' : 'active',
+    avatarUrl: raw.avatarUrl || '',
+    authVersion: raw.authVersion || '',
+    createdAt: raw.createdAt || raw.createTime || new Date().toISOString(),
+  };
+}
+
 function persistSession(user: User | null) {
   if (typeof window === 'undefined') return;
   if (user) {
@@ -246,27 +271,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('密码错误，请重试');
       }
 
-      const roles = resolveStoredRoles(matchedUser.roles, (matchedUser.role || 'employee') as Role);
-      const primaryRole = getHighestRole(roles);
-      const user: User = {
-        id: matchedUser._id || matchedUser.id || '',
-        username: matchedUser.account || matchedUser.username || matchedUser.name || '',
-        account: matchedUser.account || '',
-        phone: matchedUser.phone || '',
-        password: matchedUser.password || '',
-        passwordPlain: matchedUser.passwordPlain || '',
-        passwordHash: matchedUser.passwordHash || '',
-        name: matchedUser.name || '',
-        role: primaryRole,
-        roles,
-        department: matchedUser.department || '',
-        bizTypes: (matchedUser.bizTypes && matchedUser.bizTypes.length > 0) ? matchedUser.bizTypes : getDefaultBizTypes(primaryRole),
-        joinDate: matchedUser.joinDate || '',
-        status: (matchedUser.status === 'inactive' ? 'inactive' : 'active') as 'active' | 'inactive',
-        avatarUrl: matchedUser.avatarUrl || '',
-        authVersion: matchedUser.authVersion || '',
-        createdAt: matchedUser.createdAt || matchedUser.createTime || new Date().toISOString(),
-      };
+      const user = buildUserFromRecord(matchedUser as UserRecord);
       persistSession(user);
       set({ user, isLoggedIn: true });
       notifyMiniProgramAuthState(true, user);
@@ -328,13 +333,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateUser: async (id, data) => {
-    const nextData: Partial<User> = { ...data, authVersion: createAuthVersion() };
+    const currentRecord = await usersAPI.getById(id);
+    if (!currentRecord) throw new Error('员工账号不存在或已被删除');
+    const nextData: Partial<User> = { ...data };
     if (data.roles || data.role) {
       const roles = normalizeRoles(data.roles, data.role || 'employee');
       nextData.roles = roles;
       nextData.role = getHighestRole(roles);
     }
+    const currentRoles = resolveStoredRoles(currentRecord.roles, (currentRecord.role || 'employee') as Role);
+    const nextRoles = (data.roles || data.role)
+      ? normalizeRoles(nextData.roles, (nextData.role || currentRecord.role || 'employee') as Role)
+      : currentRoles;
+    const rolesChanged = currentRoles.slice().sort().join('|') !== nextRoles.slice().sort().join('|');
+    const currentAccount = currentRecord.account || currentRecord.username || '';
+    const nextAccount = nextData.account || nextData.username || currentAccount;
+    const accountChanged = nextAccount !== currentAccount;
+    const statusChanged = Boolean(nextData.status) && nextData.status !== currentRecord.status;
+    const passwordChanged = ['password', 'passwordPlain', 'passwordHash'].some(key => key in data);
+    if (rolesChanged || accountChanged || statusChanged || passwordChanged) {
+      nextData.authVersion = createAuthVersion();
+    }
     await usersAPI.update(id, nextData);
+    const saved = await usersAPI.getById(id);
+    if (!saved) throw new Error('员工资料保存后未能读取，请稍后重试');
+    const savedRoles = resolveStoredRoles(saved.roles, (saved.role || 'employee') as Role);
+    if (savedRoles.slice().sort().join('|') !== nextRoles.slice().sort().join('|')) {
+      throw new Error('员工角色未保存成功，请刷新后重试');
+    }
     await get().loadUsers();
   },
 
@@ -359,11 +385,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const current = get().user;
     if (!current?.id) return false;
     try {
-      const allUsers = await usersAPI.toArray();
-      const latest = allUsers.find(u => (u._id || u.id) === current.id);
+      const latest = await usersAPI.getById(current.id);
       if (!latest || latest.status === 'inactive') {
         get().logout();
         return false;
+      }
+      if (!current.authVersion && latest.authVersion) {
+        const refreshed = buildUserFromRecord(latest);
+        persistSession(refreshed);
+        set({ user: refreshed, isLoggedIn: true });
+        notifyMiniProgramAuthState(true, refreshed);
+        return true;
       }
       const latestRoles = resolveStoredRoles(latest.roles, (latest.role || 'employee') as Role);
       const currentRoles = normalizeRoles(current.roles, current.role);
@@ -377,6 +409,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return true;
     } catch (error) {
       console.warn('[auth] session validation failed', error);
+      // Temporary connectivity problems must not invalidate a valid local session.
       return true;
     }
   },

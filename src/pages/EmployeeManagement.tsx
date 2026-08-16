@@ -494,7 +494,7 @@ export default function EmployeeManagement() {
                 </button>
                 {showRoleDropdown && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-30">
-                    {Object.entries(ROLE_MAP).map(([key, role]) => (
+                    {Object.entries(ROLE_MAP).filter(([key]) => key !== 'employee').map(([key, role]) => (
                       <button key={key} type="button" onClick={() => {
                         const typedRole = key as Role;
                         const selected = form.roles.includes(typedRole);
