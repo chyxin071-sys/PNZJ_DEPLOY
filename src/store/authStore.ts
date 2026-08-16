@@ -11,6 +11,15 @@ const LOGIN_TIMEOUT_MS = 10000;
 const ERP_SESSION_KEY = 'pnzj_erp_user';
 const PORTAL_SESSION_KEY = 'pnzj_user';
 const TOKEN_KEY = 'token';
+const ROLE_HIERARCHY: Record<Role, number> = {
+  admin: 6,
+  finance: 5,
+  operations: 4,
+  sales: 4,
+  designer: 3,
+  manager: 2,
+  employee: 1,
+};
 
 function withTimeout<T>(promise: Promise<T>, message: string, timeout = LOGIN_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -372,16 +381,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
-
-const ROLE_HIERARCHY: Record<Role, number> = {
-  admin: 6,
-  finance: 5,
-  operations: 4,
-  sales: 4,
-  designer: 3,
-  manager: 2,
-  employee: 1,
-};
 
 export function hasRole(roles: Role[] | undefined, targetRole: Role, defaultRole?: Role): boolean {
   if (roles && roles.length > 0) {
