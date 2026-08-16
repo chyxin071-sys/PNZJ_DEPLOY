@@ -12,11 +12,13 @@ export interface UserRecord {
   passwordPlain?: string;
   name?: string;
   role?: string;
+  roles?: string[];
   department?: string;
   bizTypes?: string[];
   joinDate?: string;
   status?: string;
   avatarUrl?: string;
+  authVersion?: string;
   createdAt?: string;
   createTime?: string;
   [key: string]: any;

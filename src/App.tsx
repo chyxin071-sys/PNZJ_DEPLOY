@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useFinanceStore, type FinanceDataset } from '@/store/financeStore';
-import { useAuthStore, menuPermissions, canViewFinancialData } from '@/store/authStore';
+import { useAuthStore, menuPermissions, canViewFinancialData, normalizeRoles } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { initCloudBase } from '@/db/cloudbase';
 import { installNativeImageUploadBridge } from '@/utils/nativeImageUploadBridge';
@@ -94,8 +94,9 @@ function RoleGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  const allowedPaths = menuPermissions[user?.role || 'employee'];
-  if (allowedPaths && location.pathname !== '/login') {
+  const userRoles = normalizeRoles(user?.roles, user?.role || 'employee');
+  const allowedPaths = Array.from(new Set(userRoles.flatMap(role => menuPermissions[role] || [])));
+  if (location.pathname !== '/login') {
     const isContractDetail = /^\/contracts\/[^/]+$/.test(location.pathname);
     const isAllowed = isContractDetail || allowedPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
     if (!isAllowed) {
@@ -184,7 +185,7 @@ function FinanceGuard({ children }: { children: React.ReactNode }) {
 }
 
 function AppInit() {
-  const { isLoggedIn, user } = useAuthStore();
+  const { isLoggedIn, user, validateSession } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const loadNotifications = useNotificationStore((s) => s.loadNotifications);
@@ -264,6 +265,40 @@ function AppInit() {
       navigate(normalizedRoute, { replace: true });
     }
   }, [isLoggedIn, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (!cloudReady || !isLoggedIn || !user?.id) return;
+
+    let disposed = false;
+    let checking = false;
+    const checkSession = async () => {
+      if (disposed || checking) return;
+      checking = true;
+      const valid = await validateSession();
+      checking = false;
+      if (!valid && !disposed) {
+        await showAlert('管理员已更新您的账号、角色、状态或密码，请重新登录。', { title: '账号信息已更新' });
+        navigate('/login', { replace: true });
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void checkSession();
+    };
+    const handleFocus = () => void checkSession();
+
+    void checkSession();
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void checkSession();
+    }, 30_000);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [cloudReady, isLoggedIn, navigate, showAlert, user?.id, validateSession]);
 
   useEffect(() => {
     if (!cloudReady || !isLoggedIn || !user?.id) return;

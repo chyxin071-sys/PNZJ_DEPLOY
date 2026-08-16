@@ -6,6 +6,7 @@ import { notifyMiniProgramAuthState, returnToMiniProgramAfterLogout } from '@/ut
 import { clearQueryCache } from '@/db/queryCache';
 
 export type Role = 'admin' | 'finance' | 'operations' | 'sales' | 'designer' | 'manager' | 'employee';
+const VALID_ROLES: Role[] = ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'];
 const LOGIN_TIMEOUT_MS = 10000;
 const ERP_SESSION_KEY = 'pnzj_erp_user';
 const PORTAL_SESSION_KEY = 'pnzj_user';
@@ -42,6 +43,7 @@ interface User {
   joinDate?: string;
   status?: 'active' | 'inactive';
   avatarUrl?: string;
+  authVersion?: string;
   createdAt: string;
 }
 
@@ -52,10 +54,29 @@ interface SharedPortalUser {
   phone?: string;
   name?: string;
   role?: string;
+  roles?: Role[];
   accessRole?: string;
   bizTypes?: string[];
   createdAt?: string;
   joinDate?: string;
+  authVersion?: string;
+}
+
+export function normalizeRoles(roles?: unknown, fallback: Role = 'employee'): Role[] {
+  const values = Array.isArray(roles) ? roles : [];
+  const normalized = values.filter((role): role is Role => VALID_ROLES.includes(role as Role));
+  return Array.from(new Set(normalized.length > 0 ? normalized : [fallback]));
+}
+
+function resolveStoredRoles(roles: unknown, legacyRole: Role = 'employee'): Role[] {
+  const normalized = normalizeRoles(roles, legacyRole);
+  // Older employee editing only updated `role`, leaving a stale single-item `roles` array.
+  if (Array.isArray(roles) && normalized.length > 0 && !normalized.includes(legacyRole)) return [legacyRole];
+  return normalized;
+}
+
+function createAuthVersion() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function getStorageItem<T>(key: string): T | null {
@@ -87,21 +108,29 @@ function getDefaultBizTypes(role: string): string[] {
 
 function buildUserFromSharedPortal(portalUser?: SharedPortalUser | null): User | null {
   if (!portalUser?.name) return null;
-  const role = mapSharedRole(portalUser);
+  const roles = resolveStoredRoles(portalUser.roles, mapSharedRole(portalUser));
+  const role = getHighestRole(roles);
   return {
     id: portalUser._id || portalUser.id || portalUser.account || portalUser.phone || portalUser.name,
     username: portalUser.account || portalUser.phone || portalUser.name,
     password: '',
     name: portalUser.name,
     role,
+    roles,
     bizTypes: (portalUser.bizTypes && portalUser.bizTypes.length > 0) ? portalUser.bizTypes : getDefaultBizTypes(role),
     createdAt: portalUser.createdAt || new Date().toISOString(),
+    authVersion: portalUser.authVersion,
   };
 }
 
 function getInitialUser(): User | null {
+  const erpUser = getStorageItem<User>(ERP_SESSION_KEY);
+  if (erpUser) {
+    const roles = resolveStoredRoles(erpUser.roles, erpUser.role || 'employee');
+    return { ...erpUser, roles, role: getHighestRole(roles) };
+  }
   const portalUser = getStorageItem<SharedPortalUser>('pnzj_user') || getStorageItem<SharedPortalUser>('userInfo');
-  return buildUserFromSharedPortal(portalUser) || getStorageItem<User>(ERP_SESSION_KEY);
+  return buildUserFromSharedPortal(portalUser);
 }
 
 function buildSharedPortalUser(user: User) {
@@ -111,12 +140,14 @@ function buildSharedPortalUser(user: User) {
     name: user.name,
     phone: user.phone || '',
     role: user.role,
+    roles: normalizeRoles(user.roles, user.role),
     accessRole,
     status: user.status || 'active',
     account: user.account || user.username,
     joinDate: user.joinDate || user.createdAt,
     avatarUrl: user.avatarUrl || '',
     bizTypes: user.bizTypes || [],
+    authVersion: user.authVersion,
     defaultEntry: accessRole === 'finance' ? '/erp/' : '/',
   };
 }
@@ -154,6 +185,7 @@ interface AuthState {
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   resetPassword: (id: string) => Promise<void>;
   changePassword: (id: string, oldPassword: string, newPassword: string) => Promise<boolean>;
+  validateSession: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -205,6 +237,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('密码错误，请重试');
       }
 
+      const roles = resolveStoredRoles(matchedUser.roles, (matchedUser.role || 'employee') as Role);
+      const primaryRole = getHighestRole(roles);
       const user: User = {
         id: matchedUser._id || matchedUser.id || '',
         username: matchedUser.account || matchedUser.username || matchedUser.name || '',
@@ -214,12 +248,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         passwordPlain: matchedUser.passwordPlain || '',
         passwordHash: matchedUser.passwordHash || '',
         name: matchedUser.name || '',
-        role: (matchedUser.role || 'employee') as Role,
+        role: primaryRole,
+        roles,
         department: matchedUser.department || '',
-        bizTypes: (matchedUser.bizTypes && matchedUser.bizTypes.length > 0) ? matchedUser.bizTypes : getDefaultBizTypes(matchedUser.role || 'employee'),
+        bizTypes: (matchedUser.bizTypes && matchedUser.bizTypes.length > 0) ? matchedUser.bizTypes : getDefaultBizTypes(primaryRole),
         joinDate: matchedUser.joinDate || '',
         status: (matchedUser.status === 'inactive' ? 'inactive' : 'active') as 'active' | 'inactive',
         avatarUrl: matchedUser.avatarUrl || '',
+        authVersion: matchedUser.authVersion || '',
         createdAt: matchedUser.createdAt || matchedUser.createTime || new Date().toISOString(),
       };
       persistSession(user);
@@ -251,15 +287,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const processed = list.map((u: any) => ({
       ...u,
       id: u._id || u.id,
+      roles: resolveStoredRoles(u.roles, (u.role || 'employee') as Role),
+      role: getHighestRole(resolveStoredRoles(u.roles, (u.role || 'employee') as Role)),
       bizTypes: (u.bizTypes && u.bizTypes.length > 0) ? u.bizTypes : getDefaultBizTypes(u.role || 'employee'),
     }));
     set({ users: processed as User[] });
   },
 
   addUser: async (u) => {
+    const roles = normalizeRoles(u.roles, u.role);
     const record: UserRecord = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 9),
       ...u,
+      role: getHighestRole(roles),
+      roles,
+      authVersion: createAuthVersion(),
       createdAt: new Date().toISOString(),
     };
     await usersAPI.add(record);
@@ -272,30 +314,62 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateUserRole: async (id, role) => {
-    await usersAPI.update(id, { role });
+    await usersAPI.update(id, { role, roles: [role], authVersion: createAuthVersion() });
     await get().loadUsers();
   },
 
   updateUser: async (id, data) => {
-    await usersAPI.update(id, data);
+    const nextData: Partial<User> = { ...data, authVersion: createAuthVersion() };
+    if (data.roles || data.role) {
+      const roles = normalizeRoles(data.roles, data.role || 'employee');
+      nextData.roles = roles;
+      nextData.role = getHighestRole(roles);
+    }
+    await usersAPI.update(id, nextData);
     await get().loadUsers();
   },
 
   resetPassword: async (id) => {
-    await usersAPI.update(id, { password: '888888', passwordPlain: '888888' });
+    await usersAPI.update(id, { password: '888888', passwordPlain: '888888', authVersion: createAuthVersion() });
   },
 
   changePassword: async (id, oldPassword, newPassword) => {
     const allUsers = await usersAPI.toArray();
-    const user = allUsers.find(u => u.id === id);
+    const user = allUsers.find(u => (u._id || u.id) === id);
     if (!user) return false;
     let isMatch = false;
     if (user.password === oldPassword || user.passwordPlain === oldPassword) {
       isMatch = true;
     }
     if (!isMatch) return false;
-    await usersAPI.update(id, { password: newPassword, passwordPlain: newPassword });
+    await usersAPI.update(id, { password: newPassword, passwordPlain: newPassword, authVersion: createAuthVersion() });
     return true;
+  },
+
+  validateSession: async () => {
+    const current = get().user;
+    if (!current?.id) return false;
+    try {
+      const allUsers = await usersAPI.toArray();
+      const latest = allUsers.find(u => (u._id || u.id) === current.id);
+      if (!latest || latest.status === 'inactive') {
+        get().logout();
+        return false;
+      }
+      const latestRoles = resolveStoredRoles(latest.roles, (latest.role || 'employee') as Role);
+      const currentRoles = normalizeRoles(current.roles, current.role);
+      const rolesChanged = latestRoles.slice().sort().join('|') !== currentRoles.slice().sort().join('|');
+      const accountChanged = (latest.account || latest.username || '') !== (current.account || current.username || '');
+      const versionChanged = Boolean(latest.authVersion) && latest.authVersion !== current.authVersion;
+      if (rolesChanged || accountChanged || versionChanged) {
+        get().logout();
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn('[auth] session validation failed', error);
+      return true;
+    }
   },
 }));
 

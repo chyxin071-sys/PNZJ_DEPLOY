@@ -194,6 +194,7 @@ export default function Profile() {
     setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     setShowPassword(false);
     alert('密码已修改，请使用新密码登录');
+    logout();
   };
 
   const handleOpenWechatNotifications = async () => {

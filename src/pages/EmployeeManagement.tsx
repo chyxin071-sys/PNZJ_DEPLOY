@@ -5,7 +5,7 @@ import {
   Search, Plus, Users, Shield, CheckCircle2, XCircle,
   MoreVertical, Edit, Ban, KeyRound, Loader2, X, ChevronDown, ChevronRight, Clock, Briefcase, Calendar,
 } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { getHighestRole, hasRole, normalizeRoles, useAuthStore, type Role } from '@/store/authStore';
 import dayjs from 'dayjs';
 
 const ROLE_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -19,14 +19,16 @@ const ROLE_MAP: Record<string, { label: string; color: string; bg: string }> = {
 };
 
 const INIT_FORM = {
-  name: '', account: '', phone: '', role: 'sales' as string,
+  name: '', account: '', phone: '', roles: ['sales'] as Role[],
   bizTypes: ['家装'] as string[], joinDate: '',
 };
+
+const employeeRoles = (employee: { roles?: Role[]; role?: Role }) => normalizeRoles(employee.roles, employee.role || 'employee');
 
 export default function EmployeeManagement() {
   const navigate = useNavigate();
   const { user, users, loadUsers, addUser, updateUser, resetPassword } = useAuthStore();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = hasRole(user?.roles, 'admin', user?.role);
   const myId = user?.id || '';
 
   const [loading, setLoading] = useState(true);
@@ -68,8 +70,8 @@ export default function EmployeeManagement() {
     setEditingUser(u);
     setForm({
       name: u.name || '', account: u.account || u.username || '', phone: u.phone || '',
-      role: u.role || 'employee',
-      bizTypes: (u.bizTypes && u.bizTypes.length > 0) ? u.bizTypes : (u.role === 'admin' || u.role === 'finance' ? ['家装', '工装'] : ['家装']), joinDate: u.joinDate || '',
+      roles: employeeRoles(u),
+      bizTypes: (u.bizTypes && u.bizTypes.length > 0) ? u.bizTypes : (employeeRoles(u).some(role => role === 'admin' || role === 'finance') ? ['家装', '工装'] : ['家装']), joinDate: u.joinDate || '',
     });
     setShowAddModal(true);
   };
@@ -82,32 +84,31 @@ export default function EmployeeManagement() {
       if (editingUser) {
         const uid = editingUser._id || editingUser.id;
         const oldAccount = editingUser.account || editingUser.username || '';
-        const oldRole = editingUser.role || '';
-        const roleChanged = form.role !== oldRole;
+        const oldRoles = employeeRoles(editingUser).slice().sort();
+        const nextRoles = normalizeRoles(form.roles, 'employee');
+        const roleChanged = oldRoles.join('|') !== nextRoles.slice().sort().join('|');
         const accountChanged = form.account !== oldAccount;
 
         await updateUser(uid, {
-          name: form.name, account: form.account, phone: form.phone,
-          role: form.role as any,
+          name: form.name, account: form.account, username: form.account, phone: form.phone,
+          role: getHighestRole(nextRoles), roles: nextRoles,
           bizTypes: form.bizTypes, joinDate: form.joinDate,
         });
         setShowAddModal(false);
 
-        if (roleChanged || accountChanged) {
-          if (uid === myId) {
-            alert('已修改自己的角色或账号，请重新登录后生效');
-            const { logout } = useAuthStore.getState();
-            logout();
-            navigate('/login', { replace: true });
-          } else {
+        if (uid === myId) {
+          alert('自己的账号信息已更新，请重新登录后生效');
+          const { logout } = useAuthStore.getState();
+          logout();
+          navigate('/login', { replace: true });
+        } else if (roleChanged || accountChanged) {
             alert(`已修改 ${form.name || editingUser.name} 的${roleChanged && accountChanged ? '角色和账号' : roleChanged ? '角色' : '账号'}，该员工需重新登录后生效。`);
-          }
         }
       } else {
         await addUser({
           username: form.account, account: form.account, phone: form.phone,
           password: '888888', passwordPlain: '888888', name: form.name,
-          role: form.role as any,
+          role: getHighestRole(form.roles), roles: form.roles,
           bizTypes: form.bizTypes, joinDate: form.joinDate,
           status: 'active', createdAt: new Date().toISOString(),
         });
@@ -160,7 +161,7 @@ export default function EmployeeManagement() {
   };
 
   const filtered = users.filter(u => {
-    if (activeTab !== 'all' && u.role !== activeTab) return false;
+    if (activeTab !== 'all' && !employeeRoles(u).includes(activeTab as Role)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (!u.name?.toLowerCase().includes(q) && !u.account?.toLowerCase().includes(q) && !u.phone?.includes(q) && !u.username?.toLowerCase().includes(q)) return false;
@@ -170,12 +171,12 @@ export default function EmployeeManagement() {
 
   const stats = {
     total: users.length,
-    operations: users.filter(u => u.role === 'operations').length,
-    sales: users.filter(u => u.role === 'sales').length,
-    designer: users.filter(u => u.role === 'designer').length,
-    manager: users.filter(u => u.role === 'manager').length,
-    admin: users.filter(u => u.role === 'admin').length,
-    finance: users.filter(u => u.role === 'finance').length,
+    operations: users.filter(u => employeeRoles(u).includes('operations')).length,
+    sales: users.filter(u => employeeRoles(u).includes('sales')).length,
+    designer: users.filter(u => employeeRoles(u).includes('designer')).length,
+    manager: users.filter(u => employeeRoles(u).includes('manager')).length,
+    admin: users.filter(u => employeeRoles(u).includes('admin')).length,
+    finance: users.filter(u => employeeRoles(u).includes('finance')).length,
   };
 
   const STAT_CARDS = [
@@ -197,7 +198,7 @@ export default function EmployeeManagement() {
         </div>
         <div className="space-y-4">
           {['admin', 'operations', 'sales', 'designer', 'manager', 'finance'].map(role => {
-            const members = users.filter(u => u.role === role && u.status !== 'inactive');
+            const members = users.filter(u => employeeRoles(u).includes(role as Role) && u.status !== 'inactive');
             if (members.length === 0) return null;
             return (
               <div key={role} className="bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -323,10 +324,12 @@ export default function EmployeeManagement() {
                       {emp.name || '未知'}
                       {emp.id === myId && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-900 text-white">我</span>}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${ROLE_MAP[emp.role]?.bg} ${ROLE_MAP[emp.role]?.color}`}>
-                        {ROLE_MAP[emp.role]?.label || emp.role}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                      {employeeRoles(emp).map(role => (
+                        <span key={role} className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${ROLE_MAP[role]?.bg} ${ROLE_MAP[role]?.color}`}>
+                          {ROLE_MAP[role]?.label || role}
+                        </span>
+                      ))}
                       {emp.status === 'inactive' ? (
                         <span className="inline-flex items-center text-[10px] text-rose-500"><XCircle size={11} className="mr-0.5" />已停用</span>
                       ) : (
@@ -442,10 +445,14 @@ export default function EmployeeManagement() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${ROLE_MAP[emp.role]?.bg} ${ROLE_MAP[emp.role]?.color}`}>
-                        <Shield size={10} className="mr-1" />
-                        {ROLE_MAP[emp.role]?.label || emp.role}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {employeeRoles(emp).map(role => (
+                          <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${ROLE_MAP[role]?.bg} ${ROLE_MAP[role]?.color}`}>
+                            <Shield size={10} className="mr-1" />
+                            {ROLE_MAP[role]?.label || role}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-500">{emp.joinDate ? new Date(emp.joinDate).toLocaleDateString('zh-CN') : '-'}</td>
                     <td className="py-3 px-4">
@@ -475,20 +482,31 @@ export default function EmployeeManagement() {
             <div><label className="text-xs text-gray-500 mb-1 block">登录账号 *</label><input value={form.account} onChange={e => setForm({ ...form, account: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" required />{!editingUser && <p className="text-xs text-gray-400 mt-1">默认初始密码: 888888</p>}</div>
             <div><label className="text-xs text-gray-500 mb-1 block">手机号</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" /></div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">角色</label>
+              <label className="text-xs text-gray-500 mb-1 block">角色（可多选）</label>
               <div className="relative">
                 <button type="button" onClick={() => setShowRoleDropdown(!showRoleDropdown)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-left flex items-center justify-between">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${ROLE_MAP[form.role]?.bg} ${ROLE_MAP[form.role]?.color}`}>{ROLE_MAP[form.role]?.label}</span>
+                  <span className="flex flex-wrap gap-1">
+                    {form.roles.map(role => (
+                      <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${ROLE_MAP[role]?.bg} ${ROLE_MAP[role]?.color}`}>{ROLE_MAP[role]?.label}</span>
+                    ))}
+                  </span>
                   <ChevronDown size={14} className="text-gray-400" />
                 </button>
                 {showRoleDropdown && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-30">
-                    {Object.entries(ROLE_MAP).filter(([k]) => k !== 'employee').map(([key, role]) => (
-                      <button key={key} type="button" onClick={() => { setForm({ ...form, role: key }); setShowRoleDropdown(false); }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                    {Object.entries(ROLE_MAP).map(([key, role]) => (
+                      <button key={key} type="button" onClick={() => {
+                        const typedRole = key as Role;
+                        const selected = form.roles.includes(typedRole);
+                        if (selected && form.roles.length === 1) return;
+                        setForm({ ...form, roles: selected ? form.roles.filter(item => item !== typedRole) : [...form.roles, typedRole] });
+                      }}
+                        className="w-full px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${role.bg} ${role.color}`}>{role.label}</span>
+                        {form.roles.includes(key as Role) && <CheckCircle2 size={15} className="text-emerald-600" />}
                       </button>
                     ))}
+                    <div className="px-3 pt-1 pb-2 text-[11px] text-gray-400">权限按所选角色合并；系统同时保留最高权限角色兼容原有功能。</div>
                   </div>
                 )}
               </div>

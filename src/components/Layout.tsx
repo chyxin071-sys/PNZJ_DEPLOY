@@ -16,6 +16,10 @@ import RouteErrorBoundary from './RouteErrorBoundary';
 const roleLabel: Record<string, string> = {
   admin: '管理员',
   finance: '财务',
+  operations: '运营',
+  sales: '销售',
+  designer: '设计师',
+  manager: '项目经理',
   employee: '员工',
 };
 
@@ -193,7 +197,7 @@ export default function Layout() {
   const handleBizTypeSwitch = (nextBizType: BizType) => {
     if (nextBizType === currentBizType) return;
     setBizType(nextBizType);
-    const targetPath = getErpDefaultPath(role, nextBizType, bizTypes);
+    const targetPath = getErpDefaultPath(role, nextBizType, bizTypes, user?.roles);
     navigate(targetPath);
   };
 
