@@ -38,7 +38,7 @@ export interface NavGroup {
 }
 
 export const ERP_NAV_TOP_ITEM: NavItem = {
-  path: '/', icon: LayoutDashboard, label: '全局看板', roles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'],
+  path: '/', icon: LayoutDashboard, label: '全局看板', roles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'],
 };
 
 export const ERP_NAV_GROUPS: NavGroup[] = [
@@ -47,10 +47,10 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
     icon: Users,
     bizTypes: ['家装'],
     items: [
-      { path: '/todos', icon: ListTodo, label: '团队待办', roles: ['admin', 'finance', 'sales', 'designer', 'manager'] },
-      { path: '/leads', icon: Users, label: '客户管理', roles: ['admin', 'sales', 'designer', 'manager', 'employee'] },
+      { path: '/todos', icon: ListTodo, label: '团队待办', roles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager'] },
+      { path: '/leads', icon: Users, label: '客户管理', roles: ['admin', 'operations', 'sales', 'designer', 'manager', 'employee'] },
       { path: '/contracts', icon: FileText, label: '合同管理', roles: ['admin', 'finance'] },
-      { path: '/projects-biz', icon: HardHat, label: '工地管理', roles: ['admin', 'sales', 'designer', 'manager', 'employee'] },
+      { path: '/projects-biz', icon: HardHat, label: '工地管理', roles: ['admin', 'operations', 'sales', 'designer', 'manager', 'employee'] },
       { path: '/materials', icon: Package, label: '库存管理', roles: ['admin', 'manager'] },
     ],
   },
@@ -63,7 +63,7 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
       { path: '/income', icon: ArrowDownToLine, label: '收入管理', roles: ['admin', 'finance'] },
       { path: '/expense', icon: ArrowUpFromLine, label: '支出管理', roles: ['admin', 'finance'] },
       { path: '/projects', icon: Calculator, label: '项目成本', roles: ['admin', 'finance'], bizTypes: ['家装'] },
-      { path: '/reimbursement', icon: FileSpreadsheet, label: '费用报销', roles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'] },
+      { path: '/reimbursement', icon: FileSpreadsheet, label: '费用报销', roles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'] },
       { path: '/finance-logs', icon: ClipboardList, label: '操作日志', roles: ['admin', 'finance'] },
     ],
   },
@@ -73,13 +73,13 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/template-library', icon: LayoutTemplate, label: '工地模板库', roles: ['admin'], bizTypes: ['家装'] },
       { path: '/employees', icon: Users, label: '组织架构', roles: ['admin'] },
-      { path: '/profile', icon: UserCog, label: '个人中心', roles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'] },
+      { path: '/profile', icon: UserCog, label: '个人中心', roles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'] },
     ],
   },
 ];
 
 export const NAV_BOTTOM_ITEMS: NavItem[] = [
-  { path: '/notifications', icon: Bell, label: '消息通知', roles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'] },
+  { path: '/notifications', icon: Bell, label: '消息通知', roles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'], bizTypes: ['家装'] },
 ];
 
 // 检查用户是否拥有某个角色（兼容单角色和多角色）

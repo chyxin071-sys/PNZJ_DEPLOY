@@ -77,11 +77,11 @@ const PROJECT_USER_FIELDS: Record<string, boolean> = {
   department: true, status: true, disabled: true, isDisabled: true, enabled: true,
 };
 const ROLE_DEPT: Record<string, string> = {
-  admin: '管理组', sales: '销售部', designer: '设计部',
+  admin: '管理组', operations: '运营', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
 };
-const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
-const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
+const DEPT_ORDER = [ROLE_DEPT.operations, ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
+const ROLE_ORDER: Record<string, number> = { operations: 0, sales: 1, designer: 2, manager: 3, finance: 4, admin: 5, employee: 6 };
 const CLOUD_FILE_PREFIX = 'https://636c-cloud1-8grodf5s3006f004-1421470557.tcb.qcloud.la/';
 
 function resolveCloudImageSrc(src?: string) {

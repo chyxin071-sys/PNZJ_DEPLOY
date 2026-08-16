@@ -7,12 +7,10 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import dayjs from 'dayjs';
-import ImagePreviewModal from '@/components/ImagePreviewModal';
-import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
-import { getTempFileURL } from '@/utils/cloudStorage';
 
 const ROLE_MAP: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: '管理员', color: 'text-purple-700', bg: 'bg-purple-50' },
+  operations: { label: '运营', color: 'text-cyan-700', bg: 'bg-cyan-50' },
   sales: { label: '销售', color: 'text-blue-700', bg: 'bg-blue-50' },
   designer: { label: '设计师', color: 'text-emerald-700', bg: 'bg-emerald-50' },
   manager: { label: '项目经理', color: 'text-amber-700', bg: 'bg-amber-50' },
@@ -42,7 +40,6 @@ export default function EmployeeManagement() {
   const [resetPwdUser, setResetPwdUser] = useState<{ id: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -53,38 +50,10 @@ export default function EmployeeManagement() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  const openAvatarPreview = (url: string) => {
-    if (openNativeMediaPreview([{ url, type: 'image' }])) return;
-    setAvatarPreview(url);
-  };
-
-  // 刷新云存储头像临时链接
-  const [refreshedAvatars, setRefreshedAvatars] = useState<Record<string, string>>({});
-
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     await loadUsers();
     setLoading(false);
-    // 刷新云存储头像 URL（临时链接会过期）
-    try {
-      const currentUsers = useAuthStore.getState().users;
-      const cloudIds: string[] = [];
-      currentUsers.forEach((u: any) => {
-        if (u.avatarUrl && u.avatarUrl.startsWith('cloud://')) {
-          cloudIds.push(u.avatarUrl);
-        }
-      });
-      if (cloudIds.length > 0) {
-        const urls = await getTempFileURL(cloudIds);
-        const map: Record<string, string> = {};
-        currentUsers.forEach((u: any) => {
-          if (u.avatarUrl && urls[u.avatarUrl]) {
-            map[u.id] = urls[u.avatarUrl];
-          }
-        });
-        setRefreshedAvatars(map);
-      }
-    } catch { /* 头像刷新失败不影响主流程 */ }
   }, [loadUsers]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
@@ -140,7 +109,7 @@ export default function EmployeeManagement() {
           password: '888888', passwordPlain: '888888', name: form.name,
           role: form.role as any,
           bizTypes: form.bizTypes, joinDate: form.joinDate,
-          status: 'active', avatarUrl: '', createdAt: new Date().toISOString(),
+          status: 'active', createdAt: new Date().toISOString(),
         });
         setShowAddModal(false);
       }
@@ -201,6 +170,7 @@ export default function EmployeeManagement() {
 
   const stats = {
     total: users.length,
+    operations: users.filter(u => u.role === 'operations').length,
     sales: users.filter(u => u.role === 'sales').length,
     designer: users.filter(u => u.role === 'designer').length,
     manager: users.filter(u => u.role === 'manager').length,
@@ -210,6 +180,7 @@ export default function EmployeeManagement() {
 
   const STAT_CARDS = [
     { key: 'all', label: '全部', count: stats.total, color: 'text-gray-900', activeColor: 'bg-gray-900 text-white', border: 'border-gray-400' },
+    { key: 'operations', label: '运营', count: stats.operations, color: 'text-cyan-600', activeColor: 'bg-cyan-500 text-white', border: 'border-cyan-400' },
     { key: 'sales', label: '销售', count: stats.sales, color: 'text-blue-600', activeColor: 'bg-blue-500 text-white', border: 'border-blue-400' },
     { key: 'designer', label: '设计', count: stats.designer, color: 'text-emerald-600', activeColor: 'bg-emerald-500 text-white', border: 'border-emerald-400' },
     { key: 'manager', label: '工程', count: stats.manager, color: 'text-amber-600', activeColor: 'bg-amber-500 text-white', border: 'border-amber-400' },
@@ -225,7 +196,7 @@ export default function EmployeeManagement() {
           <p className="mt-1 text-gold-500 text-xs md:text-sm">查看团队成员信息</p>
         </div>
         <div className="space-y-4">
-          {['admin', 'sales', 'designer', 'manager', 'finance'].map(role => {
+          {['admin', 'operations', 'sales', 'designer', 'manager', 'finance'].map(role => {
             const members = users.filter(u => u.role === role && u.status !== 'inactive');
             if (members.length === 0) return null;
             return (
@@ -239,18 +210,8 @@ export default function EmployeeManagement() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0 divide-y sm:divide-y-0 divide-gray-50">
                   {members.map(emp => (
                     <div key={emp.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-9 h-9 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-900 font-bold text-sm shrink-0 overflow-hidden">
-                        {getAvatarUrl(emp) ? (
-                          <button
-                            type="button"
-                            className="w-full h-full cursor-zoom-in"
-                            onClick={() => openAvatarPreview(getAvatarUrl(emp))}
-                            aria-label={`预览${emp.name || '员工'}头像`}
-                          >
-                            <img src={getAvatarUrl(emp)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          </button>
-                        ) : null}
-                        {!getAvatarUrl(emp) && (emp.name?.charAt(0) || '?')}
+                      <div className="w-9 h-9 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-900 font-bold text-sm shrink-0">
+                        {emp.name?.charAt(0) || '?'}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">
@@ -266,14 +227,6 @@ export default function EmployeeManagement() {
             );
           })}
         </div>
-        {avatarPreview && (
-          <ImagePreviewModal
-            images={[avatarPreview]}
-            index={0}
-            onIndexChange={() => {}}
-            onClose={() => setAvatarPreview(null)}
-          />
-        )}
       </div>
     );
   }
@@ -283,8 +236,6 @@ export default function EmployeeManagement() {
     const d = dayjs(joinDate);
     return d.isValid() ? dayjs().diff(d, 'day') : '-';
   };
-
-  const getAvatarUrl = (emp: any) => refreshedAvatars[emp.id] || emp.avatarUrl;
 
   return (
     <div className="erp-page">
@@ -316,7 +267,7 @@ export default function EmployeeManagement() {
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-3 md:grid-cols-7 gap-3 mb-6">
           {STAT_CARDS.map(card => {
             const isActive = activeTab === card.key;
             const activeBg = card.key === 'all' ? 'bg-gray-900' : card.activeColor.split(' ')[0];
@@ -364,10 +315,8 @@ export default function EmployeeManagement() {
                   onClick={() => setExpandedId(isExpanded ? null : emp.id)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left"
                 >
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-900 font-bold text-sm shrink-0 overflow-hidden">
-                    {getAvatarUrl(emp) ? (
-                      <img src={getAvatarUrl(emp)} alt="" className="w-full h-full object-cover" onClick={(e) => { e.stopPropagation(); openAvatarPreview(getAvatarUrl(emp)); }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    ) : emp.name?.charAt(0) || '?'}
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-900 font-bold text-sm shrink-0">
+                    {emp.name?.charAt(0) || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
@@ -472,12 +421,8 @@ export default function EmployeeManagement() {
                   <tr key={emp.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-900 font-bold text-xs shrink-0 overflow-hidden">
-                          {getAvatarUrl(emp) ? (
-                            <button type="button" className="w-full h-full cursor-zoom-in" onClick={() => openAvatarPreview(getAvatarUrl(emp))}>
-                              <img src={getAvatarUrl(emp)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            </button>
-                          ) : emp.name?.charAt(0) || '?'}
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-900 font-bold text-xs shrink-0">
+                          {emp.name?.charAt(0) || '?'}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">

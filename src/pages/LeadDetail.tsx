@@ -12,7 +12,7 @@ import ReceiptFormModal from '@/components/ReceiptFormModal';
 import ExpenseFormModal from '@/components/ExpenseFormModal';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { canViewFinancialData, hasRole, getHighestRole } from '@/store/authStore';
+import { canManageAllCustomers, canViewFinancialData, hasRole, getHighestRole } from '@/store/authStore';
 import { useBizStore } from '@/store/bizStore';
 import { useDialogStore } from '@/store/dialogStore';
 import { useUploadQueueStore } from '@/store/uploadQueueStore';
@@ -39,7 +39,7 @@ import {
 
 const FOLLOW_METHODS = ['电话沟通', '微信沟通', '客户到店', '上门量房', '其他'];
 const LOST_REASONS = ['价格太高', '选择其他公司', '预算不足', '方案不满意', '暂时不需要', '其他'];
-const ROLE_DEPT: Record<string, string> = { admin: '管理组', sales: '销售部', designer: '设计部', manager: '工程部', finance: '财务部', employee: '普通' };
+const ROLE_DEPT: Record<string, string> = { admin: '管理组', operations: '运营', sales: '销售部', designer: '设计部', manager: '工程部', finance: '财务部', employee: '普通' };
 const SOURCE_OPTIONS = ['自然进店', '老介新', '抖音', '自有关系', '其他'];
 const BUDGET_OPTIONS = ['暂无', '10-20万', '20-30万', '30-50万', '50万以上'];
 const REQ_OPTIONS = ['毛坯', '旧改'];
@@ -497,6 +497,7 @@ export default function LeadDetail() {
   const myName = user?.name || '';
   const myId = user?.id || '';
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
+  const canManageAll = canManageAllCustomers(user?.roles, user?.role);
   const canViewFinance = canViewFinancialData(user?.roles, user?.role);
 
   // 移动端检测
@@ -546,7 +547,7 @@ export default function LeadDetail() {
   const [showAllFiles, setShowAllFiles] = useState(true);
   const [lostReason, setLostReason] = useState('');
   const [lostReasonCustom, setLostReasonCustom] = useState('');
-  const isRelated = isAdmin || includesPerson(lead?.sales, myName) || includesPerson(lead?.designer, myName) || includesPerson(lead?.manager, myName) || lead?.creatorName === myName || lead?.signer === myName;
+  const isRelated = canManageAll || includesPerson(lead?.sales, myName) || includesPerson(lead?.designer, myName) || includesPerson(lead?.manager, myName) || lead?.creatorName === myName || lead?.signer === myName;
   const showFullInfo = isRelated || lead?.status === '已签单' || lead?.status === '已流失';
   const canEdit = isRelated;
   const displayName = showFullInfo ? (lead?.name || '') : (lead?.name ? lead.name.charAt(0) + '**' : '');
@@ -1154,7 +1155,7 @@ export default function LeadDetail() {
       operationId: stableOperationId('lead-signed', id, signForm.signDate),
       eventType: 'LEAD_SIGNED',
       actorUserId: myId,
-      recipientRoles: ['admin', 'finance', 'sales', 'designer', 'manager', 'employee'],
+      recipientRoles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'],
       category: 'lead',
       title: '客户签单',
       content: `恭喜签单：${lead?.name || '客户'}，签单人${signForm.signer}`,

@@ -5,7 +5,7 @@ import type { UserRecord } from '@/db/index';
 import { notifyMiniProgramAuthState, returnToMiniProgramAfterLogout } from '@/utils/miniProgramPreview';
 import { clearQueryCache } from '@/db/queryCache';
 
-export type Role = 'admin' | 'finance' | 'sales' | 'designer' | 'manager' | 'employee';
+export type Role = 'admin' | 'finance' | 'operations' | 'sales' | 'designer' | 'manager' | 'employee';
 const LOGIN_TIMEOUT_MS = 10000;
 const ERP_SESSION_KEY = 'pnzj_erp_user';
 const PORTAL_SESSION_KEY = 'pnzj_user';
@@ -73,6 +73,7 @@ function mapSharedRole(user?: SharedPortalUser | null): Role {
   if (!user) return 'employee';
   if (user.accessRole === 'admin' || user.role === 'admin') return 'admin';
   if (user.accessRole === 'finance' || user.role === 'finance') return 'finance';
+  if (user.role === 'operations') return 'operations';
   if (user.role === 'sales') return 'sales';
   if (user.role === 'designer') return 'designer';
   if (user.role === 'manager') return 'manager';
@@ -301,6 +302,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 const ROLE_HIERARCHY: Record<Role, number> = {
   admin: 6,
   finance: 5,
+  operations: 4,
   sales: 4,
   designer: 3,
   manager: 2,
@@ -318,6 +320,10 @@ export function canViewFinancialData(roles: Role[] | undefined, defaultRole?: Ro
   return hasRole(roles, 'admin', defaultRole) || hasRole(roles, 'finance', defaultRole);
 }
 
+export function canManageAllCustomers(roles: Role[] | undefined, defaultRole?: Role): boolean {
+  return hasRole(roles, 'admin', defaultRole) || hasRole(roles, 'operations', defaultRole);
+}
+
 export function getHighestRole(roles: Role[]): Role {
   if (!roles || roles.length === 0) return 'employee';
   return roles.reduce((highest, role) =>
@@ -327,6 +333,7 @@ export function getHighestRole(roles: Role[]): Role {
 export const menuPermissions: Record<Role, string[]> = {
   admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/profile'],
   finance: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/todos', '/notifications', '/profile'],
+  operations: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/materials', '/inventory-records', '/notifications', '/profile'],
   sales: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
   designer: ['/', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/quotes-biz', '/quotation-builder', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
   manager: ['/', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/reimbursement', '/income', '/expense', '/contracts', '/notifications', '/profile'],

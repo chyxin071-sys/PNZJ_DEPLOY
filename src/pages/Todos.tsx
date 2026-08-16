@@ -26,11 +26,11 @@ const PRIORITY_BADGE: Record<string, string> = {
   high: 'bg-red-50 text-red-600', medium: 'bg-orange-50 text-orange-600', low: 'bg-blue-50 text-blue-600',
 };
 const ROLE_DEPT: Record<string, string> = {
-  admin: '管理组', sales: '销售部', designer: '设计部',
+  admin: '管理组', operations: '运营', sales: '销售部', designer: '设计部',
   manager: '工程部', finance: '财务部', employee: '普通',
 };
-const DEPT_ORDER = [ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
-const ROLE_ORDER: Record<string, number> = { sales: 0, designer: 1, manager: 2, finance: 3, admin: 4, employee: 5 };
+const DEPT_ORDER = [ROLE_DEPT.operations, ROLE_DEPT.sales, ROLE_DEPT.designer, ROLE_DEPT.manager, ROLE_DEPT.finance, ROLE_DEPT.admin, ROLE_DEPT.employee];
+const ROLE_ORDER: Record<string, number> = { operations: 0, sales: 1, designer: 2, manager: 3, finance: 4, admin: 5, employee: 6 };
 const RELATED_TYPE_MAP: Record<string, string> = { none: '无', lead: '客户', project: '工地' };
 const TODO_USER_FIELDS = { _id: true, id: true, name: true, role: true, roles: true, department: true, status: true };
 const TODO_LEAD_FIELDS = { _id: true, name: true };
