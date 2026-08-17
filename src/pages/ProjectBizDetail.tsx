@@ -39,6 +39,9 @@ import {
 } from '@/services/notificationService';
 import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
+import { findScheduleConflicts, workersAPI, workerSchedulesAPI } from '@/db/workerScheduleApi';
+import type { Worker, WorkerSchedule, WorkerScheduleStatus } from '@/types/workerSchedule';
+import { scheduleIdOf, workerIdOf } from '@/types/workerSchedule';
 
 const CACHED_URLS = new Map<string, string>();
 const CLOUD_STORAGE_PREFIX = 'cloud://cloud1-8grodf5s3006f004.636c-cloud1-8grodf5s3006f004-1421470557/';
@@ -495,6 +498,13 @@ export default function ProjectBizDetail() {
 
   const [delayReasonModal, setDelayReasonModal] = useState<{open: boolean, nodeId: string, secIdx: number, name: string, reason: string}>({open: false, nodeId: '', secIdx: -1, name: '', reason: ''});
   const [showPlanDateModal, setShowPlanDateModal] = useState<{nodeId: string; secIdx: number; name: string; startDate: string; endDate: string} | null>(null);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [allWorkerSchedules, setAllWorkerSchedules] = useState<WorkerSchedule[]>([]);
+  const [projectWorkerSchedules, setProjectWorkerSchedules] = useState<WorkerSchedule[]>([]);
+  const [showWorkerScheduleModal, setShowWorkerScheduleModal] = useState(false);
+  const [workerScheduleForm, setWorkerScheduleForm] = useState({ workerId: '', startDate: '', endDate: '', status: 'confirmed' as WorkerScheduleStatus, note: '' });
+  const [workerScheduleError, setWorkerScheduleError] = useState('');
+  const [savingWorkerSchedule, setSavingWorkerSchedule] = useState(false);
 
   // 勾选式分享：进入选择模式后，在检查项前显示圆圈直接勾选
   const [shareSelect, setShareSelect] = useState<{ nodeIdx: number; secIdx: number; checked: Record<number, boolean> } | null>(null);
@@ -753,6 +763,19 @@ export default function ProjectBizDetail() {
       .sort((a: any, b: any) => String(a.dueDate || a.createdAt || '').localeCompare(String(b.dueDate || b.createdAt || ''))));
   }, [id]);
 
+  const loadWorkerSchedules = useCallback(async () => {
+    if (!id || id === 'new') return;
+    try {
+      const [workerRows, scheduleRows] = await Promise.all([workersAPI.toArray(), workerSchedulesAPI.toArray()]);
+      setWorkers(workerRows.filter((item: any) => !item._placeholder));
+      const validSchedules = scheduleRows.filter((item: any) => !item._placeholder);
+      setAllWorkerSchedules(validSchedules);
+      setProjectWorkerSchedules(validSchedules.filter((item) => item.projectId === id));
+    } catch (error) {
+      console.warn('[project-worker-schedule] load failed', error);
+    }
+  }, [id]);
+
   const loadQuickReplies = useCallback(async () => {
     try {
       const res = await cloudDB.collection('system_configs').doc('log_quick_replies').get();
@@ -780,7 +803,7 @@ export default function ProjectBizDetail() {
     }
   };
 
-  useEffect(() => { loadProject(true); loadLogsAndInspections(); loadProjectTodos(); loadQuickReplies(); fetchEmployees(); }, [loadProject, loadLogsAndInspections, loadProjectTodos, loadQuickReplies]);
+  useEffect(() => { loadProject(true); loadLogsAndInspections(); loadProjectTodos(); loadWorkerSchedules(); loadQuickReplies(); fetchEmployees(); }, [loadProject, loadLogsAndInspections, loadProjectTodos, loadWorkerSchedules, loadQuickReplies]);
 
   useEffect(() => {
     if (!isStageDetail || !project?.nodesData?.[stageDetailIndex]) return;
@@ -2405,6 +2428,14 @@ export default function ProjectBizDetail() {
   const canManageConstructionStructure = isAdmin && !isProjectCompleted;
   const canCreateProjectTodo = isAdmin || includesPerson(project.manager, myName);
   const canEditProjectInfo = canEdit && !isProjectCompleted;
+  const canShareCustomerProgress = isAdmin
+    || project.creatorName === myName
+    || includesPerson(project.sales, myName)
+    || includesPerson(project.designer, myName)
+    || includesPerson(project.manager, myName)
+    || includesPerson(lead?.sales, myName)
+    || includesPerson(lead?.designer, myName)
+    || includesPerson(lead?.manager, myName);
   const canCompleteTodo = (todo: any) => isAdmin || includesPerson(project.manager, myName) || (todo.assignees || []).some((assignee: any) => assignee.id === user?.id || assignee.name === myName);
   const completionChecks = getCompletionChecks();
   const completionIssueCount = completionChecks.unfinished.length + completionChecks.pendingRectifications.length;
@@ -2422,6 +2453,64 @@ export default function ProjectBizDetail() {
   const selectedStageDateText = selectedStageActualStarts.length > 0
     ? `${String(selectedStageActualStarts[0]).slice(5, 10)} ~ ${selectedStageSummary?.status === 'current' ? '至今' : String(selectedStageActualEnds[selectedStageActualEnds.length - 1] || selectedStageActualStarts[0]).slice(5, 10)}`
     : '尚未开工';
+  const selectedStageId = String(selectedStage?._id || selectedStage?.id || '');
+  const selectedStageWorkerSchedule = projectWorkerSchedules.find((item) => item.stageId === selectedStageId && item.status !== 'cancelled');
+  const selectedStagePlanStarts = selectedStageSections.map((item: any) => item.startDate).filter(Boolean).sort();
+  const selectedStagePlanEnds = selectedStageSections.map((item: any) => item.endDate).filter(Boolean).sort();
+  const canArrangeWorkers = (isAdmin || includesPerson(project.manager, myName)) && !isProjectCompleted;
+  const selectedScheduleWorker = workers.find((item) => workerIdOf(item) === workerScheduleForm.workerId);
+  const workerScheduleConflicts = selectedScheduleWorker
+    ? findScheduleConflicts(selectedScheduleWorker, workerScheduleForm, allWorkerSchedules, selectedStageWorkerSchedule ? scheduleIdOf(selectedStageWorkerSchedule) : undefined)
+    : [];
+  const openWorkerScheduleModal = () => {
+    const fallbackDate = todayDateValue();
+    setWorkerScheduleForm({
+      workerId: selectedStageWorkerSchedule?.workerId || '',
+      startDate: selectedStageWorkerSchedule?.startDate || selectedStagePlanStarts[0] || fallbackDate,
+      endDate: selectedStageWorkerSchedule?.endDate || selectedStagePlanEnds[selectedStagePlanEnds.length - 1] || selectedStagePlanStarts[0] || fallbackDate,
+      status: selectedStageWorkerSchedule?.status || (selectedStageSummary?.status === 'current' ? 'in_progress' : 'confirmed'),
+      note: selectedStageWorkerSchedule?.note || '',
+    });
+    setWorkerScheduleError('');
+    setShowWorkerScheduleModal(true);
+  };
+  const saveStageWorkerSchedule = async () => {
+    const worker = workers.find((item) => workerIdOf(item) === workerScheduleForm.workerId);
+    if (!worker || !selectedStageId || !workerScheduleForm.startDate || !workerScheduleForm.endDate) {
+      setWorkerScheduleError('请选择工人并填写完整排期日期'); return;
+    }
+    if (workerScheduleForm.endDate < workerScheduleForm.startDate) {
+      setWorkerScheduleError('结束日期不能早于开始日期'); return;
+    }
+    if (workerScheduleConflicts.length > 0) {
+      setWorkerScheduleError(`该工人与“${workerScheduleConflicts[0].schedule.projectAddress}”排期冲突`); return;
+    }
+    setSavingWorkerSchedule(true);
+    const now = new Date().toISOString();
+    const payload = {
+      workerId: workerIdOf(worker), workerName: worker.name,
+      projectId: String(project._id || id), projectAddress: project.address || '未填写地址', customerName: project.customer || '',
+      stageId: selectedStageId, stageName: selectedStage?.name || '施工阶段', trade: selectedStage?.name || worker.trades[0] || '其他',
+      startDate: workerScheduleForm.startDate, endDate: workerScheduleForm.endDate, status: workerScheduleForm.status, note: workerScheduleForm.note,
+      createdBy: myName, createdAt: selectedStageWorkerSchedule?.createdAt || now, updatedAt: now,
+    };
+    try {
+      if (selectedStageWorkerSchedule) await workerSchedulesAPI.update(scheduleIdOf(selectedStageWorkerSchedule), payload);
+      else await workerSchedulesAPI.add(payload);
+      setShowWorkerScheduleModal(false);
+      await loadWorkerSchedules();
+    } catch (error) {
+      console.error(error); setWorkerScheduleError('工人排期保存失败，请稍后重试');
+    } finally { setSavingWorkerSchedule(false); }
+  };
+  const removeStageWorkerSchedule = async () => {
+    if (!selectedStageWorkerSchedule) return;
+    const confirmed = await confirmUser('删除后，该阶段会恢复为待安排状态。', { title: '确定删除工人排期？', confirmStyle: 'danger' });
+    if (!confirmed) return;
+    await workerSchedulesAPI.delete(scheduleIdOf(selectedStageWorkerSchedule));
+    setShowWorkerScheduleModal(false);
+    await loadWorkerSchedules();
+  };
   const projectDuration = getPlanDays(project.startDate, project.endDate);
   const followPeople = [
     { label: '销售', value: toPersonArray(project.sales).join('、') || toPersonArray(lead?.sales).join('、') || '-' },
@@ -2526,6 +2615,7 @@ export default function ProjectBizDetail() {
     action.onClick();
   };
   const handleShareProject = async () => {
+    if (!canShareCustomerProgress) return;
     await openCustomerShare({
       id: String(project._id || id),
       title: getProjectShareTitle(),
@@ -2534,6 +2624,7 @@ export default function ProjectBizDetail() {
   };
 
   const handleShareCraft = async (majorIdx: number, nodeName?: string) => {
+    if (!canShareCustomerProgress) return;
     await openCustomerShare({
       id: String(project._id || id),
       title: `[品诺筑家] 客户须知：${nodeName || '工艺标准'}`,
@@ -2547,6 +2638,7 @@ export default function ProjectBizDetail() {
   const subHasPhoto = (sn: any) => !!(sn?.acceptanceRecord?.photos && sn.acceptanceRecord.photos.length > 0);
 
   const enterShareSelect = (nodeIdx: number, secIdx: number, section: any) => {
+    if (!canShareCustomerProgress) return;
     const checked: Record<number, boolean> = {};
     let any = false;
     (section.subNodes || []).forEach((sn: any, idx: number) => {
@@ -2561,7 +2653,7 @@ export default function ProjectBizDetail() {
   };
 
   const confirmShareSelect = async () => {
-    if (!shareSelect) return;
+    if (!shareSelect || !canShareCustomerProgress) return;
     const selected = Object.keys(shareSelect.checked).filter(k => shareSelect.checked[+k]).map(Number);
     if (selected.length === 0) { alert('请至少选择1个检查项'); return; }
     await openCustomerShare({
@@ -2667,13 +2759,15 @@ export default function ProjectBizDetail() {
                     <span className="hidden md:inline">{editMode ? '保存资料' : '编辑资料'}</span>
                   </button>
                 )}
-                <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享" aria-label="分享">
-                  <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
-                </button>
+                {canShareCustomerProgress && (
+                  <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
+                    <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
+                  </button>
+                )}
               </>
             )}
-            {!canEdit && (
-              <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享" aria-label="分享">
+            {!canEdit && canShareCustomerProgress && (
+              <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
                 <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
               </button>
             )}
@@ -3036,6 +3130,18 @@ export default function ProjectBizDetail() {
         {/* ========== Tab: 施工进度 ========== */}
         {activeTab === 'site' && (
           <div className="relative space-y-4 rounded-xl">
+            {isStageDetail && (
+              <div className="flex items-center justify-between gap-3 border-y border-gray-200 bg-white px-3 py-3 md:rounded-lg md:border md:px-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selectedStageWorkerSchedule ? 'bg-gold-50 text-gold-600' : 'bg-gray-100 text-gray-400'}`}><Users size={17} /></span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2"><span className="text-xs text-gray-400">施工工人</span>{selectedStageWorkerSchedule && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">已排期</span>}</div>
+                    {selectedStageWorkerSchedule ? <><div className="mt-0.5 truncate text-sm font-medium text-gray-900">{selectedStageWorkerSchedule.workerName}</div><div className="mt-0.5 text-[11px] text-gray-500">{String(selectedStageWorkerSchedule.startDate).slice(5)} 至 {String(selectedStageWorkerSchedule.endDate).slice(5)}{workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.phone ? ` · ${workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.phone}` : ''}</div></> : <div className="mt-0.5 text-sm text-gray-500">暂未安排工人</div>}
+                  </div>
+                </div>
+                {canArrangeWorkers ? <button onClick={openWorkerScheduleModal} className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:border-gold-300 hover:text-gold-600" title={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'} aria-label={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}>{selectedStageWorkerSchedule ? <Edit3 size={16} /> : <Plus size={16} />}</button> : <button onClick={() => navigate('/worker-schedule')} className="shrink-0 text-xs font-medium text-gold-600">查看排期</button>}
+              </div>
+            )}
             {!isStageDetail && projectTodos.length > 0 && (
               <div className="hidden overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm md:block">
                 <div className="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-4 py-3">
@@ -3408,14 +3514,14 @@ export default function ProjectBizDetail() {
                                     </div>
                                   ))}
                                 </div>
-                                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+                                {canShareCustomerProgress && <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                                   <button
                                     onClick={() => handleShareCraft(index, node.name)}
                                     className="flex items-center gap-1 rounded-lg border border-gray-900 bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white"
                                   >
                                     <Share2 className="w-3 h-3" /> 分享给客户
                                   </button>
-                                </div>
+                                </div>}
                               </details>
                             )}
 
@@ -3627,13 +3733,13 @@ export default function ProjectBizDetail() {
                                           <Plus className="h-4 w-4" /> 新增检查项
                                         </button>
                                       )}
-                                      {canManageConstruction && !isEditingNodes && (
+                                      {(canManageConstruction || canShareCustomerProgress) && !isEditingNodes && (
                                         <div className="space-y-2 pt-1">
                                           {latestEditTime && (
                                             <div className="text-right text-[11px] text-gray-400">最近编辑：{latestEditTime}</div>
                                           )}
                                           <div className="grid grid-cols-2 gap-2">
-                                            {isSecCurrent && (
+                                            {canManageConstruction && isSecCurrent && (
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
@@ -3642,7 +3748,7 @@ export default function ProjectBizDetail() {
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                               </button>
                                             )}
-                                            {isSecCompleted && isEditingRecord && (
+                                            {canManageConstruction && isSecCompleted && isEditingRecord && (
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
@@ -3651,7 +3757,7 @@ export default function ProjectBizDetail() {
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                               </button>
                                             )}
-                                            {isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
+                                            {canManageConstruction && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                               <button
                                                 onClick={() => startEditingSectionRecord(node._id, secIdx)}
                                                 className="rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-700"
@@ -3660,7 +3766,7 @@ export default function ProjectBizDetail() {
                                               </button>
                                             )}
                                             {/* 开工后任意时刻均可分享，不要求阶段已完工 */}
-                                            {!isSecPending && !isEditingRecord && (
+                                            {canShareCustomerProgress && !isSecPending && !isEditingRecord && (
                                               shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx ? (
                                                 <div className="col-span-2 flex gap-2">
                                                   <button
@@ -4019,7 +4125,7 @@ export default function ProjectBizDetail() {
                                   </div>
                                 ))}
                               </div>
-                              <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                              {canShareCustomerProgress && <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
                                 <button
                                   onClick={() => handleShareCraft(index, node.name)}
                                   className="flex items-center gap-1.5 rounded-lg border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
@@ -4027,7 +4133,7 @@ export default function ProjectBizDetail() {
                                   <Share2 className="w-3.5 h-3.5" />
                                   分享给客户
                                 </button>
-                              </div>
+                              </div>}
                             </details>
                           )}
 
@@ -4255,11 +4361,11 @@ export default function ProjectBizDetail() {
                                         <div className="rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
                                       )
                                     )}
-                {canManageConstruction && (
+                {(canManageConstruction || canShareCustomerProgress) && (
                                       <div className="space-y-2">
                                         {latestEditTime && <div className="text-right text-xs text-gray-400">最近编辑：{latestEditTime}</div>}
                                         <div className="flex justify-end gap-2">
-                                          {isSecPending && !section.submitted && !section.actualStartDate && (
+                                          {canManageConstruction && isSecPending && !section.submitted && !section.actualStartDate && (
                                             <button
                                               type="button"
                                               onClick={() => setShowPlanDateModal({
@@ -4274,29 +4380,29 @@ export default function ProjectBizDetail() {
                                               {section.startDate || section.endDate ? '修改计划时间' : '设置计划时间'}
                                             </button>
                                           )}
-                                          {isSecPending && !section.submitted && (
+                                          {canManageConstruction && isSecPending && !section.submitted && (
                                             <button onClick={() => startSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`start-${node._id}-${secIdx}`)}
                                               className="rounded-lg border border-gold-500 px-4 py-2 text-xs font-medium text-gold-600 hover:bg-gold-50 disabled:opacity-50">
                                               {isProjectActionBusy(`start-${node._id}-${secIdx}`) ? '处理中...' : '开工'}
                                             </button>
                                           )}
-                                          {isSecCurrent && (
+                                          {canManageConstruction && isSecCurrent && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
                                               className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                             </button>
                                           )}
-                                          {isSecCompleted && isEditingRecord && (
+                                          {canManageConstruction && isSecCompleted && isEditingRecord && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
                                               className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                             </button>
                                           )}
-                                          {isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
+                                          {canManageConstruction && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                             <button onClick={() => startEditingSectionRecord(node._id, secIdx)} className="rounded-lg bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700">编辑记录</button>
                                           )}
                                           {/* 开工后任意时刻均可分享，不要求阶段已完工 */}
-                                          {!isSecPending && !isEditingRecord && (
+                                          {canShareCustomerProgress && !isSecPending && !isEditingRecord && (
                                             shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx ? (
                                               <div className="flex gap-1.5 w-full">
                                                 <button onClick={() => toggleShareSelectAll(section)} className={`flex-none rounded-lg px-3 py-2 text-[11px] font-medium transition-colors ${isAllShareSelected(section) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>全选</button>
@@ -4424,7 +4530,7 @@ export default function ProjectBizDetail() {
                             <button type="button" onClick={() => void handleDeleteLog(log)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="删除日志"><Trash2 size={14} /></button>
                           </div>
                         )}
-                        {log.visibleToCustomer !== false && (
+                        {canShareCustomerProgress && log.visibleToCustomer !== false && (
                           <button
                             onClick={() => openCustomerShare({
                               id: String(project._id || id),
@@ -5509,6 +5615,41 @@ export default function ProjectBizDetail() {
               >
                 保存
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showWorkerScheduleModal && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-5" onClick={() => setShowWorkerScheduleModal(false)}>
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div><h3 className="text-base font-semibold text-gray-900">{selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}</h3><p className="mt-1 text-xs text-gray-400">{selectedStage?.name} · {project.address}</p></div>
+              <button onClick={() => setShowWorkerScheduleModal(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" aria-label="关闭"><X size={17} /></button>
+            </div>
+            <div className="space-y-4 p-5">
+              {workers.length === 0 ? (
+                <div className="rounded-lg bg-gray-50 p-4 text-center"><p className="text-sm text-gray-500">还没有工人资料</p><button onClick={() => navigate('/worker-schedule')} className="mt-2 text-xs font-medium text-gold-600">前往工人排期新增</button></div>
+              ) : (
+                <label className="block text-xs text-gray-500">工人 *
+                  <Select value={workerScheduleForm.workerId} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, workerId: value }))} options={workers.filter((worker) => worker.status !== 'inactive').map((worker) => ({ value: workerIdOf(worker), label: worker.name, description: worker.trades.join('/') }))} placeholder="请选择工人" searchable className="mt-1" sheetTitle="选择工人" />
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs text-gray-500">开始日期<DatePicker value={workerScheduleForm.startDate} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, startDate: value }))} className="mt-1" /></label>
+                <label className="text-xs text-gray-500">结束日期<DatePicker value={workerScheduleForm.endDate} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, endDate: value }))} className="mt-1" /></label>
+              </div>
+              <label className="block text-xs text-gray-500">状态
+                <Select value={workerScheduleForm.status} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, status: value as WorkerScheduleStatus }))} options={[{ value: 'planned', label: '待确认' }, { value: 'confirmed', label: '已排期' }, { value: 'in_progress', label: '施工中' }, { value: 'completed', label: '已完成' }]} className="mt-1" sheetTitle="选择排期状态" />
+              </label>
+              <label className="block text-xs text-gray-500">备注<textarea value={workerScheduleForm.note} onChange={(event) => setWorkerScheduleForm((current) => ({ ...current, note: event.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
+              {workerScheduleConflicts.length > 0 && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{workerScheduleConflicts[0].schedule.projectAddress}，{String(workerScheduleConflicts[0].schedule.startDate).slice(5)} 至 {String(workerScheduleConflicts[0].schedule.endDate).slice(5)}</p></div>}
+              {workerScheduleError && <p className="text-xs text-red-500">{workerScheduleError}</p>}
+              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                <div>{selectedStageWorkerSchedule && <button onClick={() => void removeStageWorkerSchedule()} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={14} />删除排期</button>}</div>
+                <div className="flex gap-2"><button onClick={() => setShowWorkerScheduleModal(false)} className="erp-btn-secondary">取消</button><button disabled={savingWorkerSchedule || workerScheduleConflicts.length > 0 || workers.length === 0} onClick={() => void saveStageWorkerSchedule()} className="erp-btn-primary">保存排期</button></div>
+              </div>
             </div>
           </div>
         </div>,

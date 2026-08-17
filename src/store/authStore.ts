@@ -437,11 +437,11 @@ export function getHighestRole(roles: Role[]): Role {
 }
 
 export const menuPermissions: Record<Role, string[]> = {
-  admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/profile'],
+  admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/worker-schedule', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/profile'],
   finance: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/todos', '/notifications', '/profile'],
   operations: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/materials', '/inventory-records', '/notifications', '/profile'],
   sales: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
   designer: ['/', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/quotes-biz', '/quotation-builder', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
-  manager: ['/', '/signed-contracts', '/todos', '/projects-biz', '/template-library', '/materials', '/inventory-records', '/reimbursement', '/income', '/expense', '/contracts', '/notifications', '/profile'],
+  manager: ['/', '/signed-contracts', '/todos', '/projects-biz', '/worker-schedule', '/template-library', '/materials', '/inventory-records', '/reimbursement', '/income', '/expense', '/contracts', '/notifications', '/profile'],
   employee: ['/', '/leads', '/signed-contracts', '/projects-biz', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],
 };

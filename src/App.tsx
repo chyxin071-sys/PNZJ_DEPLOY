@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useFinanceStore, type FinanceDataset } from '@/store/financeStore';
 import { useAuthStore, menuPermissions, canViewFinancialData, normalizeRoles } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -13,14 +13,8 @@ import {
   buildWechatAccountLinkMessage,
   buildWechatRebindMessage,
   isWechatBridgeAvailable,
-  needsWechatSubscriptionAuthorization,
 } from '@/services/wechatBridge';
 import { useDialogStore } from '@/store/dialogStore';
-import {
-  hasOpenedWechatSubscriptionThisSession,
-  openNativeSubscriptionSettings,
-} from '@/utils/miniProgramPreview';
-import { WECHAT_SUBSCRIPTION_NEEDED_EVENT } from '@/services/notificationService';
 
 const LoginPage = lazy(() => import('@/pages/Login'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
@@ -41,6 +35,7 @@ const LeadDetail = lazy(() => import('@/pages/LeadDetail'));
 const SignedContracts = lazy(() => import('@/pages/SignedContracts'));
 const Todos = lazy(() => import('@/pages/Todos'));
 const ProjectsBiz = lazy(() => import('@/pages/ProjectsBiz'));
+const WorkerSchedule = lazy(() => import('@/pages/WorkerSchedule'));
 const ProjectBizDetail = lazy(() => import('@/pages/ProjectBizDetail'));
 const ProjectShareAccess = lazy(() => import('@/pages/ProjectShareAccess'));
 const TemplateLibrary = lazy(() => import('@/pages/TemplateLibrary'));
@@ -55,9 +50,6 @@ const InventoryRecords = lazy(() => import('@/pages/InventoryRecords'));
 const Profile = lazy(() => import('@/pages/Profile'));
 
 const INIT_TIMEOUT_MS = 25000;
-const SUBSCRIPTION_LOGIN_PROMPT_KEY = 'pnzj:wechat-subscription-login-prompt';
-const SUBSCRIPTION_OPERATION_PROMPT_KEY = 'pnzj:wechat-subscription-operation-prompt';
-
 function withTimeout<T>(promise: Promise<T>, message: string, timeout = INIT_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(message)), timeout);
@@ -190,44 +182,9 @@ function AppInit() {
   const location = useLocation();
   const loadNotifications = useNotificationStore((s) => s.loadNotifications);
   const resetFinance = useFinanceStore((s) => s.reset);
-  const { showAlert, showConfirm } = useDialogStore();
+  const { showConfirm, showAlert } = useDialogStore();
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
-  const subscriptionPromptBusy = useRef(false);
-
-  const promptForWechatSubscription = useCallback(async (source: 'login' | 'operation') => {
-    if (!cloudReady || !isLoggedIn || !user?.id || !isWechatBridgeAvailable()) return;
-    if (!needsWechatSubscriptionAuthorization(user.id)) return;
-    if (subscriptionPromptBusy.current || hasOpenedWechatSubscriptionThisSession()) return;
-
-    const storageKey = source === 'login'
-      ? `${SUBSCRIPTION_LOGIN_PROMPT_KEY}:${user.id}`
-      : `${SUBSCRIPTION_OPERATION_PROMPT_KEY}:${user.id}`;
-    if (window.sessionStorage.getItem(storageKey) === '1') return;
-
-    window.sessionStorage.setItem(storageKey, '1');
-    subscriptionPromptBusy.current = true;
-    try {
-      const confirmed = await showConfirm(
-        source === 'login'
-          ? '开启后，你可以在微信中收到与自己相关的项目进度、待办整改和客户查看工地申请提醒。'
-          : '这项操作会产生业务通知。为了确保你也能收到与自己相关的后续提醒，是否现在补充微信授权？',
-        {
-          title: '开启微信通知',
-          confirmText: '去授权',
-          cancelText: source === 'login' ? '稍后' : '暂不',
-        },
-      );
-      if (!confirmed) return;
-      if (!openNativeSubscriptionSettings(user.id)) {
-        window.sessionStorage.removeItem(storageKey);
-        await showAlert('请在新版微信小程序内打开并授权微信通知。', { title: '无法打开微信通知' });
-      }
-    } finally {
-      subscriptionPromptBusy.current = false;
-    }
-  }, [cloudReady, isLoggedIn, showAlert, showConfirm, user?.id]);
-
   useEffect(() => {
     document.title = '品诺筑家整装';
     let favicon = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
@@ -376,9 +333,6 @@ function AppInit() {
               console.warn('[wechat-binding]', linkedResult.code, linkedResult.message);
               return;
             }
-            if (linkedResult.needsSubscriptionAuthorization !== false) {
-              await promptForWechatSubscription('login');
-            }
           }
           return;
         }
@@ -386,20 +340,25 @@ function AppInit() {
           console.warn('[wechat-binding]', result.code, result.message);
           return;
         }
-        if (result.success && result.needsSubscriptionAuthorization !== false) {
-          await promptForWechatSubscription('login');
-        }
       })
       .catch((error) => console.error('[wechat-binding] failed', error));
-  }, [cloudReady, isLoggedIn, promptForWechatSubscription, showConfirm, user?.id]);
+  }, [cloudReady, isLoggedIn, showConfirm, user?.id]);
 
   useEffect(() => {
-    const handleSubscriptionNeeded = () => {
-      void promptForWechatSubscription('operation');
+    if (!user?.id || !isWechatBridgeAvailable()) return;
+    const refreshAfterNativePage = () => {
+      if (document.visibilityState !== 'visible') return;
+      void bindCurrentUserToWechat(user.id).catch((error) => {
+        console.warn('[wechat-subscription] failed to refresh after native authorization', error);
+      });
     };
-    window.addEventListener(WECHAT_SUBSCRIPTION_NEEDED_EVENT, handleSubscriptionNeeded);
-    return () => window.removeEventListener(WECHAT_SUBSCRIPTION_NEEDED_EVENT, handleSubscriptionNeeded);
-  }, [promptForWechatSubscription]);
+    document.addEventListener('visibilitychange', refreshAfterNativePage);
+    window.addEventListener('pageshow', refreshAfterNativePage);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshAfterNativePage);
+      window.removeEventListener('pageshow', refreshAfterNativePage);
+    };
+  }, [user?.id]);
 
   if (cloudError) {
     return (
@@ -467,6 +426,7 @@ function AppInit() {
         <Route path="/signed-contracts" element={<SignedContracts />} />
         <Route path="/todos" element={<Todos />} />
         <Route path="/projects-biz" element={<ProjectsBiz />} />
+        <Route path="/worker-schedule" element={<WorkerSchedule />} />
         <Route path="/projects-biz/:id/share-access" element={<ProjectShareAccess />} />
         <Route path="/projects-biz/:id" element={<ProjectBizDetail />} />
         <Route path="/projects-biz/:id/:section" element={<ProjectBizDetail />} />

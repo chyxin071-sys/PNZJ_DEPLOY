@@ -1054,6 +1054,20 @@ export default function ProjectsBiz() {
         })}
       </div>
 
+      {(isAdmin || user?.role === 'manager' || user?.roles?.includes('manager')) && (
+        <button
+          type="button"
+          onClick={() => navigate('/worker-schedule')}
+          className="mb-4 flex w-full items-center justify-between border-y border-gray-200 bg-white px-3 py-3 text-left transition-colors hover:bg-gray-50 md:rounded-lg md:border"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold-50 text-gold-600"><Calendar size={17} /></span>
+            <div className="min-w-0"><div className="text-sm font-medium text-gray-900">工人排期</div><div className="mt-0.5 truncate text-xs text-gray-400">查看班组档期、安排施工阶段与处理排期冲突</div></div>
+          </div>
+          <ChevronRight size={17} className="shrink-0 text-gray-400" />
+        </button>
+      )}
+
       <div className="erp-surface overflow-visible">
         <div className="erp-search-row erp-search-row-compact">
             <div className="erp-search-field">

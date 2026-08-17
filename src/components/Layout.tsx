@@ -56,6 +56,7 @@ function getMobileRouteState(pathname: string) {
   if (pathname.startsWith('/leads/')) return { title: '客户详情', canBack: true, backPath: '/leads', showBottomTab: true };
   if (pathname === '/signed-contracts') return { title: '签单管理', canBack: false, backPath: '', showBottomTab: true };
   if (pathname === '/projects-biz') return { title: '工地', canBack: false, backPath: '', showBottomTab: true };
+  if (pathname === '/worker-schedule') return { title: '工人排期', canBack: true, backPath: '/projects-biz', showBottomTab: true };
   if (pathname.startsWith('/projects-biz/')) return { title: '工地详情', canBack: true, backPath: '/projects-biz', showBottomTab: true };
   if (pathname === '/todos') return { title: '待办', canBack: false, backPath: '', showBottomTab: true };
   if (pathname === '/notifications') return { title: '消息', canBack: false, backPath: '', showBottomTab: true };

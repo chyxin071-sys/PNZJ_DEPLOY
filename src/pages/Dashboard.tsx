@@ -7,12 +7,14 @@ import {
   CheckCircle2, Package, PenTool, HardHat, Grid3X3,
 } from 'lucide-react';
 import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI, contractsAPI, receiptsAPI, systemConfigsAPI } from '@/db/api';
+import { workerSchedulesAPI } from '@/db/workerScheduleApi';
 import { canManageAllCustomers, useAuthStore } from '@/store/authStore';
 import { useBizStore } from '@/store/bizStore';
 import { getErpVisibleNavGroups, getErpVisibleBottomItems } from '@/components/navConfig';
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import Tooltip from '@/components/Tooltip';
+import type { WorkerSchedule } from '@/types/workerSchedule';
 
 const GROUP_TONE: Record<string, string> = {
   '业务中心': 'bg-blue-50 text-blue-600',
@@ -73,6 +75,9 @@ export default function Dashboard() {
   const canOpenFinanceReports = isAdmin
     || role === 'finance'
     || (Array.isArray(roles) && (roles.includes('admin') || roles.includes('finance')));
+  const canViewWorkerSchedule = isAdmin
+    || role === 'manager'
+    || (Array.isArray(roles) && (roles.includes('admin') || roles.includes('manager')));
   const myName = user?.name || '';
   const ROLE_MAP: Record<string, string> = { admin: '管理', operations: '运营', sales: '销售', designer: '设计', manager: '项目经理', finance: '财务', employee: '普通' };
   const includesPerson = (val: any, name: string): boolean => {
@@ -101,6 +106,7 @@ export default function Dashboard() {
   const [projectLogs, setProjectLogs] = useState<any[]>([]);
   const [financeContracts, setFinanceContracts] = useState<any[]>([]);
   const [financeReceipts, setFinanceReceipts] = useState<any[]>([]);
+  const [workerSchedules, setWorkerSchedules] = useState<WorkerSchedule[]>([]);
   const [financeTargets, setFinanceTargets] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
   const [financeTargetForm, setFinanceTargetForm] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
   const [loading, setLoading] = useState(false);
@@ -135,12 +141,13 @@ export default function Dashboard() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [[leadsRes, todosRes, projectsRes, employeesRes], [contractsRes, receiptsRes]] = await Promise.all([
+      const [[leadsRes, todosRes, projectsRes, employeesRes, workerScheduleRows], [contractsRes, receiptsRes]] = await Promise.all([
         Promise.all([
           leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
           todosAPI.toArray(DASHBOARD_TODO_FIELDS),
           projectsAPI.toArray(DASHBOARD_PROJECT_FIELDS),
           usersAPI.toArray(DASHBOARD_USER_FIELDS),
+          canViewWorkerSchedule ? workerSchedulesAPI.toArray().catch(() => []) : Promise.resolve([]),
         ]),
         canOpenFinanceReports
           ? Promise.all([contractsAPI.toArray(), receiptsAPI.toArray()])
@@ -148,6 +155,7 @@ export default function Dashboard() {
       ]);
       setLeads(leadsRes); setTodos(todosRes); setProjects(projectsRes);
       setEmployees(employeesRes);
+      setWorkerSchedules(workerScheduleRows.filter((item: any) => !item._placeholder));
       setFinanceContracts(contractsRes);
       setFinanceReceipts(receiptsRes);
 
@@ -169,7 +177,7 @@ export default function Dashboard() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [canOpenFinanceReports]);
+  }, [canOpenFinanceReports, canViewWorkerSchedule]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { loadFinanceTargets(); }, [loadFinanceTargets]);
@@ -374,6 +382,20 @@ export default function Dashboard() {
 
   // 本月/本周新增
   const now = new Date();
+  const toLocalDateValue = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const scheduleToday = toLocalDateValue(now);
+  const scheduleWindowEndDate = new Date(now);
+  scheduleWindowEndDate.setDate(scheduleWindowEndDate.getDate() + 7);
+  const scheduleWindowEnd = toLocalDateValue(scheduleWindowEndDate);
+  const upcomingWorkerSchedules = workerSchedules
+    .filter((item) => !['completed', 'cancelled'].includes(item.status) && item.endDate >= scheduleToday && item.startDate <= scheduleWindowEnd)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.workerName.localeCompare(b.workerName));
+  const activeWorkerScheduleCount = upcomingWorkerSchedules.filter((item) => item.status === 'in_progress').length;
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthLeads = leads.filter(l => {
     if (!canViewAllCustomers && l.creatorName !== myName && !includesPerson(l.sales, myName) && !includesPerson(l.designer, myName) && !includesPerson(l.manager, myName)) return false;
@@ -832,6 +854,52 @@ export default function Dashboard() {
           })}
         </div>
       </section>
+
+      {canViewWorkerSchedule && (
+        <button
+          type="button"
+          onClick={() => navigate('/worker-schedule')}
+          className="block w-full overflow-hidden rounded-xl border border-gray-100 bg-white text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900">工人排期</h3>
+              <p className="mt-0.5 text-[11px] text-gray-400">未来 7 天 · {upcomingWorkerSchedules.length} 项安排 · {activeWorkerScheduleCount} 项进行中</p>
+            </div>
+            <span className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-amber-700">
+              查看排期 <ChevronRight size={14} />
+            </span>
+          </div>
+          {upcomingWorkerSchedules.length === 0 ? (
+            <div className="px-4 py-6 text-center text-sm text-gray-400">未来 7 天暂无进场安排</div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {upcomingWorkerSchedules.slice(0, 4).map((item) => (
+                <div
+                  key={String(item._id || item.id)}
+                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:grid-cols-[140px_minmax(180px,1fr)_120px_130px]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-gray-900">{item.workerName}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-gray-400 md:hidden">{item.projectAddress}</p>
+                  </div>
+                  <div className="hidden min-w-0 md:block">
+                    <p className="truncate text-sm text-gray-700">{item.projectAddress}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-gray-400">{item.customerName || '未填写客户'}</p>
+                  </div>
+                  <span className="hidden truncate text-sm text-gray-600 md:block">{item.stageName}</span>
+                  <div className="text-right">
+                    <p className="text-xs font-medium text-gray-700">{item.startDate.slice(5)} 至 {item.endDate.slice(5)}</p>
+                    <p className={`mt-1 text-[11px] ${item.status === 'in_progress' ? 'text-amber-600' : 'text-blue-600'}`}>
+                      {item.status === 'in_progress' ? '施工中' : item.status === 'confirmed' ? '已确认' : '待确认'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </button>
+      )}
 
       {canOpenFinanceReports && <section>
         <div className="mb-2 flex items-center justify-between">

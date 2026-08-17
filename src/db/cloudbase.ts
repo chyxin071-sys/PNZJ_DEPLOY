@@ -110,12 +110,14 @@ export const COLLECTIONS = {
   inventory_records: 'inventory_records',
   projectLogs: 'project_logs',
   projectInspections: 'project_inspections',
+  workers: 'erp_workers',
+  workerSchedules: 'erp_worker_schedules',
   system_configs: 'system_configs',
 } as const;
 
 // 确保所有集合存在（写入一条测试数据触发自动建表，再删除）
-export async function ensureCollections() {
-  const names = Object.values(COLLECTIONS);
+export async function ensureCollections(collectionNames: readonly string[] = Object.values(COLLECTIONS)) {
+  const names = collectionNames;
   for (const name of names) {
     try {
       const { total } = await cloudDB.collection(name).count();

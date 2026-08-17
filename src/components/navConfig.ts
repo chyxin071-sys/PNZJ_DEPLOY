@@ -18,6 +18,7 @@ import {
   Package,
   Settings,
   LayoutTemplate,
+  CalendarRange,
 } from 'lucide-react';
 import type { BizType } from '@/types';
 import type { Role } from '@/store/authStore';
@@ -51,6 +52,7 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
       { path: '/leads', icon: Users, label: '客户管理', roles: ['admin', 'operations', 'sales', 'designer', 'manager', 'employee'] },
       { path: '/contracts', icon: FileText, label: '合同管理', roles: ['admin', 'finance'] },
       { path: '/projects-biz', icon: HardHat, label: '工地管理', roles: ['admin', 'operations', 'sales', 'designer', 'manager', 'employee'] },
+      { path: '/worker-schedule', icon: CalendarRange, label: '工人排期', roles: ['admin', 'manager'] },
       { path: '/materials', icon: Package, label: '库存管理', roles: ['admin', 'manager'] },
     ],
   },
