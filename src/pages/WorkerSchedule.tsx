@@ -10,6 +10,7 @@ import { findScheduleConflicts, workersAPI, workerSchedulesAPI } from '@/db/work
 import { useAuthStore } from '@/store/authStore';
 import type { Worker, WorkerSchedule, WorkerScheduleStatus, WorkerStatus } from '@/types/workerSchedule';
 import { scheduleIdOf, workerIdOf, WORKER_TRADES } from '@/types/workerSchedule';
+import { buildProjectProgressSummary } from '@/utils/projectProgress';
 
 const DAY_MS = 86_400_000;
 const STATUS_LABEL: Record<WorkerScheduleStatus, string> = {
@@ -41,6 +42,30 @@ const daysBetween = (start: string, end: string) => Math.max(1, Math.round((pars
 const formatShortDate = (value: string) => value ? `${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日` : '-';
 const recordId = (value: { _id?: string; id?: string }) => String(value._id || value.id || '');
 
+type ScheduleFilter = 'all' | 'upcoming' | 'in_progress';
+type BacklogFilter = 'ready' | 'overdue' | 'all';
+type UnassignedStage = {
+  project: any;
+  projectId: string;
+  projectAddress: string;
+  stage: any;
+  stageId: string;
+  stageName: string;
+  trade: string;
+  startDate: string;
+  endDate: string;
+  hasPlanDate: boolean;
+  readiness: 'ready' | 'overdue' | 'upcoming';
+};
+
+const stageDates = (stage: any) => {
+  const starts = (stage?.sections || []).map((item: any) => item.startDate).filter(Boolean).sort();
+  const ends = (stage?.sections || []).map((item: any) => item.endDate).filter(Boolean).sort();
+  return { startDate: starts[0] || '', endDate: ends.at(-1) || starts[0] || '' };
+};
+
+const inferTrade = (stageName: string) => WORKER_TRADES.find((trade) => stageName.includes(trade)) || '其他';
+
 const emptyWorker = (): Omit<Worker, '_id' | 'id'> => ({
   name: '', phone: '', trades: [], maxConcurrent: 1, status: 'available', note: '',
   createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -58,6 +83,10 @@ export default function WorkerSchedulePage() {
   const [viewDays, setViewDays] = useState<7 | 14 | 30>(14);
   const [search, setSearch] = useState('');
   const [tradeFilter, setTradeFilter] = useState('');
+  const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('all');
+  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [backlogFilter, setBacklogFilter] = useState<BacklogFilter>('ready');
+  const [preserveScheduleDates, setPreserveScheduleDates] = useState(false);
   const [workerEditorOpen, setWorkerEditorOpen] = useState(false);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
@@ -89,7 +118,12 @@ export default function WorkerSchedulePage() {
   const dates = useMemo(() => Array.from({ length: viewDays }, (_, index) => addDays(anchorDate, index)), [anchorDate, viewDays]);
   const rangeStart = toDateKey(dates[0]);
   const rangeEnd = toDateKey(dates[dates.length - 1]);
-  const activeSchedules = useMemo(() => schedules.filter((item) => item.status !== 'cancelled' && item.startDate <= rangeEnd && item.endDate >= rangeStart), [schedules, rangeEnd, rangeStart]);
+  const activeSchedules = useMemo(() => schedules.filter((item) => {
+    if (item.status === 'cancelled' || item.startDate > rangeEnd || item.endDate < rangeStart) return false;
+    if (scheduleFilter === 'in_progress') return item.status === 'in_progress';
+    if (scheduleFilter === 'upcoming') return item.startDate >= toDateKey(new Date()) && item.startDate <= toDateKey(addDays(new Date(), 7));
+    return true;
+  }), [schedules, rangeEnd, rangeStart, scheduleFilter]);
   const visibleWorkers = useMemo(() => workers
     .filter((worker) => worker.status !== 'inactive')
     .filter((worker) => !tradeFilter || worker.trades.includes(tradeFilter))
@@ -99,11 +133,34 @@ export default function WorkerSchedulePage() {
   const today = toDateKey(new Date());
   const upcomingCount = schedules.filter((item) => item.status !== 'cancelled' && item.startDate >= today && item.startDate <= toDateKey(addDays(new Date(), 7))).length;
   const inProgressCount = schedules.filter((item) => item.status === 'in_progress').length;
-  const unassignedStages = projects.reduce((total, project) => total + (project.nodesData || []).filter((stage: any) => {
-    const sections = stage.sections || [];
-    const planned = sections.some((section: any) => section.startDate || section.endDate);
-    return planned && !schedules.some((item) => item.projectId === recordId(project) && item.stageId === String(stage._id || stage.id));
-  }).length, 0);
+  const unassignedStages = useMemo<UnassignedStage[]>(() => {
+    const horizon = toDateKey(addDays(new Date(), 30));
+    const scheduledKeys = new Set(schedules.filter((item) => item.status !== 'cancelled').map((item) => `${item.projectId}::${item.stageId}`));
+    return projects.flatMap((project) => {
+      if (['已完工', '已暂停'].includes(project.status)) return [];
+      const projectId = recordId(project);
+      const stages = Array.isArray(project.nodesData) ? project.nodesData : [];
+      const progress = buildProjectProgressSummary(stages);
+      const candidates = stages.flatMap((stage: any, index: number) => {
+        const stageId = String(stage._id || stage.id || '');
+        if (!stageId || scheduledKeys.has(`${projectId}::${stageId}`) || progress.stageStatuses[index]?.status === 'completed') return [];
+        const dates = stageDates(stage);
+        const previousCompleted = index === 0 || progress.stageStatuses[index - 1]?.status === 'completed';
+        const started = progress.stageStatuses[index]?.status === 'current';
+        const withinHorizon = Boolean(dates.startDate && dates.startDate <= horizon);
+        if (!started && !previousCompleted && !withinHorizon) return [];
+        const startDate = dates.startDate || today;
+        const endDate = dates.endDate || startDate;
+        const readiness: UnassignedStage['readiness'] = startDate < today ? 'overdue' : (started || previousCompleted ? 'ready' : 'upcoming');
+        return [{
+          project, projectId, projectAddress: project.address || project.customer || '未命名工地',
+          stage, stageId, stageName: stage.name || `阶段${index + 1}`,
+          trade: inferTrade(stage.name || ''), startDate, endDate, hasPlanDate: Boolean(dates.startDate), readiness,
+        }];
+      });
+      return candidates.slice(0, 1);
+    }).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  }, [projects, schedules, today]);
 
   const selectedProject = projects.find((item) => recordId(item) === scheduleForm.projectId);
   const stages = selectedProject?.nodesData || [];
@@ -116,9 +173,21 @@ export default function WorkerSchedulePage() {
   const workerOptions = workers.filter((item) => item.status !== 'inactive').map((worker) => ({ value: workerIdOf(worker), label: worker.name, description: worker.trades.join('/') }));
   const projectOptions = projects.filter((item) => !['已完工', '已暂停'].includes(item.status)).map((project) => ({ value: recordId(project), label: project.address || project.customer || '未命名工地' }));
   const stageOptions = stages.map((stage: any) => ({ value: String(stage._id || stage.id), label: stage.name }));
+  const visibleBacklog = unassignedStages.filter((item) => backlogFilter === 'all' || item.readiness === backlogFilter);
+
+  const recommendWorker = (task: UnassignedStage) => workers
+    .filter((worker) => !['inactive', 'resting'].includes(worker.status))
+    .filter((worker) => worker.trades.includes(task.trade))
+    .filter((worker) => findScheduleConflicts(worker, task, schedules).length === 0)
+    .sort((a, b) => {
+      const statusScore = (worker: Worker) => worker.status === 'available' ? 0 : 1;
+      const load = (worker: Worker) => schedules.filter((item) => item.workerId === workerIdOf(worker) && !['completed', 'cancelled'].includes(item.status)).length;
+      return statusScore(a) - statusScore(b) || load(a) - load(b) || a.name.localeCompare(b.name, 'zh-CN');
+    })[0];
 
   const openNewSchedule = () => {
     setEditingSchedule(null);
+    setPreserveScheduleDates(false);
     setScheduleForm({ workerId: '', projectId: '', stageId: '', startDate: today, endDate: today, status: 'confirmed', note: '' });
     setError('');
     setScheduleEditorOpen(true);
@@ -126,7 +195,35 @@ export default function WorkerSchedulePage() {
 
   const openEditSchedule = (schedule: WorkerSchedule) => {
     setEditingSchedule(schedule);
+    setPreserveScheduleDates(true);
     setScheduleForm({ workerId: schedule.workerId, projectId: schedule.projectId, stageId: schedule.stageId, startDate: schedule.startDate, endDate: schedule.endDate, status: schedule.status, note: schedule.note || '' });
+    setError('');
+    setScheduleEditorOpen(true);
+  };
+
+  const openScheduleAt = (worker: Worker, date: string) => {
+    if (!canEdit) return;
+    setEditingSchedule(null);
+    setPreserveScheduleDates(true);
+    setScheduleForm({ workerId: workerIdOf(worker), projectId: '', stageId: '', startDate: date, endDate: date, status: 'confirmed', note: '' });
+    setError('');
+    setScheduleEditorOpen(true);
+  };
+
+  const openBacklogSchedule = (task: UnassignedStage) => {
+    const recommended = recommendWorker(task);
+    setEditingSchedule(null);
+    setPreserveScheduleDates(true);
+    setScheduleForm({
+      workerId: recommended ? workerIdOf(recommended) : '',
+      projectId: task.projectId,
+      stageId: task.stageId,
+      startDate: task.startDate,
+      endDate: task.endDate,
+      status: 'confirmed',
+      note: '',
+    });
+    setBacklogOpen(false);
     setError('');
     setScheduleEditorOpen(true);
   };
@@ -135,20 +232,25 @@ export default function WorkerSchedulePage() {
     const project = projects.find((item) => recordId(item) === projectId);
     const firstStage = project?.nodesData?.[0];
     const sectionDates = (firstStage?.sections || []).flatMap((section: any) => [section.startDate, section.endDate]).filter(Boolean).sort();
-    setScheduleForm((current) => ({ ...current, projectId, stageId: String(firstStage?._id || firstStage?.id || ''), startDate: sectionDates[0] || current.startDate, endDate: sectionDates.at(-1) || sectionDates[0] || current.endDate }));
+    setScheduleForm((current) => ({ ...current, projectId, stageId: String(firstStage?._id || firstStage?.id || ''), startDate: preserveScheduleDates ? current.startDate : sectionDates[0] || current.startDate, endDate: preserveScheduleDates ? current.endDate : sectionDates.at(-1) || sectionDates[0] || current.endDate }));
   };
 
   const chooseStage = (stageId: string) => {
     const stage = stages.find((item: any) => String(item._id || item.id) === stageId);
     const starts = (stage?.sections || []).map((item: any) => item.startDate).filter(Boolean).sort();
     const ends = (stage?.sections || []).map((item: any) => item.endDate).filter(Boolean).sort();
-    setScheduleForm((current) => ({ ...current, stageId, startDate: starts[0] || current.startDate, endDate: ends.at(-1) || starts[0] || current.endDate }));
+    setScheduleForm((current) => ({ ...current, stageId, startDate: preserveScheduleDates ? current.startDate : starts[0] || current.startDate, endDate: preserveScheduleDates ? current.endDate : ends.at(-1) || starts[0] || current.endDate }));
   };
 
   const saveSchedule = async () => {
     if (!selectedWorker || !selectedProject || !selectedStage || !scheduleForm.startDate || !scheduleForm.endDate) {
       setError('请选择工人、工地、施工阶段和排期日期'); return;
     }
+    const duplicateStage = schedules.find((item) => item.status !== 'cancelled'
+      && item.projectId === recordId(selectedProject)
+      && item.stageId === String(selectedStage._id || selectedStage.id)
+      && scheduleIdOf(item) !== scheduleIdOf(editingSchedule || {} as WorkerSchedule));
+    if (duplicateStage) { setError(`该施工阶段已安排给${duplicateStage.workerName}，请直接编辑原排期`); return; }
     if (scheduleForm.endDate < scheduleForm.startDate) { setError('结束日期不能早于开始日期'); return; }
     if (conflicts.length > 0) { setError(`该工人与“${conflicts[0].schedule.projectAddress}”排期冲突`); return; }
     setSaving(true); setError('');
@@ -202,8 +304,14 @@ export default function WorkerSchedulePage() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 md:gap-3">
-        {[{ label: '未来7天进场', value: upcomingCount, icon: CalendarDays }, { label: '正在施工', value: inProgressCount, icon: HardHat }, { label: '待安排阶段', value: unassignedStages, icon: AlertTriangle }].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="erp-surface flex items-center justify-between p-3 md:p-4"><div><p className="text-[10px] text-gray-400 md:text-xs">{label}</p><p className="mt-1 text-xl font-bold text-gray-900 md:text-2xl">{value}</p></div><Icon size={19} className="hidden text-gold-500 md:block" /></div>
+        {[
+          { key: 'upcoming' as const, label: '未来7天进场', value: upcomingCount, icon: CalendarDays, action: () => { setScheduleFilter((current) => current === 'upcoming' ? 'all' : 'upcoming'); setAnchorDate(new Date()); setViewDays(7); } },
+          { key: 'in_progress' as const, label: '正在施工', value: inProgressCount, icon: HardHat, action: () => { setScheduleFilter((current) => current === 'in_progress' ? 'all' : 'in_progress'); setAnchorDate(new Date()); } },
+          { key: 'backlog' as const, label: '近期待排期', value: unassignedStages.length, icon: AlertTriangle, action: () => setBacklogOpen(true) },
+        ].map(({ key, label, value, icon: Icon, action }) => (
+          <button key={key} onClick={action} className={`erp-surface flex items-center justify-between p-3 text-left transition-colors hover:border-gold-300 md:p-4 ${scheduleFilter === key ? 'border-gold-400 bg-gold-50/40' : ''}`}>
+            <div><p className="text-[10px] text-gray-400 md:text-xs">{label}</p><p className="mt-1 text-xl font-bold text-gray-900 md:text-2xl">{value}</p></div><Icon size={19} className="hidden text-gold-500 md:block" />
+          </button>
         ))}
       </div>
 
@@ -221,7 +329,7 @@ export default function WorkerSchedulePage() {
             <div className="hidden overflow-x-auto md:block">
               <div style={{ minWidth: 180 + dates.length * 108 }}>
                 <div className="sticky top-0 z-20 grid border-b border-gray-200 bg-gray-50" style={{ gridTemplateColumns: `180px repeat(${dates.length}, 108px)` }}><div className="sticky left-0 z-30 flex h-12 items-center border-r border-gray-200 bg-gray-50 px-4 text-xs font-medium text-gray-500">工人</div>{dates.map((date) => { const key = toDateKey(date); return <div key={key} className={`flex h-12 flex-col items-center justify-center border-r border-gray-100 text-[11px] ${key === today ? 'bg-gold-50 text-gold-700' : 'text-gray-500'}`}><span>{date.getMonth() + 1}/{date.getDate()}</span><span className="mt-0.5 text-[10px]">周{'日一二三四五六'[date.getDay()]}</span></div>; })}</div>
-                {visibleWorkers.map((worker) => { const rows = activeSchedules.filter((item) => item.workerId === workerIdOf(worker)); return <div key={workerIdOf(worker)} className="relative grid min-h-[72px] border-b border-gray-100" style={{ gridTemplateColumns: `180px repeat(${dates.length}, 108px)` }}><div className="sticky left-0 z-10 flex min-h-[72px] flex-col justify-center border-r border-gray-200 bg-white px-4"><div className="truncate text-sm font-medium text-gray-900">{worker.name}</div><div className="mt-1 truncate text-[10px] text-gray-400">{worker.trades.join(' / ')}</div></div>{dates.map((date) => <div key={toDateKey(date)} className={`border-r border-gray-100 ${toDateKey(date) === today ? 'bg-gold-50/40' : ''}`} />)}<div className="pointer-events-none absolute inset-y-0 left-[180px] right-0">{rows.map((schedule, rowIndex) => { const clippedStart = schedule.startDate < rangeStart ? rangeStart : schedule.startDate; const clippedEnd = schedule.endDate > rangeEnd ? rangeEnd : schedule.endDate; const left = Math.round((parseDate(clippedStart).getTime() - parseDate(rangeStart).getTime()) / DAY_MS) * 108 + 5; const width = daysBetween(clippedStart, clippedEnd) * 108 - 10; return <button key={scheduleIdOf(schedule)} onClick={() => canEdit && openEditSchedule(schedule)} className={`pointer-events-auto absolute h-11 overflow-hidden rounded-md border px-2 text-left shadow-sm ${STATUS_STYLE[schedule.status]}`} style={{ left, width, top: 13 + rowIndex * 3 }} title={`${schedule.projectAddress} · ${schedule.stageName}`}><span className="block truncate text-xs font-medium">{schedule.projectAddress}</span><span className="block truncate text-[10px] opacity-75">{schedule.stageName} · {STATUS_LABEL[schedule.status]}</span></button>; })}</div></div>; })}
+                {visibleWorkers.map((worker) => { const rows = activeSchedules.filter((item) => item.workerId === workerIdOf(worker)); return <div key={workerIdOf(worker)} className="relative grid min-h-[72px] border-b border-gray-100" style={{ gridTemplateColumns: `180px repeat(${dates.length}, 108px)` }}><div className="sticky left-0 z-10 flex min-h-[72px] flex-col justify-center border-r border-gray-200 bg-white px-4"><div className="truncate text-sm font-medium text-gray-900">{worker.name}</div><div className="mt-1 truncate text-[10px] text-gray-400">{worker.trades.join(' / ')}</div></div>{dates.map((date) => { const dateKey = toDateKey(date); return <button key={dateKey} disabled={!canEdit} onClick={() => openScheduleAt(worker, dateKey)} className={`group border-r border-gray-100 transition-colors ${dateKey === today ? 'bg-gold-50/40' : ''} ${canEdit ? 'hover:bg-gold-50/70' : ''}`} title={canEdit ? `为${worker.name}安排${formatShortDate(dateKey)}的任务` : ''}><Plus size={14} className="mx-auto text-gold-400 opacity-0 transition-opacity group-hover:opacity-100" /></button>; })}<div className="pointer-events-none absolute inset-y-0 left-[180px] right-0">{rows.map((schedule, rowIndex) => { const clippedStart = schedule.startDate < rangeStart ? rangeStart : schedule.startDate; const clippedEnd = schedule.endDate > rangeEnd ? rangeEnd : schedule.endDate; const left = Math.round((parseDate(clippedStart).getTime() - parseDate(rangeStart).getTime()) / DAY_MS) * 108 + 5; const width = daysBetween(clippedStart, clippedEnd) * 108 - 10; return <button key={scheduleIdOf(schedule)} onClick={() => canEdit && openEditSchedule(schedule)} className={`pointer-events-auto absolute h-11 overflow-hidden rounded-md border px-2 text-left shadow-sm ${STATUS_STYLE[schedule.status]}`} style={{ left, width, top: 13 + rowIndex * 3 }} title={`${schedule.projectAddress} · ${schedule.stageName}`}><span className="block truncate text-xs font-medium">{schedule.projectAddress}</span><span className="block truncate text-[10px] opacity-75">{schedule.stageName} · {STATUS_LABEL[schedule.status]}</span></button>; })}</div></div>; })}
               </div>
             </div>
 
@@ -231,6 +339,43 @@ export default function WorkerSchedulePage() {
           </>
         )}
       </div>
+
+      {backlogOpen && (
+        <div className="fixed inset-0 z-50 bg-black/35" onClick={() => setBacklogOpen(false)}>
+          <div className="absolute bottom-0 left-0 right-0 flex max-h-[82vh] flex-col rounded-t-2xl bg-white shadow-2xl md:bottom-auto md:left-auto md:top-0 md:h-full md:max-h-none md:w-[520px] md:rounded-none" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+              <div><h2 className="font-semibold text-gray-900">近期待排期</h2><p className="mt-1 text-xs text-gray-400">已到计划期、30天内开始或已具备进场条件的阶段</p></div>
+              <button onClick={() => setBacklogOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button>
+            </div>
+            <div className="flex gap-1 border-b border-gray-100 px-4 py-3">
+              {([
+                { value: 'ready', label: '可安排', count: unassignedStages.filter((item) => item.readiness === 'ready').length },
+                { value: 'overdue', label: '已逾期', count: unassignedStages.filter((item) => item.readiness === 'overdue').length },
+                { value: 'all', label: '全部', count: unassignedStages.length },
+              ] as const).map((item) => <button key={item.value} onClick={() => setBacklogFilter(item.value)} className={`rounded-lg px-3 py-1.5 text-xs ${backlogFilter === item.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label} {item.count}</button>)}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {visibleBacklog.length === 0 ? <div className="py-20 text-center text-sm text-gray-400">当前没有符合条件的待排阶段</div> : visibleBacklog.map((task) => {
+                const recommended = recommendWorker(task);
+                const readinessLabel = task.readiness === 'overdue' ? '已逾期' : task.readiness === 'ready' ? '可安排' : '即将开始';
+                return (
+                  <div key={`${task.projectId}-${task.stageId}`} className="border-b border-gray-100 px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0"><div className="truncate text-sm font-medium text-gray-900">{task.projectAddress}</div><div className="mt-1 text-xs text-gray-500">{task.stageName} · {task.trade}</div></div>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${task.readiness === 'overdue' ? 'bg-red-50 text-red-600' : task.readiness === 'ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{readinessLabel}</span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500"><Clock3 size={13} />{task.hasPlanDate ? '计划' : '建议'} {formatShortDate(task.startDate)} 至 {formatShortDate(task.endDate)}</div>
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
+                      <div className="min-w-0"><div className="text-[10px] text-gray-400">推荐工人</div><div className={`mt-0.5 truncate text-xs font-medium ${recommended ? 'text-gray-800' : 'text-amber-600'}`}>{recommended ? `${recommended.name} · 当前档期可安排` : `暂无无冲突的${task.trade}工人`}</div></div>
+                      {canEdit && <button onClick={() => openBacklogSchedule(task)} className="erp-btn-primary h-8 shrink-0 px-3 text-xs">安排</button>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {scheduleEditorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onClick={() => setScheduleEditorOpen(false)}>
