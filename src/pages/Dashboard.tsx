@@ -7,14 +7,15 @@ import {
   CheckCircle2, Package, PenTool, HardHat, Grid3X3,
 } from 'lucide-react';
 import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI, contractsAPI, receiptsAPI, systemConfigsAPI } from '@/db/api';
-import { workerSchedulesAPI } from '@/db/workerScheduleApi';
+import { workersAPI, workerSchedulesAPI } from '@/db/workerScheduleApi';
 import { canManageAllCustomers, useAuthStore } from '@/store/authStore';
 import { useBizStore } from '@/store/bizStore';
 import { getErpVisibleNavGroups, getErpVisibleBottomItems } from '@/components/navConfig';
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import Tooltip from '@/components/Tooltip';
-import type { WorkerSchedule } from '@/types/workerSchedule';
+import type { Worker, WorkerSchedule } from '@/types/workerSchedule';
+import { workerIdOf } from '@/types/workerSchedule';
 
 const GROUP_TONE: Record<string, string> = {
   '业务中心': 'bg-blue-50 text-blue-600',
@@ -107,6 +108,7 @@ export default function Dashboard() {
   const [financeContracts, setFinanceContracts] = useState<any[]>([]);
   const [financeReceipts, setFinanceReceipts] = useState<any[]>([]);
   const [workerSchedules, setWorkerSchedules] = useState<WorkerSchedule[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
   const [financeTargets, setFinanceTargets] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
   const [financeTargetForm, setFinanceTargetForm] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
   const [loading, setLoading] = useState(false);
@@ -141,13 +143,14 @@ export default function Dashboard() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [[leadsRes, todosRes, projectsRes, employeesRes, workerScheduleRows], [contractsRes, receiptsRes]] = await Promise.all([
+      const [[leadsRes, todosRes, projectsRes, employeesRes, workerScheduleRows, workerRows], [contractsRes, receiptsRes]] = await Promise.all([
         Promise.all([
           leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
           todosAPI.toArray(DASHBOARD_TODO_FIELDS),
           projectsAPI.toArray(DASHBOARD_PROJECT_FIELDS),
           usersAPI.toArray(DASHBOARD_USER_FIELDS),
           canViewWorkerSchedule ? workerSchedulesAPI.toArray().catch(() => []) : Promise.resolve([]),
+          canViewWorkerSchedule ? workersAPI.toArray().catch(() => []) : Promise.resolve([]),
         ]),
         canOpenFinanceReports
           ? Promise.all([contractsAPI.toArray(), receiptsAPI.toArray()])
@@ -156,6 +159,7 @@ export default function Dashboard() {
       setLeads(leadsRes); setTodos(todosRes); setProjects(projectsRes);
       setEmployees(employeesRes);
       setWorkerSchedules(workerScheduleRows.filter((item: any) => !item._placeholder));
+      setWorkers(workerRows.filter((item: any) => !item._placeholder));
       setFinanceContracts(contractsRes);
       setFinanceReceipts(receiptsRes);
 
@@ -394,7 +398,8 @@ export default function Dashboard() {
   const scheduleWindowEnd = toLocalDateValue(scheduleWindowEndDate);
   const upcomingWorkerSchedules = workerSchedules
     .filter((item) => !['completed', 'cancelled'].includes(item.status) && item.endDate >= scheduleToday && item.startDate <= scheduleWindowEnd)
-    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.workerName.localeCompare(b.workerName));
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || (workers.find((worker) => workerIdOf(worker) === a.workerId)?.name || a.workerName).localeCompare(workers.find((worker) => workerIdOf(worker) === b.workerId)?.name || b.workerName));
+  const dashboardWorkerName = (schedule: WorkerSchedule) => workers.find((worker) => workerIdOf(worker) === schedule.workerId)?.name || schedule.workerName;
   const activeWorkerScheduleCount = upcomingWorkerSchedules.filter((item) => item.status === 'in_progress').length;
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthLeads = leads.filter(l => {
@@ -880,7 +885,7 @@ export default function Dashboard() {
                   className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:grid-cols-[140px_minmax(180px,1fr)_120px_130px]"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{item.workerName}</p>
+                    <p className="truncate text-sm font-semibold text-gray-900">{dashboardWorkerName(item)}</p>
                     <p className="mt-0.5 truncate text-[11px] text-gray-400 md:hidden">{item.projectAddress}</p>
                   </div>
                   <div className="hidden min-w-0 md:block">

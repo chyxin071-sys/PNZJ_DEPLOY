@@ -51,6 +51,13 @@ export const workerSchedulesAPI = {
   delete: async (id: string): Promise<void> => {
     await cloudDB.collection(COLLECTIONS.workerSchedules).doc(id).remove();
   },
+  syncWorkerName: async (workerId: string, workerName: string): Promise<void> => {
+    const { data } = await cloudDB.collection(COLLECTIONS.workerSchedules).where({ workerId }).limit(1000).get();
+    await Promise.all((data || []).map((schedule: any) => {
+      const id = String(schedule._id || schedule.id || '');
+      return id ? cloudDB.collection(COLLECTIONS.workerSchedules).doc(id).update({ workerName }) : Promise.resolve();
+    }));
+  },
 };
 
 export function findScheduleConflicts(
