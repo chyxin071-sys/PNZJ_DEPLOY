@@ -7,13 +7,13 @@ import {
   ClipboardList, Loader2, ExternalLink, Building2, Mail, Hash, Eye, EyeOff,
   Plus, Trash2, Shield, BookOpen, GripVertical, ChevronLeft, Settings, Share2,
   Receipt, Tag, Folder, DollarSign, BarChart3, AlertTriangle, RotateCcw,
-  PlayCircle,
+  Play, PlayCircle,
 } from 'lucide-react';
 import { projectsAPI, leadsAPI, usersAPI, contractsAPI, projectLogsAPI, projectInspectionsAPI, todosAPI } from '@/db/api';
 import type { ProjectLog, ProjectInspection } from '@/types';
 import { cloudDB, cloudApp } from '@/db/cloudbase';
 import { uploadFile as uploadToCloud, getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
-import { formatDate } from '@/utils/format';
+import { formatDate, generateId } from '@/utils/format';
 import { openNativeMediaPreview, isMiniProgramWebView } from '@/utils/miniProgramPreview';
 import { openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
@@ -29,18 +29,30 @@ import {
   DEFAULT_NODE_TYPE, normalizeNodeType, TYPE_OPTIONS,
 } from '@/config/constructionTemplates';
 import Select from '@/components/Select';
+import WorkerAvatar from '@/components/WorkerAvatar';
+import ImagePreviewModal from '@/components/ImagePreviewModal';
 import DatePicker from '@/components/DatePicker';
 import {
   createNotificationEventSafely,
   resolveProjectParticipantUserIds,
   resolveUserIdsByNames,
   stableOperationId,
+  TODO_NOTIFICATION_TEMPLATE_ID,
 } from '@/services/notificationService';
 import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
+import { findScheduleConflicts, workersAPI, workerSchedulesAPI } from '@/db/workerScheduleApi';
+import type { Worker, WorkerSchedule, WorkerScheduleStatus } from '@/types/workerSchedule';
+import { scheduleIdOf, tradeForStage, workerIdOf, workerMatchesStage } from '@/types/workerSchedule';
 
 const CACHED_URLS = new Map<string, string>();
 const CLOUD_STORAGE_PREFIX = 'cloud://cloud1-8grodf5s3006f004.636c-cloud1-8grodf5s3006f004-1421470557/';
+const WORKER_STATUS_LABEL: Record<Worker['status'], string> = {
+  available: '可安排',
+  busy: '忙碌',
+  resting: '休息',
+  inactive: '停用',
+};
 
 const normalizeCloudMediaSource = (src: string) => {
   if (!src) return '';
@@ -66,6 +78,23 @@ const toPreviewMedia = (item: any) => ({
   fileID: mediaSourceOf(item),
   type: isVideoMedia(item) ? 'video' : 'image',
 });
+
+type PreviewDeleteContext = {
+  nodeId: string;
+  secIdx: number;
+  subIdx: number;
+  photoIdx: number;
+};
+
+type PreviewMediaItem = {
+  url: string;
+  isVideo: boolean;
+  poster?: string;
+  source?: string;
+  deleteContext?: PreviewDeleteContext;
+};
+
+type PreviewViewer = 'auto' | 'web';
 
 function MediaThumb({ src, className }: { src: string; className?: string }) {
   if (!isVideoMedia(src)) return <CloudImage src={src} className={className} />;
@@ -125,6 +154,16 @@ function CloudVideo({ src, className, poster }: { src: string, className?: strin
   const validPoster = normalizeVideoPoster(poster);
   if (validPoster) return <img src={validPoster} className={className} alt="视频缩略图" loading="lazy" decoding="async" />;
   return <div className={`flex items-center justify-center bg-gray-100 text-gray-400 ${className}`}><ImageIcon className="h-4 w-4" /></div>;
+}
+
+function VideoPlayBadge({ className = '' }: { className?: string }) {
+  return (
+    <span className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/20 ${className}`}>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white shadow-sm ring-1 ring-white/70">
+        <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+      </span>
+    </span>
+  );
 }
 
 function CloudImage({ src, className, alt }: { src: string, className?: string, alt?: string }) {
@@ -382,7 +421,10 @@ export default function ProjectBizDetail() {
     { key: 'files', label: currentBizType === '工装' ? '合同资料' : '项目资料' },
   ];
   const standaloneSection = (['logs', 'inspections'] as const).includes(section as any) ? section as 'logs' | 'inspections' : null;
-  const smartBack = useSmartBack(standaloneSection ? `/projects-biz/${id}` : '/projects-biz');
+  const stageParam = new URLSearchParams(location.search).get('stage');
+  const stageDetailIndex = section?.startsWith('stage-') ? Number(section.slice(6)) : Number(stageParam ?? -1);
+  const isStageDetail = Number.isInteger(stageDetailIndex) && stageDetailIndex >= 0;
+  const smartBack = useSmartBack((standaloneSection || isStageDetail) ? `/projects-biz/${id}` : '/projects-biz');
 
   const [project, setProject] = useState<any>(null);
   const [lead, setLead] = useState<any>(null);
@@ -396,6 +438,18 @@ export default function ProjectBizDetail() {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ manager: [] as string[], startDate: '', endDate: '', entryPassword: '' });
   const [employees, setEmployees] = useState<any[]>([]);
+  const [projectTodos, setProjectTodos] = useState<any[]>([]);
+  const [completingTodoId, setCompletingTodoId] = useState<string | null>(null);
+  const [showQuickTodoModal, setShowQuickTodoModal] = useState(false);
+  const todayDateValue = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const [quickTodoForm, setQuickTodoForm] = useState({ title: '', dueDate: todayDateValue() });
+  const [submittingQuickTodo, setSubmittingQuickTodo] = useState(false);
 
   const [uploadingSubNode, setUploadingSubNode] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -403,7 +457,7 @@ export default function ProjectBizDetail() {
   const [targetSubNodeId, setTargetSubNodeId] = useState<string | null>(null);
 
   // Gallery Preview State
-  const [previewImages, setPreviewImages] = useState<{url: string, isVideo: boolean, poster?: string, source?: string}[]>([]);
+  const [previewImages, setPreviewImages] = useState<PreviewMediaItem[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -411,23 +465,10 @@ export default function ProjectBizDetail() {
   const previewRequestRef = useRef<{
     photo: any;
     allPhotos: any[];
-    deleteContext: { nodeId: string; secIdx: number; subIdx: number; photoIdx: number } | null;
+    deleteContext: PreviewDeleteContext | null;
+    viewer: PreviewViewer;
   } | null>(null);
-  const [nodePhotoAction, setNodePhotoAction] = useState<{
-    photo: any;
-    photos: any[];
-    nodeId: string;
-    secIdx: number;
-    subIdx: number;
-    photoIdx: number;
-    canDelete: boolean;
-  } | null>(null);
-  const [currentPhotoDeleteContext, setCurrentPhotoDeleteContext] = useState<{
-    nodeId: string;
-    secIdx: number;
-    subIdx: number;
-    photoIdx: number;
-  } | null>(null);
+  const currentPhotoDeleteContext = previewImages[previewIndex]?.deleteContext || null;
 
   const [editingSubNode, setEditingSubNode] = useState<{ nodeId: string; sectionIdx: number; subIdx: number } | null>(null);
   const [editSubNodeForm, setEditSubNodeForm] = useState({ name: '', type: DEFAULT_NODE_TYPE, standard: '', checklist: '' });
@@ -469,6 +510,15 @@ export default function ProjectBizDetail() {
 
   const [delayReasonModal, setDelayReasonModal] = useState<{open: boolean, nodeId: string, secIdx: number, name: string, reason: string}>({open: false, nodeId: '', secIdx: -1, name: '', reason: ''});
   const [showPlanDateModal, setShowPlanDateModal] = useState<{nodeId: string; secIdx: number; name: string; startDate: string; endDate: string} | null>(null);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [allWorkerSchedules, setAllWorkerSchedules] = useState<WorkerSchedule[]>([]);
+  const [projectWorkerSchedules, setProjectWorkerSchedules] = useState<WorkerSchedule[]>([]);
+  const [showWorkerScheduleModal, setShowWorkerScheduleModal] = useState(false);
+  const [workerScheduleForm, setWorkerScheduleForm] = useState({ workerId: '', startDate: '', endDate: '', status: 'confirmed' as WorkerScheduleStatus, note: '' });
+  const [workerScheduleError, setWorkerScheduleError] = useState('');
+  const [savingWorkerSchedule, setSavingWorkerSchedule] = useState(false);
+  const [workerProfileSchedule, setWorkerProfileSchedule] = useState<WorkerSchedule | null>(null);
+  const [workerPhotoViewer, setWorkerPhotoViewer] = useState<string[]>([]);
 
   // 勾选式分享：进入选择模式后，在检查项前显示圆圈直接勾选
   const [shareSelect, setShareSelect] = useState<{ nodeIdx: number; secIdx: number; checked: Record<number, boolean> } | null>(null);
@@ -501,6 +551,15 @@ export default function ProjectBizDetail() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showPreviewModal, previewImages.length]);
+
+  useEffect(() => {
+    if (!showPreviewModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showPreviewModal]);
 
   const getProjectDocId = useCallback((source?: any) => {
     const rawId = source?._docId || source?._id || source?.id || id;
@@ -719,6 +778,27 @@ export default function ProjectBizDetail() {
     } catch (e) { console.error('加载日志/巡检失败', e); }
   }, [id]);
 
+  const loadProjectTodos = useCallback(async () => {
+    if (!id || id === 'new') return;
+    const allTodos = await todosAPI.toArray().catch(() => []);
+    setProjectTodos(allTodos
+      .filter((todo: any) => todo.status !== 'completed' && todo.relatedTo?.type === 'project' && todo.relatedTo?.id === id)
+      .sort((a: any, b: any) => String(a.dueDate || a.createdAt || '').localeCompare(String(b.dueDate || b.createdAt || ''))));
+  }, [id]);
+
+  const loadWorkerSchedules = useCallback(async () => {
+    if (!id || id === 'new') return;
+    try {
+      const [workerRows, scheduleRows] = await Promise.all([workersAPI.toArray(), workerSchedulesAPI.toArray()]);
+      setWorkers(workerRows.filter((item: any) => !item._placeholder));
+      const validSchedules = scheduleRows.filter((item: any) => !item._placeholder);
+      setAllWorkerSchedules(validSchedules);
+      setProjectWorkerSchedules(validSchedules.filter((item) => item.projectId === id));
+    } catch (error) {
+      console.warn('[project-worker-schedule] load failed', error);
+    }
+  }, [id]);
+
   const loadQuickReplies = useCallback(async () => {
     try {
       const res = await cloudDB.collection('system_configs').doc('log_quick_replies').get();
@@ -746,12 +826,39 @@ export default function ProjectBizDetail() {
     }
   };
 
-  useEffect(() => { loadProject(true); loadLogsAndInspections(); loadQuickReplies(); fetchEmployees(); }, [loadProject, loadLogsAndInspections, loadQuickReplies]);
+  useEffect(() => { loadProject(true); loadLogsAndInspections(); loadProjectTodos(); loadWorkerSchedules(); loadQuickReplies(); fetchEmployees(); }, [loadProject, loadLogsAndInspections, loadProjectTodos, loadWorkerSchedules, loadQuickReplies]);
+
+  useEffect(() => {
+    if (!isStageDetail || !project?.nodesData?.[stageDetailIndex]) return;
+    setProject((current: any) => {
+      if (!current?.nodesData?.[stageDetailIndex]) return current;
+      const nodesData = current.nodesData.map((node: any, index: number) => index === stageDetailIndex ? {
+        ...node,
+        collapsed: false,
+        sections: (node.sections || []).map((item: any) => ({ ...item, collapsed: false })),
+      } : node);
+      return { ...current, nodesData };
+    });
+    const scrollContainer = document.querySelector<HTMLElement>('[data-scroll="main"]');
+    window.requestAnimationFrame(() => scrollContainer?.scrollTo({ top: 0, behavior: 'auto' }));
+  }, [isStageDetail, stageDetailIndex, project?._id]);
+
+  useEffect(() => {
+    if (isStageDetail || loading) return;
+    const savedPosition = sessionStorage.getItem(`project_detail_scroll_${id}`);
+    if (!savedPosition) return;
+    const scrollContainer = document.querySelector<HTMLElement>('[data-scroll="main"]');
+    window.requestAnimationFrame(() => {
+      scrollContainer?.scrollTo({ top: Number(savedPosition) || 0, behavior: 'auto' });
+      sessionStorage.removeItem(`project_detail_scroll_${id}`);
+    });
+  }, [id, isStageDetail, loading]);
 
   // 页面可见时刷新关联合同（从合同页返回时不会重新挂载组件）
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && project) {
+        void loadProjectTodos();
         (async () => {
           const leadData = project.leadId ? await leadsAPI.doc(project.leadId).get().catch(() => null) : null;
           const lead = Array.isArray(leadData) ? leadData[0] : leadData;
@@ -760,9 +867,13 @@ export default function ProjectBizDetail() {
         })();
       }
     };
+    window.addEventListener('focus', onVisible);
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [project, findRelatedContracts]);
+    return () => {
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [project, findRelatedContracts, loadProjectTodos]);
 
   useEffect(() => {
     if (section && ['logs', 'inspections'].includes(section)) setActiveTab(section);
@@ -924,6 +1035,7 @@ export default function ProjectBizDetail() {
 
   const handleDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    if (!canManageConstructionStructure) return;
     if (draggedNodeIndex === null || draggedNodeIndex === index) {
       handleDragEnd(e);
       return;
@@ -937,6 +1049,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 节点编辑（对齐模板库UI） ---- */
   const moveNode = (index: number, direction: -1 | 1) => {
+    if (!canManageConstructionStructure) return;
     if (project?.status === '已完工') return;
     const target = index + direction;
     if (target < 0 || target >= (project.nodesData || []).length) return;
@@ -947,6 +1060,7 @@ export default function ProjectBizDetail() {
   };
   const moveSection = (nodeIdx: number, secIdx: number, direction: -1 | 1) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const sections = project.nodesData[nodeIdx]?.sections || [];
     const target = secIdx + direction;
@@ -958,6 +1072,7 @@ export default function ProjectBizDetail() {
   };
   const moveSubNode = (nodeIdx: number, secIdx: number, subIdx: number, direction: -1 | 1) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const subNodes = project.nodesData[nodeIdx]?.sections?.[secIdx]?.subNodes || [];
     const target = subIdx + direction;
@@ -969,6 +1084,7 @@ export default function ProjectBizDetail() {
   };
   const addSection = (nodeIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     if (!newNodesData[nodeIdx].sections) newNodesData[nodeIdx].sections = [];
@@ -983,6 +1099,7 @@ export default function ProjectBizDetail() {
   };
   const addNode = () => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     newNodesData.push({ _id: makeId(), name: '新节点', collapsed: false, sections: [], craftsmanship: [] });
@@ -1284,6 +1401,7 @@ export default function ProjectBizDetail() {
 
   const saveEditSubNode = async () => {
     if (!editingSubNode || !project || pendingAction) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -1328,6 +1446,7 @@ export default function ProjectBizDetail() {
   /* ---- 删除节点 ---- */
   const deleteSubNode = (nodeId: string, secIdx: number, subIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1345,6 +1464,7 @@ export default function ProjectBizDetail() {
   /* ---- 添加节点 ---- */
   const addSubNode = () => {
     if (!showAddNodePanel || !project || !newNodeForm.name.trim()) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const { nodeId, sectionIdx } = showAddNodePanel;
     const newNodesData = [...(project.nodesData || [])];
@@ -1383,6 +1503,7 @@ export default function ProjectBizDetail() {
 
   const addBlankSubNode = (nodeId: string, sectionIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
     if (!node) return;
@@ -1410,6 +1531,7 @@ export default function ProjectBizDetail() {
 
   const updateSubNodeName = (nodeIdx: number, secIdx: number, subIdx: number, value: string) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     newNodesData[nodeIdx].sections[secIdx].subNodes[subIdx].name = value;
@@ -1418,6 +1540,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 照片 ---- */
   const triggerSubNodePhoto = (subNodeId: string) => {
+    if (!canManageConstruction) return;
     setTargetSubNodeId(subNodeId);
     nodeFileInputRef.current?.click();
   };
@@ -1433,6 +1556,10 @@ export default function ProjectBizDetail() {
   const handleSubNodePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !targetSubNodeId || !project) return;
+    if (!canManageConstruction) {
+      e.target.value = '';
+      return;
+    }
     if (project.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       e.target.value = '';
@@ -1509,35 +1636,43 @@ export default function ProjectBizDetail() {
     setTargetSubNodeId(null);
   };
 
-  const openPreview = async (photo: any, allPhotos: any[] = [photo], deleteContext: { nodeId: string; secIdx: number; subIdx: number; photoIdx: number } | null = null) => {
+  const openPreview = async (
+    photo: any,
+    allPhotos: any[] = [photo],
+    deleteContext: PreviewDeleteContext | null = null,
+    viewer: PreviewViewer = 'auto',
+  ) => {
     if (isPreviewLoading) return;
     setIsPreviewLoading(true);
     setPreviewError('');
-    previewRequestRef.current = { photo, allPhotos, deleteContext };
+    previewRequestRef.current = { photo, allPhotos, deleteContext, viewer };
     
     const isMiniProgram = isMiniProgramWebView();
+    const forceWebViewer = viewer === 'web';
     
-    // 非小程序环境：立即显示web弹窗（加载中状态）
-    if (!isMiniProgram) {
-      setPreviewImages([{ url: '', isVideo: false }]);
+    if (!isMiniProgram || forceWebViewer) {
+      setPreviewImages([{
+        url: '',
+        isVideo: isVideoMedia(photo),
+        ...(deleteContext ? { deleteContext } : {}),
+      }]);
       setPreviewIndex(0);
-      setCurrentPhotoDeleteContext(deleteContext);
       setShowPreviewModal(true);
     }
     
     try {
-      const previewSources = allPhotos.map((p: any) => {
+      const previewSources = allPhotos.map((p: any, originalIndex: number) => {
         const rawUrl = p.url || p.fileID;
         if (!rawUrl) return null;
         const source = normalizeCloudMediaSource(rawUrl);
-        return { photo: p, rawUrl, source };
-      }).filter(Boolean) as { photo: any; rawUrl: string; source: string }[];
+        return { photo: p, rawUrl, source, originalIndex };
+      }).filter(Boolean) as { photo: any; rawUrl: string; source: string; originalIndex: number }[];
 
-      if (isMiniProgram && previewSources.length > 0) {
+      const targetSource = mediaSourceOf(photo);
+
+      if (isMiniProgram && !forceWebViewer && previewSources.length > 0) {
         let targetIndex = previewSources.findIndex(item => (
-          item.photo === photo
-          || item.photo.url === photo?.url
-          || item.photo.fileID === photo?.fileID
+          item.photo === photo || (!!targetSource && mediaSourceOf(item.photo) === targetSource)
         ));
         if (targetIndex < 0) targetIndex = 0;
 
@@ -1576,16 +1711,19 @@ export default function ProjectBizDetail() {
           url: finalUrl,
           isVideo,
           source: item.source,
+          ...(deleteContext ? {
+            deleteContext: { ...deleteContext, photoIdx: item.originalIndex },
+          } : {}),
           ...(isVideo ? { poster: normalizeVideoPoster(p.poster || p.thumbUrl || p.thumbTempFilePath) } : {}),
         });
 
-        if (p === photo || p.url === photo.url || p.fileID === photo.fileID) {
+        if (p === photo || (!!targetSource && mediaSourceOf(p) === targetSource)) {
           targetIndex = images.length - 1;
         }
       }
 
       if (images.length > 0) {
-        if (isMiniProgram) {
+        if (isMiniProgram && !forceWebViewer) {
           console.warn('[ProjectBizDetail] 原生预览不可用，跳过');
           setIsPreviewLoading(false);
           return;
@@ -1596,7 +1734,7 @@ export default function ProjectBizDetail() {
       setIsPreviewLoading(false);
     } catch (e) {
       console.error(e);
-      if (isMiniProgram) {
+      if (isMiniProgram && !forceWebViewer) {
         // 小程序环境：静默失败，不弹alert
         setIsPreviewLoading(false);
       } else {
@@ -1608,6 +1746,7 @@ export default function ProjectBizDetail() {
 
   const deletePhoto = async (nodeId: string, secIdx: number, subIdx: number, photoIdx: number) => {
     if (!project) return;
+    if (!canManageConstruction) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1618,6 +1757,7 @@ export default function ProjectBizDetail() {
 
   const updateProjectCraftsmanship = (nodeId: string, craftIdx: number, updates: any, persist = false) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1630,6 +1770,7 @@ export default function ProjectBizDetail() {
 
   const addProjectCraftsmanship = (nodeId: string) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1642,6 +1783,7 @@ export default function ProjectBizDetail() {
 
   const removeProjectCraftsmanship = (nodeId: string, craftIdx: number) => {
     if (!project) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
@@ -1653,6 +1795,7 @@ export default function ProjectBizDetail() {
 
   const uploadProjectCraftsmanshipImages = async (nodeId: string, craftIdx: number, files: FileList | null) => {
     if (!project || !files || files.length === 0) return;
+    if (!canManageConstructionStructure) return;
     if (project.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -1682,6 +1825,7 @@ export default function ProjectBizDetail() {
 
   /* ---- 模板套用 ---- */
   const openTemplateModal = async () => {
+    if (!canManageConstructionStructure) return;
     if (project?.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -1704,6 +1848,7 @@ export default function ProjectBizDetail() {
   };
 
   const applyTemplate = async () => {
+    if (!canManageConstructionStructure) return;
     if (project?.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
@@ -2182,6 +2327,116 @@ export default function ProjectBizDetail() {
   const totalCount = progressSummary.totalSubNodes;
   const progress = progressSummary.progressPercent;
 
+  const handleCompleteProjectTodo = async (todo: any) => {
+    if (!todo?._id || completingTodoId) return;
+    setCompletingTodoId(todo._id);
+    try {
+      const completedAt = new Date().toISOString();
+      await todosAPI.update(todo._id, { status: 'completed', completedAt, updatedAt: completedAt });
+      setProjectTodos(current => current.filter(item => item._id !== todo._id));
+      void createNotificationEventSafely({
+        operationId: stableOperationId('todo-completed-from-project', todo._id, completedAt),
+        eventType: 'TODO_COMPLETED',
+        actorUserId: user?.id || '',
+        recipientUserIds: [todo.creatorId, ...(todo.assignees || []).map((assignee: any) => assignee.id)].filter(Boolean),
+        recipientRoles: ['admin'],
+        category: 'todo',
+        title: '工地待办已完成',
+        content: `${myName}完成了“${todo.title}”`,
+        link: `/todos?todoId=${todo._id}`,
+        relatedTo: { type: 'todo', id: todo._id, name: todo.title },
+        channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: String(todo.title || '工地待办').slice(0, 20) },
+          time2: { value: completedAt.slice(0, 16).replace('T', ' ') },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: '管理员' },
+        },
+      });
+    } finally {
+      setCompletingTodoId(null);
+    }
+  };
+
+  const openQuickTodoModal = () => {
+    setQuickTodoForm({ title: '', dueDate: todayDateValue() });
+    setShowQuickTodoModal(true);
+  };
+
+  const handleCreateQuickTodo = async () => {
+    const title = quickTodoForm.title.trim();
+    if (!title || !quickTodoForm.dueDate || submittingQuickTodo) return;
+    setSubmittingQuickTodo(true);
+    try {
+      const managerNames = toPersonArray(project.manager);
+      if (managerNames.length === 0) {
+        alert('当前工地尚未设置项目经理，请先完善工地资料。');
+        return;
+      }
+      const managerAccounts = await Promise.all(managerNames.map(async name => ({
+        name,
+        userIds: await resolveUserIdsByNames(name),
+      })));
+      const unresolvedManagerNames = managerAccounts.filter(item => item.userIds.length === 0).map(item => item.name);
+      if (unresolvedManagerNames.length > 0) {
+        alert(`以下项目经理未找到有效 ERP 账号，暂时无法创建并发送待办提醒：${unresolvedManagerNames.join('、')}。请先检查工地负责人和员工账号。`);
+        return;
+      }
+      const managerUserIds = [...new Set(managerAccounts.flatMap(item => item.userIds))];
+      const assignees = managerAccounts.map(({ name, userIds }) => {
+        const employee = employees.find((item: any) => item.name === name);
+        return { id: userIds[0] || employee?._id || employee?.id || '', name };
+      }).filter((item: any) => item.id || item.name);
+      const todo = {
+        _id: generateId(),
+        title,
+        description: '',
+        priority: 'high',
+        dueDate: quickTodoForm.dueDate,
+        status: 'pending',
+        assignees,
+        creatorId: user?.id || '',
+        creatorName: myName,
+        createdAt: new Date().toISOString(),
+        relatedTo: {
+          type: 'project',
+          id: project._id || id,
+          name: `${project.customer || ''}${project.address ? ` - ${project.address}` : ''}`.replace(/^\s*-\s*/, ''),
+        },
+        attachments: [],
+      };
+      await todosAPI.add(todo);
+      setProjectTodos(current => [...current, todo].sort((a: any, b: any) => String(a.dueDate || '').localeCompare(String(b.dueDate || ''))));
+      setShowQuickTodoModal(false);
+      setQuickTodoForm({ title: '', dueDate: todayDateValue() });
+      void createNotificationEventSafely({
+        operationId: stableOperationId('todo-assigned', todo._id),
+        eventType: 'TODO_ASSIGNED',
+        actorUserId: user?.id || '',
+        recipientUserIds: managerUserIds,
+        category: 'todo',
+        title: '工地新增待办',
+        content: `${myName}为“${project.address || project.customer || '工地'}”新增了待办“${title}”`,
+        link: `/projects-biz/${project._id || id}`,
+        relatedTo: { type: 'todo', id: todo._id, name: title },
+        channels: ['station', 'wechat'],
+        templateId: TODO_NOTIFICATION_TEMPLATE_ID,
+        templateData: {
+          thing1: { value: title.slice(0, 20) },
+          time2: { value: quickTodoForm.dueDate },
+          thing3: { value: myName.slice(0, 20) },
+          thing4: { value: managerNames.join('、').slice(0, 20) },
+        },
+      });
+    } catch (error) {
+      console.error('创建工地待办失败', error);
+      alert('待办创建失败，请稍后重试。');
+    } finally {
+      setSubmittingQuickTodo(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -2203,6 +2458,9 @@ export default function ProjectBizDetail() {
   const canEdit = isAdmin || project.creatorName === myName || includesPerson(project.manager, myName) || includesPerson(project.designer, myName) || (lead && includesPerson(lead.sales, myName));
   const isProjectCompleted = project.status === '已完工';
   const canEditSite = canEdit && !isProjectCompleted;
+  const canManageConstruction = !isAdmin && includesPerson(project.manager, myName) && !isProjectCompleted;
+  const canManageConstructionStructure = isAdmin && !isProjectCompleted;
+  const canCreateProjectTodo = isAdmin || includesPerson(project.manager, myName);
   const canEditProjectInfo = canEdit && !isProjectCompleted;
   const canShareCustomerProgress = isAdmin
     || project.creatorName === myName
@@ -2212,10 +2470,119 @@ export default function ProjectBizDetail() {
     || includesPerson(lead?.sales, myName)
     || includesPerson(lead?.designer, myName)
     || includesPerson(lead?.manager, myName);
+  const canCompleteTodo = (todo: any) => isAdmin || includesPerson(project.manager, myName) || (todo.assignees || []).some((assignee: any) => assignee.id === user?.id || assignee.name === myName);
   const completionChecks = getCompletionChecks();
   const completionIssueCount = completionChecks.unfinished.length + completionChecks.pendingRectifications.length;
   const relatedContract = contracts?.[0];
   const currentNodeName = progressSummary.currentNodeName || progressSummary.nodeName || '';
+  const selectedStage = isStageDetail ? project.nodesData?.[stageDetailIndex] : null;
+  const selectedStageSummary = isStageDetail ? progressSummary.stageStatuses[stageDetailIndex] : null;
+  const selectedStageSections = selectedStage?.sections || [];
+  const selectedStageActualStarts = selectedStageSections.map((item: any) => item.actualStartDate).filter(Boolean);
+  const selectedStageActualEnds = selectedStageSections.map((item: any) => item.actualEndDate).filter(Boolean);
+  const selectedStagePercent = selectedStageSummary?.stageTotal > 0
+    ? Math.min(100, Math.round((selectedStageSummary.stageProgressed / selectedStageSummary.stageTotal) * 100))
+    : selectedStageSummary?.status === 'completed' ? 100 : 0;
+  const selectedStageStatus = selectedStageSummary?.status === 'completed' ? '已完成' : selectedStageSummary?.status === 'current' ? '施工中' : '待开始';
+  const selectedStageDateText = selectedStageActualStarts.length > 0
+    ? `${String(selectedStageActualStarts[0]).slice(5, 10)} ~ ${selectedStageSummary?.status === 'current' ? '至今' : String(selectedStageActualEnds[selectedStageActualEnds.length - 1] || selectedStageActualStarts[0]).slice(5, 10)}`
+    : '尚未开工';
+  const selectedStageId = String(selectedStage?._id || selectedStage?.id || '');
+  const selectedStageWorkerSchedule = projectWorkerSchedules.find((item) => item.stageId === selectedStageId && item.status !== 'cancelled');
+  const selectedStageWorker = selectedStageWorkerSchedule
+    ? workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)
+    : undefined;
+  const profileWorker = workerProfileSchedule
+    ? workers.find((item) => workerIdOf(item) === workerProfileSchedule.workerId)
+    : undefined;
+  const selectedStagePlanStarts = selectedStageSections.map((item: any) => item.startDate).filter(Boolean).sort();
+  const selectedStagePlanEnds = selectedStageSections.map((item: any) => item.endDate).filter(Boolean).sort();
+  const canArrangeWorkers = (isAdmin || includesPerson(project.manager, myName)) && !isProjectCompleted;
+  const selectedScheduleWorker = workers.find((item) => workerIdOf(item) === workerScheduleForm.workerId);
+  const selectedStageTrade = tradeForStage(selectedStage?.name || '');
+  const eligibleStageWorkers = workers.filter((worker) => worker.status !== 'inactive' && workerMatchesStage(worker, selectedStage?.name || ''));
+  const workerScheduleConflicts = selectedScheduleWorker
+    ? findScheduleConflicts(selectedScheduleWorker, workerScheduleForm, allWorkerSchedules, selectedStageWorkerSchedule ? scheduleIdOf(selectedStageWorkerSchedule) : undefined)
+    : [];
+  const openWorkerPhoto = async (source: string) => {
+    if (!source) return;
+    try {
+      if (!source.startsWith('cloud://')) {
+        setWorkerPhotoViewer([source]);
+        return;
+      }
+      const urls = await getTempFileURL([source]);
+      setWorkerPhotoViewer([urls[source] || await getFileDataURL(source)]);
+    } catch (previewError) {
+      console.error('[project-detail] worker photo preview failed', previewError);
+      try {
+        setWorkerPhotoViewer([await getFileDataURL(source)]);
+      } catch (fallbackError) {
+        console.error('[project-detail] worker photo fallback failed', fallbackError);
+      }
+    }
+  };
+
+  const openCurrentPreviewInWechat = () => {
+    const nativeOpened = openNativeMediaPreview(previewImages.map(item => ({
+      url: item.source || item.url,
+      type: item.isVideo ? 'video' : 'image',
+      poster: item.poster,
+    })), previewIndex);
+    if (!nativeOpened) setPreviewError('微信预览暂不可用，请使用当前查看器');
+  };
+  const openWorkerScheduleModal = () => {
+    const fallbackDate = todayDateValue();
+    setWorkerScheduleForm({
+      workerId: selectedStageWorkerSchedule?.workerId || '',
+      startDate: selectedStageWorkerSchedule?.startDate || selectedStagePlanStarts[0] || fallbackDate,
+      endDate: selectedStageWorkerSchedule?.endDate || selectedStagePlanEnds[selectedStagePlanEnds.length - 1] || selectedStagePlanStarts[0] || fallbackDate,
+      status: selectedStageWorkerSchedule?.status || (selectedStageSummary?.status === 'current' ? 'in_progress' : 'confirmed'),
+      note: selectedStageWorkerSchedule?.note || '',
+    });
+    setWorkerScheduleError('');
+    setShowWorkerScheduleModal(true);
+  };
+  const saveStageWorkerSchedule = async () => {
+    const worker = workers.find((item) => workerIdOf(item) === workerScheduleForm.workerId);
+    if (!worker || !selectedStageId || !workerScheduleForm.startDate || !workerScheduleForm.endDate) {
+      setWorkerScheduleError('请选择工人并填写完整排期日期'); return;
+    }
+    if (!workerMatchesStage(worker, selectedStage?.name || '')) {
+      setWorkerScheduleError(`当前节点需要${selectedStageTrade}工人，请重新选择匹配工种的师傅`); return;
+    }
+    if (workerScheduleForm.endDate < workerScheduleForm.startDate) {
+      setWorkerScheduleError('结束日期不能早于开始日期'); return;
+    }
+    if (workerScheduleConflicts.length > 0) {
+      setWorkerScheduleError(`该工人与“${workerScheduleConflicts[0].schedule.projectAddress}”排期冲突`); return;
+    }
+    setSavingWorkerSchedule(true);
+    const now = new Date().toISOString();
+    const payload = {
+      workerId: workerIdOf(worker), workerName: worker.name,
+      projectId: String(project._id || id), projectAddress: project.address || '未填写地址', customerName: project.customer || '',
+      stageId: selectedStageId, stageName: selectedStage?.name || '施工阶段', trade: selectedStageTrade,
+      startDate: workerScheduleForm.startDate, endDate: workerScheduleForm.endDate, status: workerScheduleForm.status, note: workerScheduleForm.note,
+      createdBy: myName, createdAt: selectedStageWorkerSchedule?.createdAt || now, updatedAt: now,
+    };
+    try {
+      if (selectedStageWorkerSchedule) await workerSchedulesAPI.update(scheduleIdOf(selectedStageWorkerSchedule), payload);
+      else await workerSchedulesAPI.add(payload);
+      setShowWorkerScheduleModal(false);
+      await loadWorkerSchedules();
+    } catch (error) {
+      console.error(error); setWorkerScheduleError('工人排期保存失败，请稍后重试');
+    } finally { setSavingWorkerSchedule(false); }
+  };
+  const removeStageWorkerSchedule = async () => {
+    if (!selectedStageWorkerSchedule) return;
+    const confirmed = await confirmUser('删除后，该阶段会恢复为待安排状态。', { title: '确定删除工人排期？', confirmStyle: 'danger' });
+    if (!confirmed) return;
+    await workerSchedulesAPI.delete(scheduleIdOf(selectedStageWorkerSchedule));
+    setShowWorkerScheduleModal(false);
+    await loadWorkerSchedules();
+  };
   const projectDuration = getPlanDays(project.startDate, project.endDate);
   const followPeople = [
     { label: '销售', value: toPersonArray(project.sales).join('、') || toPersonArray(lead?.sales).join('、') || '-' },
@@ -2425,38 +2792,43 @@ export default function ProjectBizDetail() {
   return (
     <div className="erp-page max-w-[1500px] mx-auto space-y-4">
       {/* ========== 基本信息置顶 ========== */}
-      {!standaloneSection && (
+      {!standaloneSection && !isStageDetail && (
       <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-start justify-between px-3 md:px-6 py-4 gap-3 md:gap-4">
-          <div className="flex items-start gap-2.5 md:gap-3 min-w-0 flex-1">
-            <button onClick={() => smartBack()} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-              <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight leading-[1.35] break-words">
-                {project.address || '未命名工地'}
-              </h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[15px] md:text-sm text-gray-500 font-medium">
-                <span>{project.customer || '-'}</span>
-                {isProjectCompleted && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
-                    <CheckCircle className="h-3 w-3" /> 已完工
-                  </span>
-                )}
-              </div>
-            </div>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1.5 px-3 py-4 md:gap-x-3 md:px-6">
+          <button onClick={() => smartBack()} className="col-start-1 row-start-1 -ml-1.5 rounded-lg p-1.5 transition-colors hover:bg-gray-100 md:row-span-2">
+            <ArrowLeft className="h-[18px] w-[18px] text-gray-400" />
+          </button>
+          <h1 className="col-span-2 col-start-2 row-start-1 min-w-0 break-words text-base font-bold leading-[1.4] tracking-tight text-gray-900 md:col-span-1 md:text-xl">
+            {project.address || '未命名工地'}
+          </h1>
+          <div className="col-start-2 row-start-2 flex min-h-7 min-w-0 flex-wrap items-center gap-1.5 text-sm font-medium leading-none text-gray-500">
+            <span>{project.customer || '-'}</span>
+            {isProjectCompleted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
+                <CheckCircle className="h-3 w-3" /> 已完工
+              </span>
+            )}
           </div>
 
-          <div className="flex flex-col items-end gap-1.5 shrink-0 md:flex-row md:items-start">
+          <div className="col-start-3 row-start-2 flex shrink-0 flex-row items-center self-center gap-1.5 md:row-span-2 md:row-start-1 md:self-start">
               {canEdit && (
               <>
                 {canEditProjectInfo && (
                   <button
                     onClick={editMode ? saveProject : startEdit}
                     disabled={isProjectActionBusy('save-project')}
-                    className="flex items-center justify-center h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap disabled:opacity-50"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 md:h-9 md:w-auto md:gap-1.5 md:px-4 md:text-xs md:font-medium"
+                    title={editMode ? '保存资料' : '编辑资料'}
+                    aria-label={editMode ? '保存资料' : '编辑资料'}
                   >
-                    {editMode ? (isProjectActionBusy('save-project') ? '保存中' : '保存资料') : '编辑资料'}
+                    {isProjectActionBusy('save-project') ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin md:h-4 md:w-4" />
+                    ) : editMode ? (
+                      <Check className="h-3.5 w-3.5 md:hidden" />
+                    ) : (
+                      <Edit3 className="h-3.5 w-3.5 md:hidden" />
+                    )}
+                    <span className="hidden md:inline">{editMode ? '保存资料' : '编辑资料'}</span>
                   </button>
                 )}
                 {canShareCustomerProgress && (
@@ -2533,15 +2905,17 @@ export default function ProjectBizDetail() {
             <button
               type="button"
               onClick={() => setMobileInfoOpen(v => !v)}
-              className="w-full flex items-center justify-between rounded-xl bg-gray-50 px-3 py-3 text-left"
+              className="w-full rounded-xl bg-gray-50 px-3 py-3 text-left"
             >
-              <div>
-                <div className="text-[13px] font-semibold text-gray-900">工地信息</div>
-                <div className="mt-0.5 text-[11px] text-gray-400">
-                  开工 {project.startDate ? formatDate(project.startDate) : '-'} · 工期 {projectDuration ? `${projectDuration}天` : '-'}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-gray-900">工地信息</div>
+                  <div className="mt-0.5 truncate text-[11px] text-gray-400">
+                    当前 {currentNodeName || '未开始'} · 开工 {project.startDate ? formatDate(project.startDate) : '-'} · 工期 {projectDuration ? `${projectDuration}天` : '-'}
+                  </div>
                 </div>
+                <ChevronDown size={15} className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${mobileInfoOpen ? 'rotate-180' : ''}`} />
               </div>
-              <ChevronDown size={15} className={`text-gray-400 transition-transform ${mobileInfoOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {mobileInfoOpen && (
@@ -2799,10 +3173,78 @@ export default function ProjectBizDetail() {
         </div>
       )}
 
+      {isStageDetail && (
+        <div className="px-1 py-2 md:hidden">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(`/projects-biz/${id}`)} className="-ml-1.5 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-gray-100">
+              <ArrowLeft className="h-[18px] w-[18px] text-gray-400" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className={`truncate text-lg font-semibold ${selectedStageSummary?.status === 'current' ? 'text-amber-600' : 'text-gray-900'}`}>{selectedStage?.name || '施工阶段'}</h1>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${selectedStageSummary?.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : selectedStageSummary?.status === 'current' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{selectedStageStatus}</span>
+              </div>
+              <div className="mt-1 text-xs text-gray-500">{selectedStageDateText}</div>
+            </div>
+            <div
+              className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
+              style={{ background: `conic-gradient(${selectedStageSummary?.status === 'completed' ? '#10b981' : selectedStageSummary?.status === 'current' ? '#d4a72c' : '#d1d5db'} ${selectedStagePercent * 3.6}deg, #e5e7eb 0deg)` }}
+              aria-label={`节点进度 ${selectedStagePercent}%`}
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-50 text-xs font-semibold text-gray-800">{selectedStagePercent}%</div>
+            </div>
+          </div>
+          <div className="mt-2 truncate pl-9 text-[11px] text-gray-400">{project.address || '未命名工地'}</div>
+        </div>
+      )}
+
       <div id="project-detail-workspace" className="space-y-4">
         {/* ========== Tab: 施工进度 ========== */}
         {activeTab === 'site' && (
           <div className="relative space-y-4 rounded-xl">
+            {isStageDetail && (
+              <div className="flex items-center justify-between gap-3 border-y border-gray-200 bg-white px-3 py-3 md:rounded-lg md:border md:px-4">
+                {selectedStageWorkerSchedule ? (
+                  <button type="button" onClick={() => setWorkerProfileSchedule(selectedStageWorkerSchedule)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gold-400" title="查看工人档案">
+                    <WorkerAvatar name={selectedStageWorker?.name || selectedStageWorkerSchedule.workerName} fileID={selectedStageWorker?.photoFileID} className="h-9 w-9" />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2"><span className="text-xs text-gray-400">施工工人</span><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">已排期</span></span>
+                      <span className="mt-0.5 block truncate text-sm font-medium text-gray-900">{selectedStageWorker?.name || selectedStageWorkerSchedule.workerName}</span>
+                      <span className="mt-0.5 block text-[11px] text-gray-500">{String(selectedStageWorkerSchedule.startDate).slice(5)} 至 {String(selectedStageWorkerSchedule.endDate).slice(5)}{selectedStageWorker?.phone ? ` · ${selectedStageWorker.phone}` : ''}</span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400"><Users size={17} /></span>
+                    <div className="min-w-0"><div className="text-xs text-gray-400">施工工人</div><div className="mt-0.5 text-sm text-gray-500">暂未安排工人</div></div>
+                  </div>
+                )}
+                {canArrangeWorkers ? <button onClick={openWorkerScheduleModal} className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:border-gold-300 hover:text-gold-600" title={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'} aria-label={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}>{selectedStageWorkerSchedule ? <Edit3 size={16} /> : <Plus size={16} />}</button> : <button onClick={() => navigate('/worker-schedule')} className="shrink-0 text-xs font-medium text-gold-600">查看排期</button>}
+              </div>
+            )}
+            {!isStageDetail && projectTodos.length > 0 && (
+              <div className="hidden overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm md:block">
+                <div className="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-4 py-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-red-600"><AlertTriangle className="h-4 w-4" /> 当前待办 {projectTodos.length} 项</div>
+                  {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Plus className="h-3.5 w-3.5" /> 新增待办</button>}
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {projectTodos.map(todo => (
+                    <div key={todo._id} className="flex items-center gap-3 px-4 py-3">
+                      {canCompleteTodo(todo) ? (
+                        <button onClick={() => handleCompleteProjectTodo(todo)} disabled={completingTodoId === todo._id} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-gray-300 text-white hover:border-emerald-500 hover:bg-emerald-500 disabled:opacity-50" aria-label="完成待办" title="完成待办">
+                          {completingTodoId === todo._id ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : <Check className="h-3 w-3" />}
+                        </button>
+                      ) : <span className="h-3 w-3 shrink-0 rounded-full border border-red-300 bg-red-50" />}
+                      <button onClick={() => navigate(`/todos?todoId=${todo._id}`)} className="min-w-0 flex-1 text-left">
+                        <span className="font-medium text-gray-800">{todo.title}</span>
+                        <span className="ml-3 text-xs text-gray-400">{todo.dueDate ? `截止 ${todo.dueDate}` : ''}{(todo.assignees || []).length > 0 ? ` · ${todo.assignees.map((item: any) => item.name).join('、')}` : ''}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* 模板操作 (仅在没有节点时显示) */}
             {(!project.nodesData || project.nodesData.length === 0) ? (
               <div className="hidden md:flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -2810,10 +3252,19 @@ export default function ProjectBizDetail() {
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">当前项目暂无施工节点，请选择模板进行生成</p>
                 </div>
-                {canEditSite && (
-                  <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded-lg hover:bg-gold-500 transition-colors">
-                    套用模板
-                  </button>
+                {(canCreateProjectTodo || canManageConstructionStructure) && (
+                  <div className="flex items-center gap-2">
+                    {canCreateProjectTodo && (
+                      <button onClick={openQuickTodoModal} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50">
+                        <ClipboardList className="h-3.5 w-3.5" /> 新增待办
+                      </button>
+                    )}
+                    {canManageConstructionStructure && (
+                      <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded-lg hover:bg-gold-500 transition-colors">
+                        套用模板
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
@@ -2822,9 +3273,15 @@ export default function ProjectBizDetail() {
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">管理和查看各阶段进度</p>
                 </div>
-                {canEditSite && (
+                {(canCreateProjectTodo || canManageConstruction || canManageConstructionStructure) && (
                   <div className="flex items-center gap-2">
-                    {!isEditingNodes && (
+                    {canCreateProjectTodo && <button
+                      onClick={openQuickTodoModal}
+                      className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-8 md:text-xs"
+                    >
+                      <ClipboardList className="h-3.5 w-3.5" /> 新增待办
+                    </button>}
+                    {canManageConstruction && !isEditingNodes && !isStageDetail && (
                       !isProjectCompleted ? (
                         <button
                           onClick={openCompletionModal}
@@ -2843,7 +3300,7 @@ export default function ProjectBizDetail() {
                         </button>
                       ) : null
                     )}
-                    {isEditingNodes && (
+                    {canManageConstructionStructure && isEditingNodes && (
                       <>
                         <button onClick={applyTemplate} className="text-sm px-4 py-2 bg-white border border-gold-400 text-gold-600 font-medium rounded-lg hover:bg-gold-50 transition-colors flex items-center gap-1">
                           ↻ 同步模板库
@@ -2853,7 +3310,7 @@ export default function ProjectBizDetail() {
                         </button>
                       </>
                     )}
-                    <button onClick={() => {
+                    {canManageConstructionStructure && <button onClick={() => {
                       if (!isEditingNodes && project.nodesData) {
                         const newNodes = project.nodesData.map((n: any) => ({
                           ...n,
@@ -2865,20 +3322,24 @@ export default function ProjectBizDetail() {
                       setIsEditingNodes(!isEditingNodes);
                     }} className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap">
                       {isEditingNodes ? '保存编辑' : '编辑节点'}
-                    </button>
+                    </button>}
                   </div>
                 )}
               </div>
             )}
 
             <div className="md:hidden space-y-3">
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50/70 border-b border-gray-100">
+              <div className={isStageDetail ? '' : 'overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm'}>
+                {!isStageDetail && <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-gray-700">施工动态</h3>
                   </div>
-                  {canEditSite && (
-                    <button
+                  {(canCreateProjectTodo || canManageConstructionStructure) && !isStageDetail && (
+                    <div className="flex items-center gap-1.5">
+                    {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
+                      <ClipboardList className="h-3.5 w-3.5" />
+                    </button>}
+                    {canManageConstructionStructure && <button
                       onClick={() => {
                         if (!isEditingNodes && project.nodesData) {
                           const newNodes = project.nodesData.map((n: any) => ({
@@ -2890,12 +3351,36 @@ export default function ProjectBizDetail() {
                         }
                         setIsEditingNodes(!isEditingNodes);
                       }}
-                      className="flex items-center h-7 px-2.5 text-[11px] font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
+                      title={isEditingNodes ? '保存节点' : '编辑节点'}
+                      aria-label={isEditingNodes ? '保存节点' : '编辑节点'}
                     >
-                      {isEditingNodes ? '保存节点' : '编辑节点'}
-                    </button>
+                      {isEditingNodes ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
+                    </button>}
+                    </div>
                   )}
-                </div>
+                </div>}
+
+                {!isStageDetail && projectTodos.length > 0 && (
+                  <div className="border-b border-red-100 bg-red-50/40 px-4 py-2.5">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-red-600">
+                      <AlertTriangle className="h-3.5 w-3.5" /> 当前待办 {projectTodos.length} 项
+                    </div>
+                    <div className="divide-y divide-red-100/70">
+                      {projectTodos.map(todo => (
+                        <div key={todo._id} className="flex items-center gap-2 py-2">
+                          {canCompleteTodo(todo) ? (
+                            <button onClick={() => handleCompleteProjectTodo(todo)} disabled={completingTodoId === todo._id} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-white transition-colors hover:border-emerald-500 hover:bg-emerald-500 disabled:opacity-50" aria-label="完成待办" title="完成待办">
+                              {completingTodoId === todo._id ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : <Check className="h-3 w-3" />}
+                            </button>
+                          ) : <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-400" />}
+                          <div className="min-w-0 flex-1 text-sm leading-snug text-gray-800">{todo.title}</div>
+                          {todo.dueDate && <span className="shrink-0 text-[11px] text-red-500">{String(todo.dueDate).slice(5, 10)}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
             {/* 移动端节点编辑 — 对齐模板库 UI */}
             {isEditingNodes ? (
@@ -2988,8 +3473,9 @@ export default function ProjectBizDetail() {
               </div>
             ) : (
               /* ===== 移动端：查看模式 ===== */
-                <div className="p-3 space-y-3 bg-gray-50/60">
+                <div className={isStageDetail ? 'space-y-3' : 'space-y-3 bg-gray-50/60 p-3'}>
                   {project.nodesData?.map((node: any, index: number) => {
+                    if (isStageDetail && index !== stageDetailIndex) return null;
                     const sections = node.sections || [];
                     const nodeSections = sections.flatMap((s: any) => s ? [s] : []);
                     const stageSummary = progressSummary.stageStatuses[index];
@@ -3000,12 +3486,30 @@ export default function ProjectBizDetail() {
                     const badgeClass = allCompleted ? 'bg-emerald-50 text-emerald-700' : hasCurrent ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500';
                     const actualStarts = nodeSections.map((s: any) => s.actualStartDate).filter(Boolean);
                     const actualEnds = nodeSections.map((s: any) => s.actualEndDate || (s.status === 'current' ? '至今' : '')).filter(Boolean);
-                    const actualRange = actualStarts.length ? `${actualStarts[0]} ~ ${actualEnds[actualEnds.length - 1] || '至今'}` : '';
+                    const toMonthDay = (value: string) => value === '至今' ? value : String(value).slice(5, 10);
+                    const actualRange = actualStarts.length ? `${toMonthDay(actualStarts[0])} ~ ${toMonthDay(actualEnds[actualEnds.length - 1] || '至今')}` : '';
+                    const planStarts = nodeSections.map((s: any) => s.startDate).filter(Boolean);
+                    const planEnds = nodeSections.map((s: any) => s.endDate).filter(Boolean);
+                    const planRange = planStarts.length ? `${toMonthDay(planStarts[0])} ~ ${planEnds.length ? toMonthDay(planEnds[planEnds.length - 1]) : '未设置'}` : '';
+                    const stagePercent = stageSummary?.stageTotal > 0
+                      ? Math.min(100, Math.round((stageSummary.stageProgressed / stageSummary.stageTotal) * 100))
+                      : (allCompleted ? 100 : 0);
 
                     return (
-                      <div key={node._id || `mobile-node-${index}`} className="space-y-2">
-                        <div onClick={() => !isEditingNodes && toggleNodeCollapse(node._id)} className={`w-full px-1 py-2 text-left ${isCurrentPosition && allCompleted ? 'rounded-lg ring-2 ring-gold-300 ring-offset-1' : ''}`}>
-                          <div className="flex items-center justify-between gap-2">
+                      <div key={node._id || `mobile-node-${index}`} className={`relative ${!isStageDetail && index < (project.nodesData?.length || 0) - 1 ? 'pb-1' : ''}`}>
+                        {!isStageDetail && index < (project.nodesData?.length || 0) - 1 && <div className="absolute bottom-0 left-[8px] top-[28px] w-px bg-gray-200" />}
+                        {!isStageDetail && <div onClick={() => {
+                          if (isStageDetail || isEditingNodes) return;
+                          const scrollContainer = document.querySelector<HTMLElement>('[data-scroll="main"]');
+                          sessionStorage.setItem(`project_detail_scroll_${id}`, String(scrollContainer?.scrollTop || 0));
+                          navigate(`/projects-biz/${id}?stage=${index}`);
+                        }} className={`w-full py-2 text-left ${!isStageDetail ? 'cursor-pointer' : ''}`}>
+                          <div className="flex items-start gap-3">
+                            {!isStageDetail && (
+                              <span className={`relative z-10 mt-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 bg-white ${allCompleted ? 'border-emerald-500' : hasCurrent || isCurrentPosition ? 'border-amber-500' : 'border-gray-300'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${allCompleted ? 'bg-emerald-500' : hasCurrent || isCurrentPosition ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                              </span>
+                            )}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 min-w-0">
                                 {isEditingNodes ? (
@@ -3027,7 +3531,25 @@ export default function ProjectBizDetail() {
                                 )}
                                 {!isEditingNodes && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}>{badge}</span>}
                               </div>
-                              {!isEditingNodes && actualRange && <div className="mt-1 text-xs text-slate-500">实际：{actualRange}</div>}
+                              {!isEditingNodes && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    if (actualRange || !canManageConstruction || !nodeSections[0]) return;
+                                    event.stopPropagation();
+                                    setShowPlanDateModal({
+                                      nodeId: node._id,
+                                      secIdx: 0,
+                                      name: `${node.name} · ${nodeSections[0].name || '阶段计划'}`,
+                                      startDate: nodeSections[0].startDate || '',
+                                      endDate: nodeSections[0].endDate || '',
+                                    });
+                                  }}
+                                  className={`mt-1 text-left text-xs text-slate-500 ${!actualRange && canManageConstruction && nodeSections[0] ? 'underline decoration-dashed underline-offset-2' : ''}`}
+                                >
+                                  {actualRange ? `实际：${actualRange}` : planRange ? `计划：${planRange}` : '未设置计划时间'}
+                                </button>
+                              )}
                             </div>
                             {isEditingNodes ? (
                               <button
@@ -3039,19 +3561,22 @@ export default function ProjectBizDetail() {
                               >
                                 {node.collapsed ? '展开' : '收起'}
                               </button>
-                            ) : (
-                              <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${node.collapsed ? '-rotate-90' : ''}`} />
+                            ) : isStageDetail ? null : (
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span className={`text-xs font-semibold ${allCompleted ? 'text-emerald-600' : hasCurrent || isCurrentPosition ? 'text-amber-600' : 'text-gray-400'}`}>{stagePercent}%</span>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              </div>
                             )}
                           </div>
-                        </div>
+                        </div>}
 
-                        {!node.collapsed && (
+                        {isStageDetail && (
                           <div className="space-y-2">
                             {(node.craftsmanship && node.craftsmanship.length > 0) && (
-                              <details className="group rounded-xl border border-gray-100 bg-white shadow-sm p-3">
-                                <summary className="cursor-pointer list-none flex items-center justify-between text-sm font-medium text-gray-800">
-                                  <span>工艺标准</span>
-                                  <ChevronDown className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+                              <details className="group border-y border-gray-200 bg-transparent px-1 py-2">
+                                <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-gray-500">
+                                  <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> 工艺标准</span>
+                                  <ChevronDown className="h-3.5 w-3.5 text-gray-400 transition-transform group-open:rotate-180" />
                                 </summary>
                                 <div className="mt-3 space-y-2">
                                   {node.craftsmanship.map((craft: any, cIdx: number) => (
@@ -3085,7 +3610,7 @@ export default function ProjectBizDetail() {
                               const isSecCurrent = section.status === 'current';
                               const isSecPending = !section.status || section.status === 'pending';
                               const isEditingRecord = editingRecordKey === `${node._id}-${secIdx}`;
-                              const canEditRecord = canEditSite && !isEditingNodes && (isSecCurrent || isEditingRecord);
+                              const canEditRecord = canManageConstruction && !isEditingNodes && (isSecCurrent || isEditingRecord);
                               const secBadge = isSecCompleted ? '已完成' : isSecCurrent ? '施工中' : '待开始';
                               const secBadgeClass = isSecCompleted ? 'bg-emerald-50 text-emerald-700' : isSecCurrent ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500';
                               const latestEditTime = section.updateTime || section.lastEditedAt || section.submitTime;
@@ -3137,7 +3662,7 @@ export default function ProjectBizDetail() {
                                           )}
                                         </div>
                                       )}
-                                      {canEditSite && !isEditingNodes && isSecPending && !section.submitted && !section.actualStartDate && (
+                                      {canManageConstruction && !isEditingNodes && isSecPending && !section.submitted && !section.actualStartDate && (
                                         <button
                                           type="button"
                                           onClick={(e) => {
@@ -3156,7 +3681,7 @@ export default function ProjectBizDetail() {
                                         </button>
                                       )}
                                     </div>
-                                    {canEditSite && !isEditingNodes && isSecPending && !section.submitted && (
+                                    {canManageConstruction && !isEditingNodes && isSecPending && !section.submitted && (
                                       <div className="mt-3 flex justify-end">
                                         <button
                                           onClick={(e) => {
@@ -3218,28 +3743,27 @@ export default function ProjectBizDetail() {
                                             ) : (
                                               <div className="flex-1 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap break-words">{sn.name}</div>
                                             )}
-                                            {canEditSite && isEditingNodes && (
+                                            {canManageConstructionStructure && isEditingNodes && (
                                               <button onClick={() => deleteSubNode(node._id, secIdx, subIdx)} className="mt-1 rounded-lg p-1 text-gray-300 hover:bg-red-50 hover:text-red-500">
                                                 <Trash2 className="w-4 h-4" />
                                               </button>
                                             )}
                                           </div>
                                           {(photos.length > 0 || canEditRecord) && (
-                                            <div className="mt-2 flex flex-wrap gap-2">
+                                            <div className="mt-2 grid w-full grid-cols-4 gap-1.5">
                                               {photos.map((p: any, pi: number) => {
                                                 const isVideo = p.type === 'video' || (p.url && !!p.url.match(/\.(mp4|mov|avi)$/i));
                                                 return (
-                                                  <div key={pi} className="relative group">
+                                                  <div key={pi} className="relative aspect-square min-w-0">
                                                   <button onClick={() => {
                                                     if (p.isUploading) return;
-                                                    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-                                                    const isSecCompleted = section.status === 'completed' || section.submitted;
-                                                    if (canEditRecord && isMobile && !isSecCompleted) {
-                                                      setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
-                                                    } else {
-                                                      openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi });
-                                                    }
-                                                  }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
+                                                    openPreview(
+                                                      p,
+                                                      photos,
+                                                      canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null,
+                                                      'web',
+                                                    );
+                                                  }} className="relative h-full w-full overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
                                                     ) : isVideo ? (
@@ -3247,7 +3771,7 @@ export default function ProjectBizDetail() {
                                                     ) : (
                                                       <CloudImage src={p.url || p.fileID} className="h-full w-full object-cover" alt="现场照片" />
                                                     )}
-                                                    {isVideo && <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-[5px]"><div className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center"><div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[5px] border-l-black border-b-[3px] border-b-transparent ml-0.5"></div></div></div>}
+                                                    {isVideo && <VideoPlayBadge className="rounded-[5px]" />}
                                                   </button>
                                                   <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                                                   </div>
@@ -3257,7 +3781,7 @@ export default function ProjectBizDetail() {
                                                 <button
                                                   onClick={() => triggerSubNodePhoto(sn._id)}
                                                   disabled={uploadingSubNode === sn._id}
-                                                  className="flex h-14 w-14 items-center justify-center rounded-[5px] border border-dashed border-gray-300 bg-gray-50 text-gray-500 disabled:opacity-50"
+                                                  className="flex aspect-square h-full w-full items-center justify-center rounded-[5px] border border-dashed border-gray-300 bg-gray-50 text-gray-500 disabled:opacity-50"
                                                 >
                                                   {uploadingSubNode === sn._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                                                 </button>
@@ -3283,18 +3807,18 @@ export default function ProjectBizDetail() {
                                           ) : null}
                                         </div>
                                       )}
-                                      {canEditSite && isEditingNodes && (
+                                      {canManageConstructionStructure && isEditingNodes && (
                                         <button onClick={() => addBlankSubNode(node._id, secIdx)} className="my-2 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-500">
                                           <Plus className="h-4 w-4" /> 新增检查项
                                         </button>
                                       )}
-                                      {(canEditSite || canShareCustomerProgress) && !isEditingNodes && (
+                                      {(canManageConstruction || canShareCustomerProgress) && !isEditingNodes && (
                                         <div className="space-y-2 pt-1">
                                           {latestEditTime && (
                                             <div className="text-right text-[11px] text-gray-400">最近编辑：{latestEditTime}</div>
                                           )}
                                           <div className="grid grid-cols-2 gap-2">
-                                            {canEditSite && isSecCurrent && (
+                                            {canManageConstruction && isSecCurrent && (
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
@@ -3303,7 +3827,7 @@ export default function ProjectBizDetail() {
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                               </button>
                                             )}
-                                            {canEditSite && isSecCompleted && isEditingRecord && (
+                                            {canManageConstruction && isSecCompleted && isEditingRecord && (
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
@@ -3312,7 +3836,7 @@ export default function ProjectBizDetail() {
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                               </button>
                                             )}
-                                            {canEditSite && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
+                                            {canManageConstruction && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                               <button
                                                 onClick={() => startEditingSectionRecord(node._id, secIdx)}
                                                 className="rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-700"
@@ -3698,7 +4222,7 @@ export default function ProjectBizDetail() {
                             const isSecCurrent = section.status === 'current';
                             const isSecPending = !section.status || section.status === 'pending';
                             const isEditingRecord = editingRecordKey === `${node._id}-${secIdx}`;
-                            const canEditRecord = canEditSite && (isSecCurrent || isEditingRecord);
+                            const canEditRecord = canManageConstruction && (isSecCurrent || isEditingRecord);
                             const latestEditTime = section.updateTime || section.lastEditedAt || section.submitTime;
                             const planStart = section.startDate || null;
                             const planEnd = section.endDate || null;
@@ -3765,9 +4289,9 @@ export default function ProjectBizDetail() {
                                         <div className="mt-1 bg-red-50 border border-red-100 text-red-600 p-2 rounded">
                                           <span className="font-bold">逾期原因：</span>
                                           {section.delayReason ? (
-                                            <span onClick={() => canEditSite && setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: section.delayReason })} className={canEditSite ? 'cursor-pointer' : ''}>{section.delayReason}</span>
+                                            <span onClick={() => canManageConstruction && setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: section.delayReason })} className={canManageConstruction ? 'cursor-pointer' : ''}>{section.delayReason}</span>
                                           ) : (
-                                            <span>* 此阶段已逾期，请补充填写逾期原因 {canEditSite && <span onClick={() => setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: '' })} className="ml-2 text-gold-600 underline cursor-pointer">去填写</span>}</span>
+                                            <span>* 此阶段已逾期，请补充填写逾期原因 {canManageConstruction && <span onClick={() => setDelayReasonModal({ open: true, nodeId: node._id, secIdx, name: section.name, reason: '' })} className="ml-2 text-gold-600 underline cursor-pointer">去填写</span>}</span>
                                           )}
                                         </div>
                                       )}
@@ -3816,7 +4340,7 @@ export default function ProjectBizDetail() {
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between gap-2">
                                           <div className="text-sm leading-relaxed text-gray-700">{sn.name}</div>
-                                          {canEditSite && canEditRecord && (
+                                          {canManageConstruction && canEditRecord && (
                                             <div className="flex items-center gap-1 shrink-0 mt-0.5">
                                               <button onClick={() => triggerSubNodePhoto(sn._id)} disabled={uploadingSubNode === sn._id} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gold-600 transition-colors">
                                                 {uploadingSubNode === sn._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
@@ -3828,7 +4352,7 @@ export default function ProjectBizDetail() {
                                           <div className="mt-2 space-y-1">
                                             {sn.checklist.map((item: string, ci: number) => (
                                               <label key={ci} className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                                                <input type="checkbox" disabled={!canEditSite || sn.status === 'completed'} checked={sn.acceptanceRecord?.checklist?.[ci] || false}
+                                                <input type="checkbox" disabled={!canManageConstruction || sn.status === 'completed'} checked={sn.acceptanceRecord?.checklist?.[ci] || false}
                                                   onChange={() => {
                                                     const newNodesData = [...(project.nodesData || [])];
                                                     const nd = newNodesData.find((n: any) => n._id === node._id);
@@ -3857,13 +4381,12 @@ export default function ProjectBizDetail() {
                                                 <div key={pi} className="relative group aspect-square">
                                                   <button onClick={() => {
                                                     if (p.isUploading) return;
-                                                    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-                                                    const isSecCompleted = section.status === 'completed' || section.submitted;
-                                                    if (canEditRecord && isMobile && !isSecCompleted) {
-                                                      setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
-                                                    } else {
-                                                      openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi });
-                                                    }
+                                                    openPreview(
+                                                      p,
+                                                      photos,
+                                                      canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null,
+                                                      'web',
+                                                    );
                                                   }} className="relative w-full h-full rounded-[5px] bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
@@ -3872,7 +4395,7 @@ export default function ProjectBizDetail() {
                                                     ) : (
                                                       <CloudImage src={p.url || p.fileID} className="w-full h-full object-cover" alt="现场照片" />
                                                     )}
-                                                    {isVideo && <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded"><div className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center"><div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[5px] border-l-black border-b-[3px] border-b-transparent ml-0.5"></div></div></div>}
+                                                    {isVideo && <VideoPlayBadge className="rounded-[5px]" />}
                                                   </button>
                                                   <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                                                 </div>
@@ -3886,7 +4409,7 @@ export default function ProjectBizDetail() {
                                               const isVideo = p.type === 'video' || (p.url && !!p.url.match(/\.(mp4|mov|avi)$/i));
                                               return (
                                                 <div key={pi} className="relative group">
-                                                  <button onClick={() => { if (!p.isUploading) openPreview(p, photos, { nodeId: node._id, secIdx, subIdx, photoIdx: pi }); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
+                                                  <button onClick={() => { if (!p.isUploading) openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null, 'web'); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
                                                     ) : isVideo ? (
@@ -3894,7 +4417,7 @@ export default function ProjectBizDetail() {
                                                     ) : (
                                                       <CloudImage src={p.url || p.fileID} className="h-full w-full object-cover" alt="现场照片" />
                                                     )}
-                                                    {isVideo && <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-[5px]"><div className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center"><div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[5px] border-l-black border-b-[3px] border-b-transparent ml-0.5"></div></div></div>}
+                                                    {isVideo && <VideoPlayBadge className="rounded-[5px]" />}
                                                   </button>
                                                   <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                                                 </div>
@@ -3916,11 +4439,11 @@ export default function ProjectBizDetail() {
                                         <div className="rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
                                       )
                                     )}
-                {(canEditSite || canShareCustomerProgress) && (
+                {(canManageConstruction || canShareCustomerProgress) && (
                                       <div className="space-y-2">
                                         {latestEditTime && <div className="text-right text-xs text-gray-400">最近编辑：{latestEditTime}</div>}
                                         <div className="flex justify-end gap-2">
-                                          {canEditSite && isSecPending && !section.submitted && !section.actualStartDate && (
+                                          {canManageConstruction && isSecPending && !section.submitted && !section.actualStartDate && (
                                             <button
                                               type="button"
                                               onClick={() => setShowPlanDateModal({
@@ -3935,25 +4458,25 @@ export default function ProjectBizDetail() {
                                               {section.startDate || section.endDate ? '修改计划时间' : '设置计划时间'}
                                             </button>
                                           )}
-                                          {canEditSite && isSecPending && !section.submitted && (
+                                          {canManageConstruction && isSecPending && !section.submitted && (
                                             <button onClick={() => startSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`start-${node._id}-${secIdx}`)}
                                               className="rounded-lg border border-gold-500 px-4 py-2 text-xs font-medium text-gold-600 hover:bg-gold-50 disabled:opacity-50">
                                               {isProjectActionBusy(`start-${node._id}-${secIdx}`) ? '处理中...' : '开工'}
                                             </button>
                                           )}
-                                          {canEditSite && isSecCurrent && (
+                                          {canManageConstruction && isSecCurrent && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
                                               className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                             </button>
                                           )}
-                                          {canEditSite && isSecCompleted && isEditingRecord && (
+                                          {canManageConstruction && isSecCompleted && isEditingRecord && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
                                               className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                             </button>
                                           )}
-                                          {canEditSite && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
+                                          {canManageConstruction && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                             <button onClick={() => startEditingSectionRecord(node._id, secIdx)} className="rounded-lg bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700">编辑记录</button>
                                           )}
                                           {/* 开工后任意时刻均可分享，不要求阶段已完工 */}
@@ -3989,14 +4512,14 @@ export default function ProjectBizDetail() {
                   <div className="text-center py-12 text-gray-400">
                     <HardHat className="w-10 h-10 mx-auto mb-2 text-gray-200" />
                     <p className="text-sm">暂无施工节点</p>
-                    {canEditSite && (
+                    {canManageConstructionStructure && (
                       <button onClick={openTemplateModal} className="mt-2 text-xs text-gold-600 hover:underline">套用模板</button>
                     )}
                   </div>
                 )}
               </div>
             )}
-            {canEdit && (
+            {canEdit && !isStageDetail && (
               <div className="md:hidden px-1 pb-2 pt-1">
                 {!isProjectCompleted ? (
                   <button
@@ -4104,19 +4627,15 @@ export default function ProjectBizDetail() {
                     </div>
                     <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mt-2">{log.content}</p>
                         {log.photos && log.photos.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-3">
+                          <div className="mt-3 grid grid-cols-4 gap-1.5 md:flex md:flex-wrap md:gap-2">
                             {log.photos.map((photo, idx) => {
-                              const isVideo = !!(photo as string).match(/\.(mp4|mov|avi)$/i);
+                              const isVideo = isVideoMedia(photo);
                               return (
-                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: !!(p as string).match(/\.(mp4|mov|avi)$/i) ? 'video' : 'image' })))} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                                <CloudImage src={photo as string} className="w-full h-full object-cover" />
-                                {isVideo && (
-                                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                    <div className="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center">
-                                      <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-black border-b-[4px] border-b-transparent ml-0.5"></div>
-                                    </div>
-                                  </div>
-                                )}
+                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: isVideoMedia(p) ? 'video' : 'image' })), null, 'web')} className="relative aspect-square min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 md:h-16 md:w-16">
+                                {isVideo
+                                  ? <CloudVideo src={photo as string} className="h-full w-full object-cover" />
+                                  : <CloudImage src={photo as string} className="h-full w-full object-cover" />}
+                                {isVideo && <VideoPlayBadge className="rounded-lg" />}
                               </button>
                               );
                             })}
@@ -4638,54 +5157,28 @@ export default function ProjectBizDetail() {
         document.body
       )}
 
-      {nodePhotoAction && createPortal(
-        <div className="fixed inset-0 z-[75] flex items-end bg-black/30 md:items-center md:p-6" onClick={() => setNodePhotoAction(null)}>
-          <div className="w-full overflow-hidden rounded-t-2xl bg-white shadow-xl md:rounded-2xl md:max-w-sm" onClick={e => e.stopPropagation()}>
-            {/* 拖拽条 */}
-            <div className="mx-auto mt-3 h-1 w-16 rounded-full bg-gray-300 md:hidden"></div>
-            
-            <button
-              type="button"
-              onClick={() => {
-                openPreview(nodePhotoAction.photo, nodePhotoAction.photos, { nodeId: nodePhotoAction.nodeId, secIdx: nodePhotoAction.secIdx, subIdx: nodePhotoAction.subIdx, photoIdx: nodePhotoAction.photoIdx });
-                setNodePhotoAction(null);
-              }}
-              className="w-full px-4 py-4 text-center text-base font-medium text-gray-800 hover:bg-gray-50 border-b border-gray-100"
-            >
-              预览大图
-            </button>
-            {nodePhotoAction.canDelete && (
-              <button
-                type="button"
-                onClick={() => {
-                  deletePhoto(nodePhotoAction.nodeId, nodePhotoAction.secIdx, nodePhotoAction.subIdx, nodePhotoAction.photoIdx);
-                  setNodePhotoAction(null);
-                }}
-                className="w-full px-4 py-4 text-center text-base font-medium text-red-600 hover:bg-red-50"
-              >
-                删除图片
-              </button>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* 画廊预览弹窗 */}
       {showPreviewModal && previewImages.length > 0 && createPortal(
-        <div className="fixed inset-0 bg-black/90 z-[300] isolate flex items-center justify-center p-4">
-          <div className="absolute top-4 right-4 z-[310] flex items-center gap-3 md:top-5 md:right-5">
+        <div
+          className="fixed inset-0 bg-black/90 z-[300] isolate flex items-center justify-center p-4"
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <div
+            className="absolute top-3 right-3 z-[310] flex items-center gap-2 sm:top-5 sm:right-5"
+            onClick={(event) => event.stopPropagation()}
+          >
             {currentPhotoDeleteContext && (
               <button 
                 onClick={() => {
                   if (!currentPhotoDeleteContext) return;
                   deletePhoto(currentPhotoDeleteContext.nodeId, currentPhotoDeleteContext.secIdx, currentPhotoDeleteContext.subIdx, currentPhotoDeleteContext.photoIdx);
                   setShowPreviewModal(false);
-                  setCurrentPhotoDeleteContext(null);
                 }}
-                className="px-4 py-2 bg-red-500/80 text-white rounded-lg hover:bg-red-600/80 backdrop-blur-sm transition-colors text-sm font-medium flex items-center gap-2"
+                className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-red-500/80 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-red-600/80 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+                title="删除当前媒体"
+                aria-label="删除当前媒体"
               >
-                <Trash2 size={16} /> 删除
+                <Trash2 size={16} /> <span className="hidden sm:inline">删除</span>
               </button>
             )}
             <button 
@@ -4701,13 +5194,31 @@ export default function ProjectBizDetail() {
                 a.click();
                 document.body.removeChild(a);
               }}
-              className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 backdrop-blur-sm transition-colors text-sm font-medium flex items-center gap-2"
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/20 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+              title="下载当前媒体"
+              aria-label="下载当前媒体"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              下载
+              <span className="hidden sm:inline">下载</span>
             </button>
-            <button onClick={() => { setShowPreviewModal(false); setCurrentPhotoDeleteContext(null); }} className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 backdrop-blur-sm transition-colors text-sm font-medium flex items-center gap-2">
-              <X size={16} /> 关闭
+            {isMiniProgramWebView() && (
+              <button
+                type="button"
+                onClick={openCurrentPreviewInWechat}
+                className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/20 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+                title="使用微信原生预览"
+                aria-label="使用微信原生预览"
+              >
+                <ExternalLink size={16} /> <span className="hidden sm:inline">微信预览</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowPreviewModal(false)}
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+              title="关闭预览"
+              aria-label="关闭预览"
+            >
+              <X size={16} /> <span className="hidden sm:inline">关闭</span>
             </button>
           </div>
           
@@ -4744,7 +5255,7 @@ export default function ProjectBizDetail() {
                     const request = previewRequestRef.current;
                     if (!request) return;
                     setIsPreviewLoading(false);
-                    void openPreview(request.photo, request.allPhotos, request.deleteContext);
+                    void openPreview(request.photo, request.allPhotos, request.deleteContext, request.viewer);
                   }}
                 >
                   重新加载
@@ -4756,12 +5267,21 @@ export default function ProjectBizDetail() {
                 <p className="text-sm">加载中...</p>
               </div>
             ) : previewImages[previewIndex].isVideo ? (
-              <video src={previewImages[previewIndex].url} poster={previewImages[previewIndex].poster} controls autoPlay className="max-w-full max-h-[85vh] rounded-lg" />
+              <video
+                key={previewImages[previewIndex].url}
+                src={previewImages[previewIndex].url}
+                poster={previewImages[previewIndex].poster}
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                className="max-w-full max-h-[85vh]"
+              />
             ) : (
               <img
                 src={previewImages[previewIndex].url}
                 alt="预览"
-                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                className="max-w-full max-h-[85vh] object-contain shadow-2xl"
                 onError={async () => {
                   const current = previewImages[previewIndex];
                   if (!current?.source || current.url.startsWith('data:')) {
@@ -4877,7 +5397,7 @@ export default function ProjectBizDetail() {
                 <div className="flex flex-wrap gap-2">
                   {newLogForm.photos.map((p, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview({ fileID: p }, newLogForm.photos.map(fileID => ({ fileID })))} className="h-full w-full">
+                      <button type="button" onClick={() => openPreview({ fileID: p }, newLogForm.photos.map(fileID => ({ fileID })), null, 'web')} className="h-full w-full">
                         <CloudImage src={p} className="w-full h-full object-cover" />
                       </button>
                       <button type="button" onClick={() => setNewLogForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
@@ -5173,6 +5693,139 @@ export default function ProjectBizDetail() {
                 className="flex-1 rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white"
               >
                 保存
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showWorkerScheduleModal && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-5" onClick={() => setShowWorkerScheduleModal(false)}>
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div><h3 className="text-base font-semibold text-gray-900">{selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}</h3><p className="mt-1 text-xs text-gray-400">{selectedStage?.name} · {project.address}</p></div>
+              <button onClick={() => setShowWorkerScheduleModal(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" aria-label="关闭"><X size={17} /></button>
+            </div>
+            <div className="space-y-4 p-5">
+              {eligibleStageWorkers.length === 0 ? (
+                <div className="rounded-lg bg-amber-50 p-4 text-center"><p className="text-sm text-amber-700">还没有可用的{selectedStageTrade}工人</p><button onClick={() => navigate('/worker-schedule')} className="mt-2 text-xs font-medium text-gold-600">前往工人管理添加对应工种</button></div>
+              ) : (
+                <label className="block text-xs text-gray-500">工人 * <span className="text-gold-600">仅显示{selectedStageTrade}工人</span>
+                  <Select value={eligibleStageWorkers.some((worker) => workerIdOf(worker) === workerScheduleForm.workerId) ? workerScheduleForm.workerId : ''} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, workerId: value }))} options={eligibleStageWorkers.map((worker) => ({ value: workerIdOf(worker), label: worker.name, description: worker.trades.join('/') }))} placeholder={`请选择${selectedStageTrade}工人`} searchable className="mt-1" sheetTitle="选择匹配工种的工人" />
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs text-gray-500">开始日期<DatePicker value={workerScheduleForm.startDate} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, startDate: value }))} className="mt-1" /></label>
+                <label className="text-xs text-gray-500">结束日期<DatePicker value={workerScheduleForm.endDate} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, endDate: value }))} className="mt-1" /></label>
+              </div>
+              <label className="block text-xs text-gray-500">状态
+                <Select value={workerScheduleForm.status} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, status: value as WorkerScheduleStatus }))} options={[{ value: 'planned', label: '待确认' }, { value: 'confirmed', label: '已排期' }, { value: 'in_progress', label: '施工中' }, { value: 'completed', label: '已完成' }]} className="mt-1" sheetTitle="选择排期状态" />
+              </label>
+              <label className="block text-xs text-gray-500">备注<textarea value={workerScheduleForm.note} onChange={(event) => setWorkerScheduleForm((current) => ({ ...current, note: event.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
+              {workerScheduleConflicts.length > 0 && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{workerScheduleConflicts[0].schedule.projectAddress}，{String(workerScheduleConflicts[0].schedule.startDate).slice(5)} 至 {String(workerScheduleConflicts[0].schedule.endDate).slice(5)}</p></div>}
+              {workerScheduleError && <p className="text-xs text-red-500">{workerScheduleError}</p>}
+              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                <div>{selectedStageWorkerSchedule && <button onClick={() => void removeStageWorkerSchedule()} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={14} />删除排期</button>}</div>
+                <div className="flex gap-2"><button onClick={() => setShowWorkerScheduleModal(false)} className="erp-btn-secondary">取消</button><button disabled={savingWorkerSchedule || workerScheduleConflicts.length > 0 || eligibleStageWorkers.length === 0} onClick={() => void saveStageWorkerSchedule()} className="erp-btn-primary">保存排期</button></div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {workerProfileSchedule && createPortal(
+        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4" onClick={() => setWorkerProfileSchedule(null)}>
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h2 className="font-semibold text-gray-900">工人档案</h2>
+              <button type="button" onClick={() => setWorkerProfileSchedule(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" title="关闭" aria-label="关闭工人档案"><X size={18} /></button>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <button type="button" disabled={!profileWorker?.photoFileID} onClick={() => void openWorkerPhoto(profileWorker?.photoFileID || '')} className={profileWorker?.photoFileID ? 'shrink-0 cursor-zoom-in rounded-full outline-none focus-visible:ring-2 focus-visible:ring-gold-400' : 'shrink-0'} title={profileWorker?.photoFileID ? '查看照片大图' : undefined}>
+                  <WorkerAvatar name={profileWorker?.name || workerProfileSchedule.workerName} fileID={profileWorker?.photoFileID} className="h-20 w-20" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-xl font-semibold text-gray-900">{profileWorker?.name || workerProfileSchedule.workerName}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{profileWorker?.phone || '未填写联系电话'}</p>
+                  {profileWorker && <p className="mt-2 text-xs text-gold-700">{WORKER_STATUS_LABEL[profileWorker.status]}</p>}
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4">
+                <div><div className="text-xs text-gray-400">工龄</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker?.experienceYears ? `${profileWorker.experienceYears} 年` : '未填写'}</div></div>
+                <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker?.maxConcurrent ? `${profileWorker.maxConcurrent} 个` : '未填写'}</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker?.trades?.join('、') || workerProfileSchedule.trade || '未填写'}</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">本节点排期</div><div className="mt-1 text-sm font-medium text-gray-800">{workerProfileSchedule.stageName} · {workerProfileSchedule.startDate} 至 {workerProfileSchedule.endDate}</div></div>
+              </div>
+              {(profileWorker?.note || workerProfileSchedule.note) && <div className="pt-4"><div className="text-xs text-gray-400">备注</div><div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{profileWorker?.note || workerProfileSchedule.note}</div></div>}
+              <div className="mt-5 flex justify-end"><button type="button" onClick={() => setWorkerProfileSchedule(null)} className="erp-btn-secondary">关闭</button></div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {workerPhotoViewer.length > 0 && (
+        <ImagePreviewModal images={workerPhotoViewer} index={0} onIndexChange={() => undefined} onClose={() => setWorkerPhotoViewer([])} layerClassName="z-[220]" />
+      )}
+
+      {showQuickTodoModal && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-5" onClick={() => setShowQuickTodoModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">新增工地待办</h3>
+                <p className="mt-1 text-xs text-gray-400">自动通知项目经理，关联当前工地</p>
+              </div>
+              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100" aria-label="关闭">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600">待办事项</label>
+                <textarea
+                  autoFocus
+                  rows={2}
+                  value={quickTodoForm.title}
+                  onChange={event => setQuickTodoForm(current => ({ ...current, title: event.target.value }))}
+                  placeholder="例如：确认厨房水电定位"
+                  className="min-h-[72px] w-full resize-none overflow-y-hidden rounded-xl border border-gray-200 px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-gold-400"
+                  onInput={event => {
+                    const target = event.currentTarget;
+                    target.style.height = 'auto';
+                    const nextHeight = Math.min(target.scrollHeight, 168);
+                    target.style.height = `${Math.max(72, nextHeight)}px`;
+                    target.style.overflowY = target.scrollHeight > 168 ? 'auto' : 'hidden';
+                  }}
+                  onKeyDown={event => {
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && quickTodoForm.title.trim() && quickTodoForm.dueDate) void handleCreateQuickTodo();
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600">截止日期</label>
+                <DatePicker
+                  mode="single"
+                  value={quickTodoForm.dueDate}
+                  onChange={value => setQuickTodoForm(current => ({ ...current, dueDate: value }))}
+                  placeholder="选择截止日期"
+                  dropUp
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600">取消</button>
+              <button
+                type="button"
+                onClick={() => void handleCreateQuickTodo()}
+                disabled={!quickTodoForm.title.trim() || !quickTodoForm.dueDate || submittingQuickTodo}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-900 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {submittingQuickTodo && <Loader2 className="h-4 w-4 animate-spin" />}
+                创建
               </button>
             </div>
           </div>
