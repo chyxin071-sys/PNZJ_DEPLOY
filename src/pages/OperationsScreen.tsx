@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarClock, CheckCircle2, Clock3, Maximize2, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import {
+  AlertTriangle, BadgeCheck, Building2, CalendarClock, CheckCircle2, Clock3,
+  ListTodo, Maximize2, RefreshCw, UserPlus, UsersRound, UserX, Wifi, WifiOff,
+  type LucideIcon,
+} from 'lucide-react';
 import QRCode from 'qrcode';
 import logoUrl from '@/assets/logo.png';
 import {
@@ -12,7 +16,7 @@ import {
   type OperationsScreenData,
 } from '@/services/operationsScreen';
 
-const REFRESH_MS = 5_000;
+const REFRESH_MS = 15_000;
 const PROJECT_PAGE_SIZE = 7;
 
 function formatTime(value?: string) {
@@ -120,9 +124,11 @@ function PairingView() {
   );
 }
 
-function Stat({ label, value, tone = 'dark' }: { label: string; value: number; tone?: 'dark' | 'gold' | 'red' | 'green' }) {
+function Stat({ label, value, icon: Icon, tone = 'dark', badge, badgeTone = 'neutral' }: { label: string; value: number; icon: LucideIcon; tone?: 'dark' | 'gold' | 'red' | 'green'; badge?: string; badgeTone?: 'neutral' | 'green' | 'red' | 'gold' }) {
   const colors = { dark: 'text-gray-950', gold: 'text-[#b78618]', red: 'text-red-500', green: 'text-emerald-600' };
-  return <div className="min-w-0 border-r border-gray-200 px-5 last:border-r-0"><div className={`text-3xl font-bold tabular-nums ${colors[tone]}`}>{value}</div><div className="mt-1 text-xs text-gray-400">{label}</div></div>;
+  const iconColors = { dark: 'bg-slate-50 text-slate-500', gold: 'bg-amber-50 text-amber-500', red: 'bg-rose-50 text-rose-500', green: 'bg-emerald-50 text-emerald-600' };
+  const badgeColors = { neutral: 'bg-gray-100 text-gray-500', green: 'bg-emerald-50 text-emerald-600', red: 'bg-rose-50 text-rose-500', gold: 'bg-amber-50 text-amber-600' };
+  return <div className="min-w-0 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm"><div className="flex items-center justify-between gap-2"><span className={`flex h-8 w-8 items-center justify-center rounded-md ${iconColors[tone]}`}><Icon size={17} /></span>{badge && <span className={`truncate rounded-full px-2 py-1 text-[10px] ${badgeColors[badgeTone]}`}>{badge}</span>}</div><div className={`mt-2 text-2xl font-bold tabular-nums ${colors[tone]}`}>{value}</div><div className="mt-0.5 text-[11px] text-gray-400">{label}</div></div>;
 }
 
 function DashboardView({ token }: { token: string }) {
@@ -174,6 +180,8 @@ function DashboardView({ token }: { token: string }) {
 
   const projects = useMemo(() => data?.projects.slice(page * PROJECT_PAGE_SIZE, (page + 1) * PROJECT_PAGE_SIZE) || [], [data, page]);
   const maxStage = Math.max(1, ...(data?.stageDistribution.map((item) => item.value) || [1]));
+  const signedRate = data.stats.totalCustomers > 0 ? Math.round(data.stats.signedCustomers / data.stats.totalCustomers * 100) : 0;
+  const lostRate = data.stats.totalCustomers > 0 ? Math.round(data.stats.lostCustomers / data.stats.totalCustomers * 100) : 0;
 
   if (!data) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6]"><div className="text-center"><RefreshCw className="mx-auto animate-spin text-[#d4a843]" /><p className="mt-4 text-sm text-gray-500">正在同步运营数据...</p></div></div>;
@@ -191,12 +199,13 @@ function DashboardView({ token }: { token: string }) {
           </div>
         </header>
 
-        <section className="grid h-[104px] shrink-0 grid-cols-5 items-center rounded-lg border border-gray-200 bg-white shadow-sm">
-          <Stat label="施工中工地" value={data.stats.activeProjects} />
-          <Stat label="今日有更新" value={data.stats.updatedToday} tone="green" />
-          <Stat label="当前待解决" value={data.stats.pendingTodos} tone="gold" />
-          <Stat label="已逾期待办" value={data.stats.overdueTodos} tone="red" />
-          <Stat label="未来 7 天进场" value={data.stats.arrivalsNext7Days} />
+        <section className="grid h-[112px] shrink-0 grid-cols-6 gap-3">
+          <Stat label="客户总数" value={data.stats.totalCustomers} icon={UsersRound} badge={`本月 +${data.stats.monthCustomers}`} badgeTone="green" />
+          <Stat label="本月新增" value={data.stats.monthCustomers} icon={UserPlus} badge="团队" />
+          <Stat label="已签约" value={data.stats.signedCustomers} icon={BadgeCheck} tone="green" badge={`${signedRate}%`} badgeTone="green" />
+          <Stat label="已流失" value={data.stats.lostCustomers} icon={UserX} tone="red" badge={`${lostRate}%`} badgeTone="red" />
+          <Stat label="工地总数" value={data.stats.totalProjects} icon={Building2} tone="gold" badge={`施工中 ${data.stats.activeProjects}`} badgeTone="gold" />
+          <Stat label="待办事项" value={data.stats.pendingTodos} icon={ListTodo} badge={`逾期 ${data.stats.overdueTodos}`} badgeTone={data.stats.overdueTodos > 0 ? 'red' : 'neutral'} />
         </section>
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.72fr)_minmax(340px,0.78fr)] gap-4">

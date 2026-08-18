@@ -188,7 +188,8 @@ function linkedProjectId(todo) {
 }
 
 async function buildScreenData(db) {
-  const [projects, todos, workers, schedules] = await Promise.all([
+  const [leads, projects, todos, workers, schedules] = await Promise.all([
+    getAll(db, 'leads'),
     getAll(db, 'projects'),
     getAll(db, 'todos'),
     getAll(db, 'erp_workers'),
@@ -196,6 +197,17 @@ async function buildScreenData(db) {
   ]);
   const today = new Date();
   const todayKey = today.toISOString().slice(0, 10);
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const isCurrentPeriod = (value, withMonth = false) => {
+    const date = new Date(value || 0);
+    return !Number.isNaN(date.getTime())
+      && date.getFullYear() === currentYear
+      && (!withMonth || date.getMonth() === currentMonth);
+  };
+  const teamLeads = leads.filter((lead) => !lead._placeholder);
+  const yearLeads = teamLeads.filter((lead) => isCurrentPeriod(lead.createdAt));
+  const yearProjects = projects.filter((project) => !project._placeholder && isCurrentPeriod(project.createdAt));
   const tomorrow = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
   const inSevenDays = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10);
   const activeTodos = todos.filter((todo) => todo.status !== 'completed');
@@ -249,6 +261,11 @@ async function buildScreenData(db) {
   return {
     generatedAt: new Date().toISOString(),
     stats: {
+      totalCustomers: yearLeads.length,
+      monthCustomers: yearLeads.filter((lead) => isCurrentPeriod(lead.createdAt, true)).length,
+      signedCustomers: yearLeads.filter((lead) => lead.status === '已签单').length,
+      lostCustomers: yearLeads.filter((lead) => lead.status === '已流失').length,
+      totalProjects: yearProjects.length,
       activeProjects: activeProjects.length,
       updatedToday: safeProjects.filter((project) => project.updatedAt.startsWith(todayKey)).length,
       pendingTodos: activeTodos.length,

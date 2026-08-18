@@ -5,6 +5,11 @@ const DEVICE_TOKEN_KEY = 'pnzj_operations_screen_device_token';
 export interface OperationsScreenData {
   generatedAt: string;
   stats: {
+    totalCustomers: number;
+    monthCustomers: number;
+    signedCustomers: number;
+    lostCustomers: number;
+    totalProjects: number;
     activeProjects: number;
     updatedToday: number;
     pendingTodos: number;
