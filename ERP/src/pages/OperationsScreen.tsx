@@ -86,7 +86,7 @@ function PairingView() {
     <main className="min-h-screen bg-[#f3f4f6] text-gray-900 flex items-center justify-center p-5 md:p-10">
       <section className="w-full max-w-[1180px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl shadow-black/10">
         <div className="grid min-h-[680px] lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="flex flex-col justify-between bg-[#111111] px-8 py-10 text-white md:px-14 md:py-14">
+          <div className="flex flex-col justify-center gap-24 bg-[#111111] px-8 py-10 text-white md:px-14 md:py-14">
             <div className="flex items-center gap-4">
               <img src={logoUrl} alt="品诺筑家" className="h-14 w-14 rounded-lg bg-white object-contain p-1" />
               <div>
@@ -94,12 +94,10 @@ function PairingView() {
                 <div className="mt-1 text-sm text-white/50">全链路管理系统</div>
               </div>
             </div>
-            <div className="py-12">
+            <div>
               <p className="text-sm font-medium text-[#d4a843]">公司运营大屏</p>
               <h1 className="mt-4 max-w-xl text-4xl font-bold leading-tight md:text-5xl">请使用管理员手机授权此设备</h1>
-              <p className="mt-6 max-w-lg text-base leading-8 text-white/55">授权后仅展示工地进度、当前待办和工人排期，不包含客户电话、合同金额及财务信息。</p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-white/45"><Wifi size={16} />设备授权独立于私人账号，可随时在 ERP 中解除</div>
           </div>
           <div className="flex flex-col items-center justify-center px-8 py-10 md:px-14">
             {pairing && remaining > 0 ? (

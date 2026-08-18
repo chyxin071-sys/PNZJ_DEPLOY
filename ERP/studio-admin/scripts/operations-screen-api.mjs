@@ -13,6 +13,7 @@ let screenDataCache = null;
 let screenDataBuildPromise = null;
 
 let cloudApp;
+let screenCollectionsReady;
 function getDb() {
   if (!cloudApp) {
     const hasStaticCredentials = Boolean(
@@ -44,6 +45,31 @@ function getDb() {
     cloudApp = cloudbase.init(config);
   }
   return cloudApp.database();
+}
+
+async function ensureScreenCollections(db) {
+  if (!screenCollectionsReady) {
+    screenCollectionsReady = Promise.all([PAIRINGS, DEVICES].map(async (name) => {
+      try {
+        await db.collection(name).limit(1).get();
+      } catch (queryError) {
+        try {
+          await db.createCollection(name);
+        } catch (createError) {
+          // A concurrent request may have created the collection first.
+          try {
+            await db.collection(name).limit(1).get();
+          } catch {
+            throw createError || queryError;
+          }
+        }
+      }
+    })).catch((error) => {
+      screenCollectionsReady = null;
+      throw error;
+    });
+  }
+  await screenCollectionsReady;
 }
 
 function sendJson(res, status, body) {
@@ -350,6 +376,7 @@ export async function handleOperationsScreenApi(req, res, url) {
   try {
     const db = getDb();
     if (req.method === 'POST' && pathname === '/api/operations-screen/pairings') {
+      await ensureScreenCollections(db);
       if (!canCreatePairing(req)) {
         sendJson(res, 429, { success: false, message: '授权码生成过于频繁，请稍后再试' });
         return true;
@@ -381,6 +408,7 @@ export async function handleOperationsScreenApi(req, res, url) {
     }
 
     if (req.method === 'POST' && pathname === '/api/operations-screen/approve') {
+      await ensureScreenCollections(db);
       const admin = await requireAdmin(req, res, db);
       if (!admin) return true;
       const body = await readJson(req);
@@ -414,6 +442,7 @@ export async function handleOperationsScreenApi(req, res, url) {
     }
 
     if (req.method === 'GET' && pathname === '/api/operations-screen/devices') {
+      await ensureScreenCollections(db);
       const admin = await requireAdmin(req, res, db);
       if (!admin) return true;
       const devices = (await getAll(db, DEVICES)).map((device) => ({
@@ -430,6 +459,7 @@ export async function handleOperationsScreenApi(req, res, url) {
 
     const revokeMatch = pathname.match(/^\/api\/operations-screen\/devices\/([^/]+)\/revoke$/);
     if (req.method === 'POST' && revokeMatch) {
+      await ensureScreenCollections(db);
       const admin = await requireAdmin(req, res, db);
       if (!admin) return true;
       await db.collection(DEVICES).doc(revokeMatch[1]).update({ status: 'revoked', revokedAt: new Date().toISOString() });
@@ -438,6 +468,7 @@ export async function handleOperationsScreenApi(req, res, url) {
     }
 
     if (req.method === 'GET' && pathname === '/api/operations-screen/data') {
+      await ensureScreenCollections(db);
       const device = await authenticateDevice(req, res, db);
       if (!device) return true;
       const now = new Date().toISOString();
