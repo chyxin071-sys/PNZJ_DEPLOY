@@ -19,6 +19,30 @@ import {
 const REFRESH_MS = 15_000;
 const PROJECT_PAGE_SIZE = 7;
 
+const EMPTY_STATS: OperationsScreenData['stats'] = {
+  totalCustomers: 0,
+  monthCustomers: 0,
+  signedCustomers: 0,
+  lostCustomers: 0,
+  totalProjects: 0,
+  activeProjects: 0,
+  updatedToday: 0,
+  pendingTodos: 0,
+  overdueTodos: 0,
+  arrivalsNext7Days: 0,
+};
+
+function normalizeScreenData(value: OperationsScreenData | null | undefined): OperationsScreenData {
+  const source = value || ({} as Partial<OperationsScreenData>);
+  return {
+    generatedAt: source.generatedAt || new Date().toISOString(),
+    stats: { ...EMPTY_STATS, ...(source.stats || {}) },
+    projects: Array.isArray(source.projects) ? source.projects : [],
+    stageDistribution: Array.isArray(source.stageDistribution) ? source.stageDistribution : [],
+    schedules: Array.isArray(source.schedules) ? source.schedules : [],
+  };
+}
+
 function formatTime(value?: string) {
   if (!value) return '--:--:--';
   return new Date(value).toLocaleTimeString('zh-CN', { hour12: false });
@@ -142,8 +166,9 @@ function DashboardView({ token }: { token: string }) {
     refreshingRef.current = true;
     try {
       const result = await loadOperationsScreenData(token);
-      setData(result.data);
-      setLastSuccess(result.data.generatedAt);
+      const nextData = normalizeScreenData(result.data);
+      setData(nextData);
+      setLastSuccess(nextData.generatedAt);
       setStale(false);
     } catch (err) {
       const status = (err as Error & { status?: number }).status;
@@ -169,17 +194,18 @@ function DashboardView({ token }: { token: string }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const pageCount = Math.max(1, Math.ceil((data?.projects.length || 0) / PROJECT_PAGE_SIZE));
+  const stats = data?.stats || EMPTY_STATS;
+  const pageCount = Math.max(1, Math.ceil((data?.projects?.length || 0) / PROJECT_PAGE_SIZE));
   useEffect(() => {
     if (page >= pageCount) setPage(0);
     const timer = window.setInterval(() => setPage((value) => (value + 1) % pageCount), 15_000);
     return () => window.clearInterval(timer);
   }, [pageCount, page]);
 
-  const projects = useMemo(() => data?.projects.slice(page * PROJECT_PAGE_SIZE, (page + 1) * PROJECT_PAGE_SIZE) || [], [data, page]);
-  const maxStage = Math.max(1, ...(data?.stageDistribution.map((item) => item.value) || [1]));
-  const signedRate = data.stats.totalCustomers > 0 ? Math.round(data.stats.signedCustomers / data.stats.totalCustomers * 100) : 0;
-  const lostRate = data.stats.totalCustomers > 0 ? Math.round(data.stats.lostCustomers / data.stats.totalCustomers * 100) : 0;
+  const projects = useMemo(() => data?.projects?.slice(page * PROJECT_PAGE_SIZE, (page + 1) * PROJECT_PAGE_SIZE) || [], [data, page]);
+  const maxStage = Math.max(1, ...(data?.stageDistribution?.map((item) => item.value) || [1]));
+  const signedRate = stats.totalCustomers > 0 ? Math.round(stats.signedCustomers / stats.totalCustomers * 100) : 0;
+  const lostRate = stats.totalCustomers > 0 ? Math.round(stats.lostCustomers / stats.totalCustomers * 100) : 0;
 
   if (!data) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6]"><div className="text-center"><RefreshCw className="mx-auto animate-spin text-[#d4a843]" /><p className="mt-4 text-sm text-gray-500">正在同步运营数据...</p></div></div>;
