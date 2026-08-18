@@ -5,6 +5,7 @@ import {
   Camera, HardHat, ImagePlus, Pencil, Plus, Search, Trash2, UserRoundCog, UsersRound, X,
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
+import ImagePreviewModal from '@/components/ImagePreviewModal';
 import Select from '@/components/Select';
 import WorkerAvatar from '@/components/WorkerAvatar';
 import { projectsAPI } from '@/db/api';
@@ -13,7 +14,7 @@ import { useAuthStore } from '@/store/authStore';
 import type { Worker, WorkerSchedule, WorkerScheduleStatus, WorkerStatus } from '@/types/workerSchedule';
 import { scheduleIdOf, stageTradeLabel, tradeForStage, workerIdOf, workerMatchesStage, WORKER_TRADES } from '@/types/workerSchedule';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
-import { uploadFile } from '@/utils/cloudStorage';
+import { getFileDataURL, getTempFileURL, uploadFile } from '@/utils/cloudStorage';
 
 const DAY_MS = 86_400_000;
 const STATUS_LABEL: Record<WorkerScheduleStatus, string> = {
@@ -44,6 +45,12 @@ const startOfWeek = (date: Date) => {
 const daysBetween = (start: string, end: string) => Math.max(1, Math.round((parseDate(end).getTime() - parseDate(start).getTime()) / DAY_MS) + 1);
 const formatShortDate = (value: string) => value ? `${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日` : '-';
 const recordId = (value: { _id?: string; id?: string }) => String(value._id || value.id || '');
+const readImagePreview = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+  reader.readAsDataURL(file);
+});
 
 type ScheduleFilter = 'all' | 'upcoming' | 'in_progress';
 type BacklogFilter = 'ready' | 'overdue' | 'all';
@@ -99,6 +106,7 @@ export default function WorkerSchedulePage() {
   const [workerForm, setWorkerForm] = useState(emptyWorker());
   const [workerPhotoFile, setWorkerPhotoFile] = useState<File | null>(null);
   const [workerPhotoPreview, setWorkerPhotoPreview] = useState('');
+  const [workerPhotoViewer, setWorkerPhotoViewer] = useState<string[]>([]);
   const [editingSchedule, setEditingSchedule] = useState<WorkerSchedule | null>(null);
   const [scheduleForm, setScheduleForm] = useState({ workerId: '', projectId: '', stageId: '', startDate: toDateKey(new Date()), endDate: toDateKey(new Date()), status: 'confirmed' as WorkerScheduleStatus, note: '' });
   const [saving, setSaving] = useState(false);
@@ -263,6 +271,40 @@ export default function WorkerSchedulePage() {
     setWorkerPhotoPreview('');
     setWorkerEditorMode('create');
     setError('');
+  };
+
+  const openWorkerPhoto = async (source: string) => {
+    if (!source) return;
+    setError('');
+    try {
+      if (!source.startsWith('cloud://')) {
+        setWorkerPhotoViewer([source]);
+        return;
+      }
+      const urls = await getTempFileURL([source]);
+      const resolved = urls[source] || await getFileDataURL(source);
+      setWorkerPhotoViewer([resolved]);
+    } catch (previewError) {
+      console.error('[worker-schedule] worker photo preview failed', previewError);
+      try {
+        setWorkerPhotoViewer([await getFileDataURL(source)]);
+      } catch (fallbackError) {
+        console.error('[worker-schedule] worker photo fallback failed', fallbackError);
+        setError('工人照片加载失败，请稍后重试');
+      }
+    }
+  };
+
+  const chooseWorkerPhoto = async (file: File) => {
+    try {
+      const preview = await readImagePreview(file);
+      setWorkerPhotoFile(file);
+      setWorkerPhotoPreview(preview);
+      setError('');
+    } catch (previewError) {
+      console.error('[worker-schedule] local worker photo preview failed', previewError);
+      setError('所选照片无法读取，请重新选择');
+    }
   };
 
   const filterManagedWorkers = (trade: string) => {
@@ -512,7 +554,9 @@ export default function WorkerSchedulePage() {
             </div>
             <div className="p-5">
               <div className="flex items-center gap-4">
-                <WorkerAvatar name={profileWorker.name} fileID={profileWorker.photoFileID} className="h-20 w-20" />
+                <button type="button" disabled={!profileWorker.photoFileID} onClick={() => void openWorkerPhoto(profileWorker.photoFileID || '')} className={profileWorker.photoFileID ? 'shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400' : 'shrink-0'} title={profileWorker.photoFileID ? '查看大图' : undefined}>
+                  <WorkerAvatar name={profileWorker.name} fileID={profileWorker.photoFileID} className="h-20 w-20" />
+                </button>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-xl font-semibold text-gray-900">{profileWorker.name}</h3>
                   <p className="mt-1 text-sm text-gray-500">{profileWorker.phone || '未填写联系电话'}</p>
@@ -522,7 +566,7 @@ export default function WorkerSchedulePage() {
               <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4">
                 <div><div className="text-xs text-gray-400">工龄</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.experienceYears ? `${profileWorker.experienceYears} 年` : '未填写'}</div></div>
                 <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.maxConcurrent || 1} 个</div></div>
-                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-2 flex flex-wrap gap-2">{profileWorker.trades.map((trade) => <span key={trade} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">{trade}</span>)}</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.trades.join('、') || '未填写'}</div></div>
               </div>
               {profileWorker.note && <div className="pt-4"><div className="text-xs text-gray-400">备注</div><div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{profileWorker.note}</div></div>}
               <div className="mt-5 flex justify-end gap-2">
@@ -574,13 +618,15 @@ export default function WorkerSchedulePage() {
                     <button onClick={() => { setEditingWorker(null); setWorkerEditorMode('list'); }} className="mb-4 inline-flex items-center gap-1 text-xs text-gray-500 md:hidden"><ChevronLeft size={15} />返回工人列表</button>
                     <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
                       <div className="flex min-w-0 items-center gap-4">
-                        <WorkerAvatar name={editingWorker.name} fileID={editingWorker.photoFileID} className="h-20 w-20" />
+                        <button type="button" disabled={!editingWorker.photoFileID} onClick={() => void openWorkerPhoto(editingWorker.photoFileID || '')} className={editingWorker.photoFileID ? 'shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400' : 'shrink-0'} title={editingWorker.photoFileID ? '查看大图' : undefined}>
+                          <WorkerAvatar name={editingWorker.name} fileID={editingWorker.photoFileID} className="h-20 w-20" />
+                        </button>
                         <div className="min-w-0"><h3 className="truncate text-xl font-semibold text-gray-900">{editingWorker.name}</h3><p className="mt-1 text-sm text-gray-500">{editingWorker.phone || '未填写联系电话'}</p><span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">{WORKER_STATUS_LABEL[editingWorker.status]}</span></div>
                       </div>
                       <button onClick={() => setWorkerEditorMode('edit')} className="erp-btn-secondary h-9 shrink-0 px-3 text-xs"><Pencil size={14} />编辑</button>
                     </div>
                     <div className="grid gap-5 py-5 sm:grid-cols-2">
-                      <div><div className="text-xs text-gray-400">工种身份</div><div className="mt-2 flex flex-wrap gap-2">{editingWorker.trades.map((trade) => <span key={trade} className="rounded-full bg-gold-50 px-2.5 py-1 text-xs text-gold-700">{trade}</span>)}</div></div>
+                      <div><div className="text-xs text-gray-400">工种身份</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.trades.join('、') || '未填写'}</div></div>
                       <div><div className="text-xs text-gray-400">工龄</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.experienceYears ? `${editingWorker.experienceYears} 年` : '未填写'}</div></div>
                       <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.maxConcurrent || 1} 个</div></div>
                       <div className="sm:col-span-2"><div className="text-xs text-gray-400">备注</div><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{editingWorker.note || '暂无备注'}</div></div>
@@ -591,16 +637,20 @@ export default function WorkerSchedulePage() {
                 <>
                 <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setWorkerEditorMode('list'), setEditingWorker(null))} className="inline-flex items-center text-gray-400 md:hidden" title="返回"><ChevronLeft size={17} /></button><div className="text-sm font-medium text-gray-900">{workerEditorMode === 'create' ? '新增工人' : `编辑 ${editingWorker?.name || ''}`}</div></div>{workerEditorMode === 'edit' && editingWorker && <button onClick={() => selectWorkerForPreview(editingWorker)} className="text-xs text-gray-500">取消编辑</button>}</div>
                 <div className="mb-4 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  {workerPhotoPreview ? <img src={workerPhotoPreview} alt="工人照片预览" className="h-16 w-16 shrink-0 rounded-full object-cover" /> : <WorkerAvatar name={workerForm.name || '工'} fileID={workerForm.photoFileID} className="h-16 w-16" />}
+                  {(workerPhotoPreview || workerForm.photoFileID) ? (
+                    <button type="button" onClick={() => void openWorkerPhoto(workerPhotoPreview || workerForm.photoFileID || '')} className="shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400" title="查看大图">
+                      {workerPhotoPreview ? <img src={workerPhotoPreview} alt="工人照片预览" className="h-16 w-16 rounded-full object-cover" /> : <WorkerAvatar name={workerForm.name || '工'} fileID={workerForm.photoFileID} className="h-16 w-16" />}
+                    </button>
+                  ) : <WorkerAvatar name={workerForm.name || '工'} className="h-16 w-16" />}
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-gray-800">工人照片</div>
                     <div className="mt-1 text-[11px] text-gray-400">用于排期、工地节点及后续客户查看</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:border-gold-300 hover:text-gold-700">
                         <ImagePlus size={14} />{workerForm.photoFileID || workerPhotoFile ? '更换照片' : '上传照片'}
-                        <input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (workerPhotoPreview) URL.revokeObjectURL(workerPhotoPreview); setWorkerPhotoFile(file); setWorkerPhotoPreview(URL.createObjectURL(file)); event.target.value = ''; }} />
+                        <input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void chooseWorkerPhoto(file); }} />
                       </label>
-                      {(workerForm.photoFileID || workerPhotoFile) && <button type="button" onClick={() => { if (workerPhotoPreview) URL.revokeObjectURL(workerPhotoPreview); setWorkerPhotoFile(null); setWorkerPhotoPreview(''); setWorkerForm((current) => ({ ...current, photoFileID: '' })); }} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={13} />移除</button>}
+                      {(workerForm.photoFileID || workerPhotoFile) && <button type="button" onClick={() => { setWorkerPhotoFile(null); setWorkerPhotoPreview(''); setWorkerForm((current) => ({ ...current, photoFileID: '' })); }} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={13} />移除</button>}
                     </div>
                   </div>
                   <Camera size={18} className="shrink-0 text-gray-300" />
@@ -622,6 +672,10 @@ export default function WorkerSchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {workerPhotoViewer.length > 0 && (
+        <ImagePreviewModal images={workerPhotoViewer} index={0} onIndexChange={() => undefined} onClose={() => setWorkerPhotoViewer([])} layerClassName="z-[220]" />
       )}
 
     </div>

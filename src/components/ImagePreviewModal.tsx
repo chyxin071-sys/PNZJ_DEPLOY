@@ -6,9 +6,10 @@ interface Props {
   index: number;
   onIndexChange: (index: number) => void;
   onClose: () => void;
+  layerClassName?: string;
 }
 
-export default function ImagePreviewModal({ images, index, onIndexChange, onClose }: Props) {
+export default function ImagePreviewModal({ images, index, onIndexChange, onClose, layerClassName = 'z-[80]' }: Props) {
   if (images.length === 0) return null;
 
   const safeIndex = Math.max(0, Math.min(index, images.length - 1));
@@ -16,7 +17,7 @@ export default function ImagePreviewModal({ images, index, onIndexChange, onClos
   const next = () => onIndexChange(safeIndex < images.length - 1 ? safeIndex + 1 : 0);
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4" onClick={onClose}>
+    <div className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-black/85 p-4`} onClick={onClose}>
       <button
         type="button"
         onClick={onClose}

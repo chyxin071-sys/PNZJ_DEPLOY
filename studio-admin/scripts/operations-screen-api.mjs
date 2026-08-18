@@ -4,7 +4,10 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const cloudbase = require('@cloudbase/node-sdk');
 
-const ENV_ID = process.env.TCB_ENV_ID || process.env.CLOUDBASE_ENV_ID || 'cloud1-8grodf5s3006f004';
+const ENV_ID = process.env.TCB_ENV_ID
+  || process.env.NEXT_PUBLIC_TCB_ENV_ID
+  || process.env.CLOUDBASE_ENV_ID
+  || 'cloud1-8grodf5s3006f004';
 const PAIRINGS = 'erp_operation_screen_pairings';
 const DEVICES = 'erp_operation_screen_devices';
 const PAIRING_TTL_MS = 5 * 60 * 1000;
@@ -23,8 +26,12 @@ function getDb() {
       || process.env.CLOUDBASE_SECRETKEY
       || process.env.TENCENTCLOUD_SECRETKEY
       || process.env.SECRET_KEY;
-    const config = { env: ENV_ID };
+    const useCurrentEnv = process.env.TCB_USE_CURRENT_ENV === '1';
+    const config = {
+      env: useCurrentEnv ? cloudbase.SYMBOL_CURRENT_ENV : ENV_ID,
+    };
     if (secretId && secretKey) {
+      config.env = ENV_ID;
       config.secretId = secretId;
       config.secretKey = secretKey;
     }

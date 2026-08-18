@@ -30,6 +30,7 @@ import {
 } from '@/config/constructionTemplates';
 import Select from '@/components/Select';
 import WorkerAvatar from '@/components/WorkerAvatar';
+import ImagePreviewModal from '@/components/ImagePreviewModal';
 import DatePicker from '@/components/DatePicker';
 import {
   createNotificationEventSafely,
@@ -46,6 +47,12 @@ import { scheduleIdOf, tradeForStage, workerIdOf, workerMatchesStage } from '@/t
 
 const CACHED_URLS = new Map<string, string>();
 const CLOUD_STORAGE_PREFIX = 'cloud://cloud1-8grodf5s3006f004.636c-cloud1-8grodf5s3006f004-1421470557/';
+const WORKER_STATUS_LABEL: Record<Worker['status'], string> = {
+  available: '可安排',
+  busy: '忙碌',
+  resting: '休息',
+  inactive: '停用',
+};
 
 const normalizeCloudMediaSource = (src: string) => {
   if (!src) return '';
@@ -506,6 +513,8 @@ export default function ProjectBizDetail() {
   const [workerScheduleForm, setWorkerScheduleForm] = useState({ workerId: '', startDate: '', endDate: '', status: 'confirmed' as WorkerScheduleStatus, note: '' });
   const [workerScheduleError, setWorkerScheduleError] = useState('');
   const [savingWorkerSchedule, setSavingWorkerSchedule] = useState(false);
+  const [workerProfileSchedule, setWorkerProfileSchedule] = useState<WorkerSchedule | null>(null);
+  const [workerPhotoViewer, setWorkerPhotoViewer] = useState<string[]>([]);
 
   // 勾选式分享：进入选择模式后，在检查项前显示圆圈直接勾选
   const [shareSelect, setShareSelect] = useState<{ nodeIdx: number; secIdx: number; checked: Record<number, boolean> } | null>(null);
@@ -2456,6 +2465,12 @@ export default function ProjectBizDetail() {
     : '尚未开工';
   const selectedStageId = String(selectedStage?._id || selectedStage?.id || '');
   const selectedStageWorkerSchedule = projectWorkerSchedules.find((item) => item.stageId === selectedStageId && item.status !== 'cancelled');
+  const selectedStageWorker = selectedStageWorkerSchedule
+    ? workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)
+    : undefined;
+  const profileWorker = workerProfileSchedule
+    ? workers.find((item) => workerIdOf(item) === workerProfileSchedule.workerId)
+    : undefined;
   const selectedStagePlanStarts = selectedStageSections.map((item: any) => item.startDate).filter(Boolean).sort();
   const selectedStagePlanEnds = selectedStageSections.map((item: any) => item.endDate).filter(Boolean).sort();
   const canArrangeWorkers = (isAdmin || includesPerson(project.manager, myName)) && !isProjectCompleted;
@@ -2465,6 +2480,24 @@ export default function ProjectBizDetail() {
   const workerScheduleConflicts = selectedScheduleWorker
     ? findScheduleConflicts(selectedScheduleWorker, workerScheduleForm, allWorkerSchedules, selectedStageWorkerSchedule ? scheduleIdOf(selectedStageWorkerSchedule) : undefined)
     : [];
+  const openWorkerPhoto = async (source: string) => {
+    if (!source) return;
+    try {
+      if (!source.startsWith('cloud://')) {
+        setWorkerPhotoViewer([source]);
+        return;
+      }
+      const urls = await getTempFileURL([source]);
+      setWorkerPhotoViewer([urls[source] || await getFileDataURL(source)]);
+    } catch (previewError) {
+      console.error('[project-detail] worker photo preview failed', previewError);
+      try {
+        setWorkerPhotoViewer([await getFileDataURL(source)]);
+      } catch (fallbackError) {
+        console.error('[project-detail] worker photo fallback failed', fallbackError);
+      }
+    }
+  };
   const openWorkerScheduleModal = () => {
     const fallbackDate = todayDateValue();
     setWorkerScheduleForm({
@@ -3138,13 +3171,21 @@ export default function ProjectBizDetail() {
           <div className="relative space-y-4 rounded-xl">
             {isStageDetail && (
               <div className="flex items-center justify-between gap-3 border-y border-gray-200 bg-white px-3 py-3 md:rounded-lg md:border md:px-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  {selectedStageWorkerSchedule ? <WorkerAvatar name={workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.name || selectedStageWorkerSchedule.workerName} fileID={workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.photoFileID} className="h-9 w-9" /> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400"><Users size={17} /></span>}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2"><span className="text-xs text-gray-400">施工工人</span>{selectedStageWorkerSchedule && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">已排期</span>}</div>
-                    {selectedStageWorkerSchedule ? <><div className="mt-0.5 truncate text-sm font-medium text-gray-900">{workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.name || selectedStageWorkerSchedule.workerName}</div><div className="mt-0.5 text-[11px] text-gray-500">{String(selectedStageWorkerSchedule.startDate).slice(5)} 至 {String(selectedStageWorkerSchedule.endDate).slice(5)}{workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.phone ? ` · ${workers.find((item) => workerIdOf(item) === selectedStageWorkerSchedule.workerId)?.phone}` : ''}</div></> : <div className="mt-0.5 text-sm text-gray-500">暂未安排工人</div>}
+                {selectedStageWorkerSchedule ? (
+                  <button type="button" onClick={() => setWorkerProfileSchedule(selectedStageWorkerSchedule)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gold-400" title="查看工人档案">
+                    <WorkerAvatar name={selectedStageWorker?.name || selectedStageWorkerSchedule.workerName} fileID={selectedStageWorker?.photoFileID} className="h-9 w-9" />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2"><span className="text-xs text-gray-400">施工工人</span><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">已排期</span></span>
+                      <span className="mt-0.5 block truncate text-sm font-medium text-gray-900">{selectedStageWorker?.name || selectedStageWorkerSchedule.workerName}</span>
+                      <span className="mt-0.5 block text-[11px] text-gray-500">{String(selectedStageWorkerSchedule.startDate).slice(5)} 至 {String(selectedStageWorkerSchedule.endDate).slice(5)}{selectedStageWorker?.phone ? ` · ${selectedStageWorker.phone}` : ''}</span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400"><Users size={17} /></span>
+                    <div className="min-w-0"><div className="text-xs text-gray-400">施工工人</div><div className="mt-0.5 text-sm text-gray-500">暂未安排工人</div></div>
                   </div>
-                </div>
+                )}
                 {canArrangeWorkers ? <button onClick={openWorkerScheduleModal} className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:border-gold-300 hover:text-gold-600" title={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'} aria-label={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}>{selectedStageWorkerSchedule ? <Edit3 size={16} /> : <Plus size={16} />}</button> : <button onClick={() => navigate('/worker-schedule')} className="shrink-0 text-xs font-medium text-gold-600">查看排期</button>}
               </div>
             )}
@@ -5660,6 +5701,42 @@ export default function ProjectBizDetail() {
           </div>
         </div>,
         document.body
+      )}
+
+      {workerProfileSchedule && createPortal(
+        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4" onClick={() => setWorkerProfileSchedule(null)}>
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h2 className="font-semibold text-gray-900">工人档案</h2>
+              <button type="button" onClick={() => setWorkerProfileSchedule(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" title="关闭" aria-label="关闭工人档案"><X size={18} /></button>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <button type="button" disabled={!profileWorker?.photoFileID} onClick={() => void openWorkerPhoto(profileWorker?.photoFileID || '')} className={profileWorker?.photoFileID ? 'shrink-0 cursor-zoom-in rounded-full outline-none focus-visible:ring-2 focus-visible:ring-gold-400' : 'shrink-0'} title={profileWorker?.photoFileID ? '查看照片大图' : undefined}>
+                  <WorkerAvatar name={profileWorker?.name || workerProfileSchedule.workerName} fileID={profileWorker?.photoFileID} className="h-20 w-20" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-xl font-semibold text-gray-900">{profileWorker?.name || workerProfileSchedule.workerName}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{profileWorker?.phone || '未填写联系电话'}</p>
+                  {profileWorker && <p className="mt-2 text-xs text-gold-700">{WORKER_STATUS_LABEL[profileWorker.status]}</p>}
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4">
+                <div><div className="text-xs text-gray-400">工龄</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker?.experienceYears ? `${profileWorker.experienceYears} 年` : '未填写'}</div></div>
+                <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker?.maxConcurrent ? `${profileWorker.maxConcurrent} 个` : '未填写'}</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker?.trades?.join('、') || workerProfileSchedule.trade || '未填写'}</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">本节点排期</div><div className="mt-1 text-sm font-medium text-gray-800">{workerProfileSchedule.stageName} · {workerProfileSchedule.startDate} 至 {workerProfileSchedule.endDate}</div></div>
+              </div>
+              {(profileWorker?.note || workerProfileSchedule.note) && <div className="pt-4"><div className="text-xs text-gray-400">备注</div><div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{profileWorker?.note || workerProfileSchedule.note}</div></div>}
+              <div className="mt-5 flex justify-end"><button type="button" onClick={() => setWorkerProfileSchedule(null)} className="erp-btn-secondary">关闭</button></div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {workerPhotoViewer.length > 0 && (
+        <ImagePreviewModal images={workerPhotoViewer} index={0} onIndexChange={() => undefined} onClose={() => setWorkerPhotoViewer([])} layerClassName="z-[220]" />
       )}
 
       {showQuickTodoModal && createPortal(
