@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Loader2, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import logoUrl from '@/assets/logo.png';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isLoggedIn } = useAuthStore();
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
@@ -13,12 +14,15 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [showContact, setShowContact] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const returnPath = typeof location.state?.from === 'string' && location.state.from.startsWith('/')
+    ? location.state.from
+    : '/';
 
   useEffect(() => {
     if (isLoggedIn) {
-      navigate('/', { replace: true });
+      navigate(returnPath, { replace: true });
     }
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, navigate, returnPath]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +32,10 @@ export default function LoginPage() {
     try {
       const success = await login(account, password);
       if (success) {
-        navigate('/', { replace: true });
+        navigate(returnPath, { replace: true });
       }
-    } catch (err: any) {
-      setError(err.message || '登录失败，请稍后重试');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '登录失败，请稍后重试');
     } finally {
       setLoading(false);
     }

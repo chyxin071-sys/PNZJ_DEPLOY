@@ -48,6 +48,8 @@ const Materials = lazy(() => import('@/pages/Materials'));
 const MaterialDetail = lazy(() => import('@/pages/MaterialDetail'));
 const InventoryRecords = lazy(() => import('@/pages/InventoryRecords'));
 const Profile = lazy(() => import('@/pages/Profile'));
+const ScreenDevices = lazy(() => import('@/pages/ScreenDevices'));
+const OperationsScreen = lazy(() => import('@/pages/OperationsScreen'));
 
 const INIT_TIMEOUT_MS = 25000;
 function withTimeout<T>(promise: Promise<T>, message: string, timeout = INIT_TIMEOUT_MS): Promise<T> {
@@ -83,7 +85,7 @@ function RoleGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (!isLoggedIn) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   const userRoles = normalizeRoles(user?.roles, user?.role || 'employee');
@@ -439,6 +441,7 @@ function AppInit() {
         <Route path="/quotes-biz/:id" element={<QuoteBizDetail />} />
         <Route path="/quotation-builder/:sourceType/:sourceId/:quotationId" element={<QuotationBuilder />} />
         <Route path="/employees" element={<EmployeeManagement />} />
+        <Route path="/screen-devices" element={<ScreenDevices />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
@@ -453,7 +456,12 @@ function AppInit() {
 export default function App() {
   return (
     <Router basename="/erp">
-      <AppInit />
+      <Suspense fallback={<LoadingScreen message="正在加载页面..." />}>
+        <Routes>
+          <Route path="/operations-screen" element={<OperationsScreen />} />
+          <Route path="*" element={<AppInit />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }

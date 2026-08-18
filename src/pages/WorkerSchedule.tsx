@@ -47,7 +47,7 @@ const recordId = (value: { _id?: string; id?: string }) => String(value._id || v
 
 type ScheduleFilter = 'all' | 'upcoming' | 'in_progress';
 type BacklogFilter = 'ready' | 'overdue' | 'all';
-type WorkerEditorMode = 'preview' | 'edit' | 'create';
+type WorkerEditorMode = 'list' | 'preview' | 'edit' | 'create';
 type UnassignedStage = {
   project: any;
   projectId: string;
@@ -69,7 +69,7 @@ const stageDates = (stage: any) => {
 };
 
 const emptyWorker = (): Omit<Worker, '_id' | 'id'> => ({
-  name: '', phone: '', photoFileID: '', trades: [], maxConcurrent: 1, status: 'available', note: '',
+  name: '', phone: '', photoFileID: '', experienceYears: 0, trades: [], maxConcurrent: 1, status: 'available', note: '',
   createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
 });
 
@@ -90,8 +90,10 @@ export default function WorkerSchedulePage() {
   const [backlogFilter, setBacklogFilter] = useState<BacklogFilter>('ready');
   const [preserveScheduleDates, setPreserveScheduleDates] = useState(false);
   const [workerEditorOpen, setWorkerEditorOpen] = useState(false);
-  const [workerEditorMode, setWorkerEditorMode] = useState<WorkerEditorMode>('preview');
+  const [workerEditorMode, setWorkerEditorMode] = useState<WorkerEditorMode>('list');
   const [workerManagerTradeFilter, setWorkerManagerTradeFilter] = useState('');
+  const [workerManagerSearch, setWorkerManagerSearch] = useState('');
+  const [profileWorker, setProfileWorker] = useState<Worker | null>(null);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [workerForm, setWorkerForm] = useState(emptyWorker());
@@ -191,7 +193,12 @@ export default function WorkerSchedulePage() {
   const workerNameForSchedule = (schedule: WorkerSchedule) => workerById(schedule.workerId)?.name || schedule.workerName;
   const managedWorkers = workers
     .filter((worker) => !workerManagerTradeFilter || worker.trades.includes(workerManagerTradeFilter))
+    .filter((worker) => !workerManagerSearch || [worker.name, worker.phone, worker.trades.join(' ')].join(' ').toLowerCase().includes(workerManagerSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  const groupedManagedWorkers = [...WORKER_TRADES, '未分类'].map((trade) => ({
+    trade,
+    workers: managedWorkers.filter((worker) => trade === '未分类' ? worker.trades.length === 0 : worker.trades.includes(trade)),
+  })).filter((group) => group.workers.length > 0);
 
   const recommendWorker = (task: UnassignedStage) => workers
     .filter((worker) => !['inactive', 'resting'].includes(worker.status))
@@ -217,6 +224,7 @@ export default function WorkerSchedulePage() {
       name: worker.name,
       phone: worker.phone || '',
       photoFileID: worker.photoFileID || '',
+      experienceYears: worker.experienceYears || 0,
       trades: worker.trades || [],
       maxConcurrent: worker.maxConcurrent || 1,
       status: worker.status || 'available',
@@ -232,13 +240,20 @@ export default function WorkerSchedulePage() {
 
   const openWorkerManager = () => {
     setWorkerManagerTradeFilter('');
+    setWorkerManagerSearch('');
+    setEditingWorker(null);
+    setWorkerForm(emptyWorker());
+    setWorkerEditorMode('list');
+    setError('');
     setWorkerEditorOpen(true);
-    if (workers.length > 0) selectWorkerForPreview(workers.slice().sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))[0]);
-    else {
-      setEditingWorker(null);
-      setWorkerForm(emptyWorker());
-      setWorkerEditorMode('create');
-    }
+  };
+
+  const openWorkerManagerFor = (worker: Worker) => {
+    setProfileWorker(null);
+    setWorkerManagerTradeFilter('');
+    setWorkerManagerSearch('');
+    setWorkerEditorOpen(true);
+    selectWorkerForPreview(worker);
   };
 
   const startCreatingWorker = () => {
@@ -252,10 +267,6 @@ export default function WorkerSchedulePage() {
 
   const filterManagedWorkers = (trade: string) => {
     setWorkerManagerTradeFilter(trade);
-    const matches = workers.filter((worker) => !trade || worker.trades.includes(trade)).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-    if (workerEditorMode !== 'create' && matches.length > 0 && !matches.some((worker) => workerIdOf(worker) === workerIdOf(editingWorker || {} as Worker))) {
-      selectWorkerForPreview(matches[0]);
-    }
   };
 
   const openEditSchedule = (schedule: WorkerSchedule) => {
@@ -389,10 +400,9 @@ export default function WorkerSchedulePage() {
     }
     if (!window.confirm(`确定删除“${worker.name}”吗？历史排期仍会保留。`)) return;
     await workersAPI.delete(workerIdOf(worker));
-    const remaining = workers.filter((item) => workerIdOf(item) !== workerIdOf(worker));
     await loadData();
-    if (remaining.length > 0) selectWorkerForPreview(remaining[0]);
-    else startCreatingWorker();
+    setEditingWorker(null);
+    setWorkerEditorMode('list');
   };
 
   return (
@@ -428,7 +438,7 @@ export default function WorkerSchedulePage() {
             <div className="overflow-x-auto overscroll-x-contain [--day-col:88px] [--worker-col:124px] md:[--day-col:108px] md:[--worker-col:180px]">
               <div style={{ minWidth: `calc(var(--worker-col) + ${dates.length} * var(--day-col))` }}>
                 <div className="sticky top-0 z-20 grid border-b border-gray-200 bg-gray-50" style={{ gridTemplateColumns: `var(--worker-col) repeat(${dates.length}, var(--day-col))` }}><div className="sticky left-0 z-30 flex h-12 items-center border-r border-gray-200 bg-gray-50 px-3 text-xs font-medium text-gray-500 md:px-4">工人</div>{dates.map((date) => { const key = toDateKey(date); return <div key={key} className={`flex h-12 flex-col items-center justify-center border-r border-gray-100 text-[11px] ${key === today ? 'bg-gold-50 text-gold-700' : 'text-gray-500'}`}><span>{date.getMonth() + 1}/{date.getDate()}</span><span className="mt-0.5 text-[10px]">周{'日一二三四五六'[date.getDay()]}</span></div>; })}</div>
-                {visibleWorkers.map((worker) => { const rows = activeSchedules.filter((item) => item.workerId === workerIdOf(worker)); return <div key={workerIdOf(worker)} className="relative grid min-h-[72px] border-b border-gray-100" style={{ gridTemplateColumns: `var(--worker-col) repeat(${dates.length}, var(--day-col))` }}><div className="sticky left-0 z-10 flex min-h-[72px] items-center gap-2 border-r border-gray-200 bg-white px-2 md:px-3"><WorkerAvatar name={worker.name} fileID={worker.photoFileID} className="h-8 w-8 md:h-9 md:w-9" /><div className="min-w-0"><div className="truncate text-xs font-medium text-gray-900 md:text-sm">{worker.name}</div><div className="mt-1 truncate text-[9px] text-gray-400 md:text-[10px]">{worker.trades.join(' / ')}</div></div></div>{dates.map((date) => { const dateKey = toDateKey(date); return <button key={dateKey} disabled={!canEdit} onClick={() => openScheduleAt(worker, dateKey)} className={`group border-r border-gray-100 transition-colors ${dateKey === today ? 'bg-gold-50/40' : ''} ${canEdit ? 'hover:bg-gold-50/70' : ''}`} title={canEdit ? `为${worker.name}安排${formatShortDate(dateKey)}的任务` : ''}><Plus size={14} className="mx-auto text-gold-400 opacity-0 transition-opacity group-hover:opacity-100" /></button>; })}<div className="pointer-events-none absolute inset-y-0 right-0" style={{ left: 'var(--worker-col)' }}>{rows.map((schedule, rowIndex) => { const clippedStart = schedule.startDate < rangeStart ? rangeStart : schedule.startDate; const clippedEnd = schedule.endDate > rangeEnd ? rangeEnd : schedule.endDate; const offsetDays = Math.round((parseDate(clippedStart).getTime() - parseDate(rangeStart).getTime()) / DAY_MS); const durationDays = daysBetween(clippedStart, clippedEnd); return <button key={scheduleIdOf(schedule)} onClick={() => canEdit && openEditSchedule(schedule)} className={`pointer-events-auto absolute h-11 overflow-hidden rounded-md border px-2 text-left shadow-sm ${STATUS_STYLE[schedule.status]}`} style={{ left: `calc(${offsetDays} * var(--day-col) + 5px)`, width: `calc(${durationDays} * var(--day-col) - 10px)`, top: 13 + rowIndex * 3 }} title={`${schedule.projectAddress} · ${schedule.stageName}`}><span className="block truncate text-xs font-medium">{schedule.projectAddress}</span><span className="block truncate text-[10px] opacity-75">{schedule.stageName} · {STATUS_LABEL[schedule.status]}</span></button>; })}</div></div>; })}
+                {visibleWorkers.map((worker) => { const rows = activeSchedules.filter((item) => item.workerId === workerIdOf(worker)); return <div key={workerIdOf(worker)} className="relative grid min-h-[72px] border-b border-gray-100" style={{ gridTemplateColumns: `var(--worker-col) repeat(${dates.length}, var(--day-col))` }}><button type="button" onClick={() => setProfileWorker(worker)} className="sticky left-0 z-10 flex min-h-[72px] items-center gap-2 border-r border-gray-200 bg-white px-2 text-left transition-colors hover:bg-gold-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-400 md:px-3" title={`查看${worker.name}的工人档案`}><WorkerAvatar name={worker.name} fileID={worker.photoFileID} className="h-8 w-8 md:h-9 md:w-9" /><div className="min-w-0"><div className="truncate text-xs font-medium text-gray-900 md:text-sm">{worker.name}</div><div className="mt-1 truncate text-[9px] text-gray-400 md:text-[10px]">{worker.trades.join(' / ')}</div></div></button>{dates.map((date) => { const dateKey = toDateKey(date); return <button key={dateKey} disabled={!canEdit} onClick={() => openScheduleAt(worker, dateKey)} className={`group border-r border-gray-100 transition-colors ${dateKey === today ? 'bg-gold-50/40' : ''} ${canEdit ? 'hover:bg-gold-50/70' : ''}`} title={canEdit ? `为${worker.name}安排${formatShortDate(dateKey)}的任务` : ''}><Plus size={14} className="mx-auto text-gold-400 opacity-0 transition-opacity group-hover:opacity-100" /></button>; })}<div className="pointer-events-none absolute inset-y-0 right-0" style={{ left: 'var(--worker-col)' }}>{rows.map((schedule, rowIndex) => { const clippedStart = schedule.startDate < rangeStart ? rangeStart : schedule.startDate; const clippedEnd = schedule.endDate > rangeEnd ? rangeEnd : schedule.endDate; const offsetDays = Math.round((parseDate(clippedStart).getTime() - parseDate(rangeStart).getTime()) / DAY_MS); const durationDays = daysBetween(clippedStart, clippedEnd); return <button key={scheduleIdOf(schedule)} onClick={() => canEdit && openEditSchedule(schedule)} className={`pointer-events-auto absolute h-11 overflow-hidden rounded-md border px-2 text-left shadow-sm ${STATUS_STYLE[schedule.status]}`} style={{ left: `calc(${offsetDays} * var(--day-col) + 5px)`, width: `calc(${durationDays} * var(--day-col) - 10px)`, top: 13 + rowIndex * 3 }} title={`${schedule.projectAddress} · ${schedule.stageName}`}><span className="block truncate text-xs font-medium">{schedule.projectAddress}</span><span className="block truncate text-[10px] opacity-75">{schedule.stageName} · {STATUS_LABEL[schedule.status]}</span></button>; })}</div></div>; })}
               </div>
             </div>
           </>
@@ -493,6 +503,37 @@ export default function WorkerSchedulePage() {
         </div>
       )}
 
+      {profileWorker && (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4" onClick={() => setProfileWorker(null)}>
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h2 className="font-semibold text-gray-900">工人档案</h2>
+              <button onClick={() => setProfileWorker(null)} className="p-1.5 text-gray-400" title="关闭"><X size={18} /></button>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <WorkerAvatar name={profileWorker.name} fileID={profileWorker.photoFileID} className="h-20 w-20" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-xl font-semibold text-gray-900">{profileWorker.name}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{profileWorker.phone || '未填写联系电话'}</p>
+                  <span className="mt-2 inline-flex rounded-full bg-gold-50 px-2.5 py-1 text-xs text-gold-700">{WORKER_STATUS_LABEL[profileWorker.status]}</span>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4">
+                <div><div className="text-xs text-gray-400">工龄</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.experienceYears ? `${profileWorker.experienceYears} 年` : '未填写'}</div></div>
+                <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.maxConcurrent || 1} 个</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-2 flex flex-wrap gap-2">{profileWorker.trades.map((trade) => <span key={trade} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">{trade}</span>)}</div></div>
+              </div>
+              {profileWorker.note && <div className="pt-4"><div className="text-xs text-gray-400">备注</div><div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{profileWorker.note}</div></div>}
+              <div className="mt-5 flex justify-end gap-2">
+                <button onClick={() => setProfileWorker(null)} className="erp-btn-secondary">关闭</button>
+                {canEdit && <button onClick={() => openWorkerManagerFor(profileWorker)} className="erp-btn-primary"><Pencil size={14} />管理档案</button>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {workerEditorOpen && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/40 p-3" onClick={() => setWorkerEditorOpen(false)}>
           <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
@@ -501,28 +542,36 @@ export default function WorkerSchedulePage() {
               <button onClick={() => setWorkerEditorOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button>
             </div>
             <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-              {workers.length > 0 && (
-                <div className="flex max-h-[34vh] shrink-0 flex-col border-b border-gray-100 md:max-h-none md:w-[300px] md:border-b-0 md:border-r">
+              <div className={`${workerEditorMode !== 'list' ? 'hidden md:flex' : 'flex'} max-h-[72vh] shrink-0 flex-col border-b border-gray-100 md:max-h-none md:w-[320px] md:border-b-0 md:border-r`}>
                   <div className="space-y-2 border-b border-gray-100 p-3">
                     <button onClick={startCreatingWorker} className="flex w-full items-center justify-center gap-2 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-sm font-medium text-gold-700"><Plus size={15} />新增工人</button>
+                    <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-xs outline-none focus:border-gold-400" /></div>
                     <Select value={workerManagerTradeFilter} onChange={filterManagedWorkers} options={tradeOptions} sheetTitle="按工种筛选工人" />
                   </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto">
-                  {managedWorkers.map((worker) => (
-                    <div key={workerIdOf(worker)} className={`flex items-center gap-2 border-b border-gray-50 px-4 py-3 ${editingWorker && workerIdOf(editingWorker) === workerIdOf(worker) ? 'bg-gold-50' : ''}`}>
-                      <WorkerAvatar name={worker.name} fileID={worker.photoFileID} className="h-9 w-9" />
-                      <button onClick={() => selectWorkerForPreview(worker)} className="min-w-0 flex-1 text-left">
-                        <div className="truncate text-sm font-medium">{worker.name}</div><div className="mt-0.5 truncate text-[10px] text-gray-400">{worker.trades.join(' / ')} · {WORKER_STATUS_LABEL[worker.status]}</div>
-                      </button>
-                    </div>
+                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+                  {groupedManagedWorkers.map((group) => (
+                    <section key={group.trade}>
+                      <div className="mb-1.5 flex items-center justify-between px-1"><h3 className="text-xs font-medium text-gray-500">{group.trade}</h3><span className="text-[10px] text-gray-400">{group.workers.length} 人</span></div>
+                      <div className="overflow-hidden rounded-lg border border-gray-100">
+                        {group.workers.map((worker) => (
+                          <button key={`${group.trade}-${workerIdOf(worker)}`} onClick={() => selectWorkerForPreview(worker)} className={`flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-gray-50 ${editingWorker && workerIdOf(editingWorker) === workerIdOf(worker) ? 'bg-gold-50' : ''}`}>
+                            <WorkerAvatar name={worker.name} fileID={worker.photoFileID} className="h-9 w-9" />
+                            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-gray-900">{worker.name}</span><span className="mt-0.5 block truncate text-[10px] text-gray-400">{WORKER_STATUS_LABEL[worker.status]}{worker.experienceYears ? ` · ${worker.experienceYears}年工龄` : ''}</span></span>
+                            <ChevronRight size={15} className="text-gray-300" />
+                          </button>
+                        ))}
+                      </div>
+                    </section>
                   ))}
                   {managedWorkers.length === 0 && <div className="py-10 text-center text-xs text-gray-400">该工种暂无工人</div>}
                   </div>
                 </div>
-              )}
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {workerEditorMode === 'preview' && editingWorker ? (
+              <div className={`${workerEditorMode === 'list' ? 'hidden md:block' : 'block'} min-h-0 flex-1 overflow-y-auto p-4`}>
+                {workerEditorMode === 'list' ? (
+                  <div className="flex h-full min-h-[360px] flex-col items-center justify-center text-center"><UsersRound size={32} className="text-gray-200" /><p className="mt-3 text-sm font-medium text-gray-500">从左侧选择一位师傅</p><p className="mt-1 text-xs text-gray-400">点击后查看完整档案，再进入编辑</p></div>
+                ) : workerEditorMode === 'preview' && editingWorker ? (
                   <div className="mx-auto max-w-xl">
+                    <button onClick={() => { setEditingWorker(null); setWorkerEditorMode('list'); }} className="mb-4 inline-flex items-center gap-1 text-xs text-gray-500 md:hidden"><ChevronLeft size={15} />返回工人列表</button>
                     <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
                       <div className="flex min-w-0 items-center gap-4">
                         <WorkerAvatar name={editingWorker.name} fileID={editingWorker.photoFileID} className="h-20 w-20" />
@@ -532,6 +581,7 @@ export default function WorkerSchedulePage() {
                     </div>
                     <div className="grid gap-5 py-5 sm:grid-cols-2">
                       <div><div className="text-xs text-gray-400">工种身份</div><div className="mt-2 flex flex-wrap gap-2">{editingWorker.trades.map((trade) => <span key={trade} className="rounded-full bg-gold-50 px-2.5 py-1 text-xs text-gold-700">{trade}</span>)}</div></div>
+                      <div><div className="text-xs text-gray-400">工龄</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.experienceYears ? `${editingWorker.experienceYears} 年` : '未填写'}</div></div>
                       <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.maxConcurrent || 1} 个</div></div>
                       <div className="sm:col-span-2"><div className="text-xs text-gray-400">备注</div><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{editingWorker.note || '暂无备注'}</div></div>
                     </div>
@@ -539,7 +589,7 @@ export default function WorkerSchedulePage() {
                   </div>
                 ) : (
                 <>
-                <div className="mb-4 flex items-center justify-between"><div className="text-sm font-medium text-gray-900">{workerEditorMode === 'create' ? '新增工人' : `编辑 ${editingWorker?.name || ''}`}</div>{workerEditorMode === 'edit' && editingWorker && <button onClick={() => selectWorkerForPreview(editingWorker)} className="text-xs text-gray-500">取消编辑</button>}</div>
+                <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setWorkerEditorMode('list'), setEditingWorker(null))} className="inline-flex items-center text-gray-400 md:hidden" title="返回"><ChevronLeft size={17} /></button><div className="text-sm font-medium text-gray-900">{workerEditorMode === 'create' ? '新增工人' : `编辑 ${editingWorker?.name || ''}`}</div></div>{workerEditorMode === 'edit' && editingWorker && <button onClick={() => selectWorkerForPreview(editingWorker)} className="text-xs text-gray-500">取消编辑</button>}</div>
                 <div className="mb-4 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
                   {workerPhotoPreview ? <img src={workerPhotoPreview} alt="工人照片预览" className="h-16 w-16 shrink-0 rounded-full object-cover" /> : <WorkerAvatar name={workerForm.name || '工'} fileID={workerForm.photoFileID} className="h-16 w-16" />}
                   <div className="min-w-0 flex-1">
@@ -558,13 +608,14 @@ export default function WorkerSchedulePage() {
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-xs text-gray-500">姓名 *<input value={workerForm.name} onChange={(event) => setWorkerForm({ ...workerForm, name: event.target.value })} placeholder="例如：王师傅" className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
                   <label className="text-xs text-gray-500">联系电话<input value={workerForm.phone} onChange={(event) => setWorkerForm({ ...workerForm, phone: event.target.value })} className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">工龄（年）<input type="number" min={0} max={60} value={workerForm.experienceYears || ''} onChange={(event) => setWorkerForm({ ...workerForm, experienceYears: Math.max(0, Number(event.target.value) || 0) })} placeholder="例如：8" className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
                   <label className="text-xs text-gray-500">最大并行任务<input type="number" min={1} value={workerForm.maxConcurrent} onChange={(event) => setWorkerForm({ ...workerForm, maxConcurrent: Math.max(1, Number(event.target.value)) })} className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none" /></label>
                   <label className="text-xs text-gray-500">状态<Select value={workerForm.status} onChange={(value) => setWorkerForm({ ...workerForm, status: value as WorkerStatus })} options={workerStatusOptions} className="mt-1" sheetTitle="选择工人状态" /></label>
                 </div>
                 <div className="mt-4"><p className="text-xs text-gray-500">工种 * <span className="text-gray-400">（可多选）</span></p><div className="mt-2 flex flex-wrap gap-2">{WORKER_TRADES.map((trade) => <button type="button" key={trade} onClick={() => setWorkerForm((current) => ({ ...current, trades: current.trades.includes(trade) ? current.trades.filter((item) => item !== trade) : [...current.trades, trade] }))} className={`rounded-full border px-3 py-1 text-xs ${workerForm.trades.includes(trade) ? 'border-gold-400 bg-gold-50 text-gold-700' : 'border-gray-200 text-gray-500'}`}>{trade}</button>)}</div></div>
                 <label className="mt-4 block text-xs text-gray-500">备注<textarea value={workerForm.note} onChange={(event) => setWorkerForm({ ...workerForm, note: event.target.value })} rows={3} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
                 {error && <p className="mt-3 text-xs leading-5 text-red-500">{error}</p>}
-                <div className="mt-4 flex justify-end gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (workers.length > 0 ? selectWorkerForPreview(workers[0]) : setWorkerEditorOpen(false))} className="erp-btn-secondary">取消</button><button disabled={saving} onClick={() => void saveWorker()} className="erp-btn-primary">{workerEditorMode === 'edit' ? '保存修改' : '新增工人'}</button></div>
+                <div className="mt-4 flex justify-end gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setEditingWorker(null), setWorkerEditorMode('list'))} className="erp-btn-secondary">取消</button><button disabled={saving} onClick={() => void saveWorker()} className="erp-btn-primary">{workerEditorMode === 'edit' ? '保存修改' : '新增工人'}</button></div>
                 </>
                 )}
               </div>

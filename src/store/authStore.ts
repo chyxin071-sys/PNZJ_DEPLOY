@@ -437,7 +437,7 @@ export function getHighestRole(roles: Role[]): Role {
 }
 
 export const menuPermissions: Record<Role, string[]> = {
-  admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/worker-schedule', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/profile'],
+  admin: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/leads', '/signed-contracts', '/todos', '/projects-biz', '/worker-schedule', '/template-library', '/materials', '/inventory-records', '/quotes-biz', '/quotation-builder', '/notifications', '/employees', '/screen-devices', '/profile'],
   finance: ['/', '/contracts', '/income', '/expense', '/receivable', '/payable', '/projects', '/cashflow', '/reimbursement', '/finance-logs', '/reports', '/todos', '/notifications', '/profile'],
   operations: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/materials', '/inventory-records', '/notifications', '/profile'],
   sales: ['/', '/leads', '/signed-contracts', '/todos', '/quotes-biz', '/quotation-builder', '/projects-biz', '/reimbursement', '/income', '/expense', '/contracts', '/materials', '/inventory-records', '/notifications', '/profile'],

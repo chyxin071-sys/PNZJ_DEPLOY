@@ -4,6 +4,7 @@ import { createServer, request as httpRequest } from "node:http";
 import { constants } from "node:fs";
 import { extname, isAbsolute, join, normalize, relative } from "node:path";
 import { spawn } from "node:child_process";
+import { handleOperationsScreenApi } from "./operations-screen-api.mjs";
 
 const publicPort = Number(process.env.PORT || 3000);
 const internalPort = Number(process.env.VINEXT_INTERNAL_PORT || (publicPort === 80 ? 3000 : publicPort + 1));
@@ -124,6 +125,10 @@ const server = createServer(async (req, res) => {
       "content-type": "application/json; charset=utf-8",
     });
     res.end(JSON.stringify({ success: vinextRunning }));
+    return;
+  }
+
+  if (await handleOperationsScreenApi(req, res, url)) {
     return;
   }
 

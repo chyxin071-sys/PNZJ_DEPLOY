@@ -10,6 +10,7 @@ export interface Worker {
   name: string;
   phone?: string;
   photoFileID?: string;
+  experienceYears?: number;
   trades: string[];
   maxConcurrent: number;
   status: WorkerStatus;

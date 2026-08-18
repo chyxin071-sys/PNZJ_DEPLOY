@@ -19,6 +19,7 @@ import {
   Settings,
   LayoutTemplate,
   CalendarRange,
+  MonitorSmartphone,
 } from 'lucide-react';
 import type { BizType } from '@/types';
 import type { Role } from '@/store/authStore';
@@ -75,6 +76,7 @@ export const ERP_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/template-library', icon: LayoutTemplate, label: '工地模板库', roles: ['admin'], bizTypes: ['家装'] },
       { path: '/employees', icon: Users, label: '组织架构', roles: ['admin'] },
+      { path: '/screen-devices', icon: MonitorSmartphone, label: '大屏设备', roles: ['admin'] },
       { path: '/profile', icon: UserCog, label: '个人中心', roles: ['admin', 'finance', 'operations', 'sales', 'designer', 'manager', 'employee'] },
     ],
   },
