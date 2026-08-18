@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import logoUrl from '@/assets/logo.png';
+import Modal from '@/components/Modal';
 import {
   clearScreenDeviceToken,
   createScreenPairing,
@@ -51,7 +52,9 @@ function normalizeScreenData(value: OperationsScreenData | null | undefined): Op
   return {
     generatedAt: source.generatedAt || new Date().toISOString(),
     stats: { ...EMPTY_STATS, ...(source.stats || {}) },
-    projects: Array.isArray(source.projects) ? source.projects : [],
+    projects: Array.isArray(source.projects)
+      ? source.projects.map((project) => ({ ...project, todoItems: Array.isArray(project.todoItems) ? project.todoItems : [] }))
+      : [],
     stageDistribution: Array.isArray(source.stageDistribution) ? source.stageDistribution : [],
     schedules: Array.isArray(source.schedules) ? source.schedules : [],
   };
@@ -203,6 +206,7 @@ function DashboardView({ token }: { token: string }) {
   const [stale, setStale] = useState(false);
   const [projectPosition, setProjectPosition] = useState(1);
   const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: SortDirection }>({ key: 'updatedAt', direction: 'desc' });
+  const [todoProjectId, setTodoProjectId] = useState('');
   const [now, setNow] = useState(new Date());
   const refreshingRef = useRef(false);
   const projectScrollRef = useRef<HTMLDivElement>(null);
@@ -267,6 +271,10 @@ function DashboardView({ token }: { token: string }) {
       return comparison * direction || sortableTimestamp(b.updatedAt) - sortableTimestamp(a.updatedAt) || a.address.localeCompare(b.address, 'zh-CN');
     });
   }, [data?.projects, projectSort]);
+  const todoProject = useMemo(
+    () => (data?.projects || []).find((project) => project.id === todoProjectId) || null,
+    [data?.projects, todoProjectId],
+  );
 
   const changeProjectSort = useCallback((key: ProjectSortKey) => {
     setProjectSort((current) => ({
@@ -325,8 +333,8 @@ function DashboardView({ token }: { token: string }) {
           <Stat label="待办事项" value={data.stats.pendingTodos} icon={ListTodo} badge={`逾期 ${data.stats.overdueTodos}`} badgeTone={data.stats.overdueTodos > 0 ? 'red' : 'neutral'} />
         </section>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-4">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="grid min-h-0 flex-1 grid-cols-6 gap-3">
+          <section className="col-span-4 flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5">
               <div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">待办与施工进度总览</p></div>
               <div className="flex items-center gap-3">
@@ -366,7 +374,7 @@ function DashboardView({ token }: { token: string }) {
                       <div className="truncate text-sm font-medium">{project.currentStage}</div>
                       <div className="truncate text-sm text-gray-500">{project.nextStage}</div>
                       <div className="flex items-center gap-3"><div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-[#d4a843]" style={{ width: `${project.progress}%` }} /></div><span className="w-9 text-right text-xs font-semibold tabular-nums text-[#a37816]">{project.progress}%</span></div>
-                      <div>{project.pendingTodos > 0 ? <span className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600"><AlertTriangle size={12} />{project.pendingTodos} 项</span> : <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 size={13} />正常</span>}</div>
+                      <div>{project.pendingTodos > 0 ? <button type="button" title="查看待解决事项" onClick={() => { setTodoProjectId(project.id); interactionPauseUntilRef.current = Date.now() + 30_000; }} className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"><AlertTriangle size={12} />{project.pendingTodos} 项</button> : <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 size={13} />正常</span>}</div>
                     </div>
                   )) : <div className="flex h-full items-center justify-center text-sm text-gray-400">暂无施工中工地</div>}
                 </div>
@@ -374,7 +382,7 @@ function DashboardView({ token }: { token: string }) {
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="col-span-2 flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5"><div><h2 className="text-base font-semibold">近期工人进场</h2><p className="text-[11px] text-gray-400">未来 7 天施工安排</p></div><CalendarClock size={17} className="text-[#d4a843]" /></div>
             <div className="grid shrink-0 grid-cols-[92px_repeat(7,minmax(30px,1fr))] border-b border-gray-100 bg-gray-50 text-center text-[10px] text-gray-400">
               <div className="px-2 py-2 text-left">工人 / 工种</div>
@@ -401,6 +409,23 @@ function DashboardView({ token }: { token: string }) {
           </section>
         </div>
       </div>
+      <Modal open={Boolean(todoProject)} onClose={() => setTodoProjectId('')} title={`${todoProject?.address || '工地'} · 待解决事项`} size="md">
+        <div className="space-y-3">
+          {(todoProject?.todoItems || []).map((todo, index) => (
+            <div key={todo.id || `${todo.title}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex items-start justify-between gap-4">
+                <p className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-gray-900">{todo.title}</p>
+                {todo.overdue && <span className="shrink-0 rounded bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600">已逾期</span>}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
+                <span className="inline-flex items-center gap-1.5"><CalendarClock size={13} />截止日期：{todo.dueDate || '未设置'}</span>
+                <span className="inline-flex items-center gap-1.5"><UsersRound size={13} />负责人：{todo.assignees.join('、') || '未分配'}</span>
+              </div>
+            </div>
+          ))}
+          {todoProject && todoProject.todoItems.length === 0 && <div className="py-8 text-center text-sm text-gray-400">暂无待解决事项明细</div>}
+        </div>
+      </Modal>
     </main>
   );
 }

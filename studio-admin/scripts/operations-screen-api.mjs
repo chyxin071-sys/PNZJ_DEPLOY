@@ -295,6 +295,13 @@ function linkedProjectId(todo) {
   return String(todo?.projectId || '');
 }
 
+function todoAssigneeNames(todo) {
+  const values = Array.isArray(todo?.assignees) ? todo.assignees : [];
+  return [...new Set(values.map((value) => (
+    typeof value === 'object' ? String(value?.name || '') : String(value || '')
+  )).filter(Boolean))];
+}
+
 async function buildScreenData(db) {
   const [leads, projects, todos, workers, schedules] = await Promise.all([
     getAll(db, 'leads'),
@@ -321,7 +328,18 @@ async function buildScreenData(db) {
   const activeTodos = todos.filter((todo) => todo.status !== 'completed');
   const pendingByProject = activeTodos.reduce((map, todo) => {
     const id = linkedProjectId(todo);
-    if (id) map.set(id, (map.get(id) || 0) + 1);
+    if (id) {
+      const dueDate = String(todo.dueDate || '').slice(0, 10);
+      const items = map.get(id) || [];
+      items.push({
+        id: String(todo._id || todo.id || ''),
+        title: String(todo.title || '未命名待办'),
+        dueDate,
+        assignees: todoAssigneeNames(todo),
+        overdue: Boolean(dueDate && dueDate < todayKey),
+      });
+      map.set(id, items);
+    }
     return map;
   }, new Map());
   const overdueTodos = activeTodos.filter((todo) => todo.dueDate && todo.dueDate < todayKey).length;
@@ -330,6 +348,11 @@ async function buildScreenData(db) {
     const id = String(project._id || project.id || '');
     const progress = progressForProject(project);
     const status = projectStatus(project, progress.progress);
+    const todoItems = (pendingByProject.get(id) || []).sort((a, b) => (
+      Number(b.overdue) - Number(a.overdue)
+      || String(a.dueDate || '9999-12-31').localeCompare(String(b.dueDate || '9999-12-31'))
+      || a.title.localeCompare(b.title, 'zh-CN')
+    ));
     return {
       id,
       address: String(project.address || '未填写地址'),
@@ -340,7 +363,8 @@ async function buildScreenData(db) {
       startDate: String(project.actualStartDate || project.startDate || project.constructionStartDate || ''),
       expectedEndDate: String(project.expectedEndDate || project.endDate || ''),
       people: projectPeople(project),
-      pendingTodos: pendingByProject.get(id) || 0,
+      pendingTodos: todoItems.length,
+      todoItems,
       updatedAt: String(project.updatedAt || project.updateTime || project.createdAt || ''),
     };
   });

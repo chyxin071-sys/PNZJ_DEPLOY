@@ -27,6 +27,13 @@ export interface OperationsScreenData {
     expectedEndDate: string;
     people: string[];
     pendingTodos: number;
+    todoItems: Array<{
+      id: string;
+      title: string;
+      dueDate: string;
+      assignees: string[];
+      overdue: boolean;
+    }>;
     updatedAt: string;
   }>;
   stageDistribution: Array<{ name: string; value: number }>;
