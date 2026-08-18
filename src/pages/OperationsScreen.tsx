@@ -96,7 +96,7 @@ function PairingView() {
             </div>
             <div>
               <p className="text-sm font-medium text-[#d4a843]">公司运营大屏</p>
-              <h1 className="mt-4 max-w-xl text-3xl font-bold leading-tight md:text-4xl">请使用管理员手机授权此设备</h1>
+              <h1 className="mt-4 max-w-xl text-2xl font-bold leading-tight md:text-3xl">请使用管理员手机授权此设备</h1>
             </div>
           </div>
           <div className="flex flex-col items-center justify-center px-8 py-10 md:px-14">

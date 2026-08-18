@@ -2,35 +2,151 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const cloudbase = require('@cloudbase/node-sdk');
+const axios = require('axios');
 
-const ENV_ID = process.env.TCB_ENV_ID || process.env.CLOUDBASE_ENV_ID || 'cloud1-8grodf5s3006f004';
+// Cloud Hosting itself does not contain the ERP collections. Prefer the
+// explicitly configured mini-program CloudBase environment.
+const ENV_ID = process.env.NEXT_PUBLIC_TCB_ENV_ID
+  || process.env.TCB_ENV_ID
+  || process.env.CLOUDBASE_ENV_ID
+  || 'cloud1-8grodf5s3006f004';
+const WECHAT_APPID = process.env.WECHAT_APPID || '';
+const WECHAT_APPSECRET = process.env.WECHAT_APPSECRET || '';
 const PAIRINGS = 'erp_operation_screen_pairings';
 const DEVICES = 'erp_operation_screen_devices';
 const PAIRING_TTL_MS = 5 * 60 * 1000;
 const pairingRateLimits = new Map();
 let screenDataCache = null;
 let screenDataBuildPromise = null;
+let cachedAccessToken = '';
+let accessTokenExpiresAt = 0;
 
-let cloudApp;
-function getDb() {
-  if (!cloudApp) {
-    const secretId = process.env.TCB_SECRET_ID
-      || process.env.CLOUDBASE_SECRETID
-      || process.env.TENCENTCLOUD_SECRETID
-      || process.env.SECRET_ID;
-    const secretKey = process.env.TCB_SECRET_KEY
-      || process.env.CLOUDBASE_SECRETKEY
-      || process.env.TENCENTCLOUD_SECRETKEY
-      || process.env.SECRET_KEY;
-    const config = { env: ENV_ID };
-    if (secretId && secretKey) {
-      config.secretId = secretId;
-      config.secretKey = secretKey;
-    }
-    cloudApp = cloudbase.init(config);
+function wechatApiBaseUrl() {
+  return process.env.CBR_ENV_ID || process.env.KUBERNETES_SERVICE_HOST
+    ? 'http://api.weixin.qq.com'
+    : 'https://api.weixin.qq.com';
+}
+
+async function getAccessToken(forceRefresh = false) {
+  if (!forceRefresh && cachedAccessToken && Date.now() < accessTokenExpiresAt) {
+    return cachedAccessToken;
   }
-  return cloudApp.database();
+  if (!WECHAT_APPID || !WECHAT_APPSECRET) {
+    throw new Error('WECHAT_CONFIG_MISSING');
+  }
+  const response = await axios.get(`${wechatApiBaseUrl()}/cgi-bin/token`, {
+    params: {
+      grant_type: 'client_credential',
+      appid: WECHAT_APPID,
+      secret: WECHAT_APPSECRET,
+    },
+    timeout: 8_000,
+  });
+  if (!response.data?.access_token) {
+    throw new Error(`WECHAT_TOKEN_FAILED:${response.data?.errcode || 'unknown'}`);
+  }
+  cachedAccessToken = response.data.access_token;
+  accessTokenExpiresAt = Date.now() + Math.max(60, Number(response.data.expires_in || 7200) - 600) * 1000;
+  return cachedAccessToken;
+}
+
+async function requestCloudDatabase(action, query, retry = true) {
+  const accessToken = await getAccessToken();
+  const response = await axios.post(
+    `${wechatApiBaseUrl()}/tcb/${action}`,
+    { env: ENV_ID, query },
+    { params: { access_token: accessToken }, timeout: 12_000 },
+  );
+  const data = response.data || {};
+  if (retry && [40001, 40014, 42001].includes(Number(data.errcode))) {
+    cachedAccessToken = '';
+    accessTokenExpiresAt = 0;
+    return requestCloudDatabase(action, query, false);
+  }
+  if (Number(data.errcode || 0) !== 0) {
+    throw new Error(`TCB_${action.toUpperCase()}_${data.errcode}:${data.errmsg || 'unknown error'}`);
+  }
+  return data;
+}
+
+function parseQueryRecords(records) {
+  return (records || []).map((record) => {
+    if (typeof record !== 'string') return record;
+    try {
+      return JSON.parse(record);
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+}
+
+function queryValue(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+class CloudDatabaseCollection {
+  constructor(name) {
+    this.name = name;
+    this.filter = null;
+    this.documentId = '';
+    this.queryLimit = 100;
+    this.querySkip = 0;
+  }
+
+  where(filter) {
+    this.filter = filter;
+    return this;
+  }
+
+  doc(id) {
+    this.documentId = String(id || '');
+    return this;
+  }
+
+  limit(limit) {
+    this.queryLimit = Math.max(1, Math.min(100, Number(limit) || 100));
+    return this;
+  }
+
+  skip(skip) {
+    this.querySkip = Math.max(0, Number(skip) || 0);
+    return this;
+  }
+
+  baseQuery() {
+    let query = `db.collection(${queryValue(this.name)})`;
+    if (this.documentId) return `${query}.doc(${queryValue(this.documentId)})`;
+    if (this.filter) query += `.where(${queryValue(this.filter)})`;
+    if (this.querySkip) query += `.skip(${this.querySkip})`;
+    return `${query}.limit(${this.queryLimit})`;
+  }
+
+  async get() {
+    const data = await requestCloudDatabase('databasequery', `${this.baseQuery()}.get()`);
+    return { data: parseQueryRecords(data.data) };
+  }
+
+  async add(record) {
+    return requestCloudDatabase(
+      'databaseadd',
+      `db.collection(${queryValue(this.name)}).add({data:${queryValue(record)}})`,
+    );
+  }
+
+  async update(record) {
+    if (!this.documentId && !this.filter) throw new Error('TCB_UPDATE_TARGET_MISSING');
+    return requestCloudDatabase('databaseupdate', `${this.baseQuery()}.update({data:${queryValue(record)}})`);
+  }
+}
+
+const restDb = {
+  collection(name) {
+    return new CloudDatabaseCollection(name);
+  },
+};
+
+function getDb() {
+  return restDb;
 }
 
 function sendJson(res, status, body) {
@@ -74,12 +190,10 @@ async function findUser(db, userId) {
   } catch {
     // Older user records may use a generated document id and store `id` separately.
   }
-  const _ = db.command;
-  const result = await db.collection('users').where(_.or([
-    { id: userId },
-    { account: userId },
-  ])).limit(1).get();
-  return result?.data?.[0] || null;
+  const byId = await db.collection('users').where({ id: userId }).limit(1).get();
+  if (byId?.data?.[0]) return byId.data[0];
+  const byAccount = await db.collection('users').where({ account: userId }).limit(1).get();
+  return byAccount?.data?.[0] || null;
 }
 
 async function requireAdmin(req, res, db) {
@@ -98,8 +212,15 @@ async function requireAdmin(req, res, db) {
 }
 
 async function getAll(db, collection, limit = 1000) {
-  const result = await db.collection(collection).limit(limit).get();
-  return result?.data || [];
+  const records = [];
+  const pageSize = 100;
+  while (records.length < limit) {
+    const result = await db.collection(collection).skip(records.length).limit(Math.min(pageSize, limit - records.length)).get();
+    const page = result?.data || [];
+    records.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return records;
 }
 
 function hasStarted(item) {
