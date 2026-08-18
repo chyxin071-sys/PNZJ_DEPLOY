@@ -17,7 +17,8 @@ import {
 } from '@/services/operationsScreen';
 
 const REFRESH_MS = 15_000;
-const PROJECT_PAGE_SIZE = 7;
+const PROJECT_ROW_HEIGHT = 76;
+const AUTO_SCROLL_MS = 8_000;
 
 const EMPTY_STATS: OperationsScreenData['stats'] = {
   totalCustomers: 0,
@@ -53,6 +54,22 @@ function formatShortDate(value?: string) {
   const date = new Date(value.replace(/-/g, '/'));
   if (Number.isNaN(date.getTime())) return value;
   return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function startOfDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function addDays(value: Date, amount: number) {
+  const next = new Date(value);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function parseDate(value?: string) {
+  if (!value) return null;
+  const date = new Date(value.replace(/-/g, '/'));
+  return Number.isNaN(date.getTime()) ? null : startOfDay(date);
 }
 
 function PairingView() {
@@ -157,9 +174,11 @@ function DashboardView({ token }: { token: string }) {
   const [data, setData] = useState<OperationsScreenData | null>(null);
   const [lastSuccess, setLastSuccess] = useState('');
   const [stale, setStale] = useState(false);
-  const [page, setPage] = useState(0);
+  const [projectPosition, setProjectPosition] = useState(1);
   const [now, setNow] = useState(new Date());
   const refreshingRef = useRef(false);
+  const projectScrollRef = useRef<HTMLDivElement>(null);
+  const interactionPauseUntilRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (refreshingRef.current) return;
@@ -195,15 +214,28 @@ function DashboardView({ token }: { token: string }) {
   }, []);
 
   const stats = data?.stats || EMPTY_STATS;
-  const pageCount = Math.max(1, Math.ceil((data?.projects?.length || 0) / PROJECT_PAGE_SIZE));
   useEffect(() => {
-    if (page >= pageCount) setPage(0);
-    const timer = window.setInterval(() => setPage((value) => (value + 1) % pageCount), 15_000);
+    const timer = window.setInterval(() => {
+      const container = projectScrollRef.current;
+      if (!container || Date.now() < interactionPauseUntilRef.current || container.scrollHeight <= container.clientHeight) return;
+      const nextTop = container.scrollTop + container.clientHeight;
+      container.scrollTo({ top: nextTop >= container.scrollHeight - 8 ? 0 : nextTop, behavior: 'smooth' });
+    }, AUTO_SCROLL_MS);
     return () => window.clearInterval(timer);
-  }, [pageCount, page]);
+  }, []);
 
-  const projects = useMemo(() => data?.projects?.slice(page * PROJECT_PAGE_SIZE, (page + 1) * PROJECT_PAGE_SIZE) || [], [data, page]);
-  const maxStage = Math.max(1, ...(data?.stageDistribution?.map((item) => item.value) || [1]));
+  const projects = data?.projects || [];
+  const scheduleDays = useMemo(() => {
+    const today = startOfDay(new Date());
+    return Array.from({ length: 7 }, (_, index) => addDays(today, index));
+  }, []);
+  const scheduleRangeStart = scheduleDays[0];
+  const scheduleRangeEnd = scheduleDays[scheduleDays.length - 1];
+  const visibleSchedules = useMemo(() => (data?.schedules || []).filter((schedule) => {
+    const start = parseDate(schedule.startDate);
+    const end = parseDate(schedule.endDate) || start;
+    return Boolean(start && end && start <= scheduleRangeEnd && end >= scheduleRangeStart);
+  }).slice(0, 8), [data?.schedules, scheduleRangeEnd, scheduleRangeStart]);
   const signedRate = stats.totalCustomers > 0 ? Math.round(stats.signedCustomers / stats.totalCustomers * 100) : 0;
   const lostRate = stats.totalCustomers > 0 ? Math.round(stats.lostCustomers / stats.totalCustomers * 100) : 0;
 
@@ -232,13 +264,20 @@ function DashboardView({ token }: { token: string }) {
           <Stat label="待办事项" value={data.stats.pendingTodos} icon={ListTodo} badge={`逾期 ${data.stats.overdueTodos}`} badgeTone={data.stats.overdueTodos > 0 ? 'red' : 'neutral'} />
         </section>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.72fr)_minmax(340px,0.78fr)] gap-4">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-4">
           <section className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5"><div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">优先显示有待办及进度较慢的工地</p></div><span className="text-xs text-gray-400">{page + 1} / {pageCount}</span></div>
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5"><div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">待办与施工进度总览</p></div><span className="text-xs text-gray-400">{Math.min(projectPosition, projects.length || 1)} / {projects.length || 1}</span></div>
             <div className="grid grid-cols-[minmax(220px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] gap-4 border-b border-gray-100 bg-gray-50 px-5 py-2 text-[11px] text-gray-400"><span>工地 / 负责人</span><span>当前阶段</span><span>下一阶段</span><span>施工进度</span><span>待解决</span></div>
-            <div className="min-h-0 flex-1">
+            <div
+              ref={projectScrollRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth"
+              onWheel={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
+              onPointerDown={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
+              onTouchStart={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
+              onScroll={(event) => setProjectPosition(Math.min(projects.length || 1, Math.floor(event.currentTarget.scrollTop / PROJECT_ROW_HEIGHT) + 1))}
+            >
               {projects.length > 0 ? projects.map((project) => (
-                <div key={project.id} className="grid h-[calc((100%)/7)] min-h-[62px] grid-cols-[minmax(220px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] items-center gap-4 border-b border-gray-100 px-5 last:border-b-0">
+                <div key={project.id} className="grid h-[76px] grid-cols-[minmax(220px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] items-center gap-4 border-b border-gray-100 px-5 last:border-b-0">
                   <div className="min-w-0"><div className="truncate text-sm font-medium text-gray-900">{project.address}</div><div className="mt-1 truncate text-[11px] text-gray-400">{project.people.join(' · ') || '暂未设置负责人'}</div></div>
                   <div className="truncate text-sm font-medium">{project.currentStage}</div>
                   <div className="truncate text-sm text-gray-500">{project.nextStage}</div>
@@ -249,21 +288,31 @@ function DashboardView({ token }: { token: string }) {
             </div>
           </section>
 
-          <div className="grid min-h-0 grid-rows-2 gap-4">
-            <section className="min-h-0 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between"><h2 className="text-sm font-semibold">当前阶段分布</h2><span className="text-[11px] text-gray-400">共 {data.stats.activeProjects} 个工地</span></div>
-              <div className="mt-4 space-y-3 overflow-hidden">
-                {data.stageDistribution.slice(0, 6).map((item) => <div key={item.name} className="grid grid-cols-[70px_1fr_26px] items-center gap-3"><span className="truncate text-xs text-gray-600">{item.name}</span><div className="h-2 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-sky-500" style={{ width: `${item.value / maxStage * 100}%` }} /></div><span className="text-right text-xs font-semibold tabular-nums">{item.value}</span></div>)}
-              </div>
-            </section>
-            <section className="min-h-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="flex h-12 items-center justify-between border-b border-gray-100 px-5"><h2 className="text-sm font-semibold">近期工人进场</h2><CalendarClock size={16} className="text-[#d4a843]" /></div>
-              <div className="divide-y divide-gray-100">
-                {data.schedules.slice(0, 5).map((schedule) => <div key={schedule.id} className="grid grid-cols-[72px_1fr] gap-3 px-5 py-2.5"><div><div className="text-xs font-semibold text-gray-800">{schedule.workerName}</div><div className="mt-0.5 text-[10px] text-[#a37816]">{schedule.stageName}</div></div><div className="min-w-0"><div className="truncate text-xs text-gray-600">{schedule.projectAddress}</div><div className="mt-0.5 text-[10px] text-gray-400">{formatShortDate(schedule.startDate)} - {formatShortDate(schedule.endDate)}</div></div></div>)}
-                {data.schedules.length === 0 && <div className="px-5 py-8 text-center text-xs text-gray-400">未来 7 天暂无工人进场安排</div>}
-              </div>
-            </section>
-          </div>
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5"><div><h2 className="text-base font-semibold">近期工人进场</h2><p className="text-[11px] text-gray-400">未来 7 天施工安排</p></div><CalendarClock size={17} className="text-[#d4a843]" /></div>
+            <div className="grid shrink-0 grid-cols-[92px_repeat(7,minmax(30px,1fr))] border-b border-gray-100 bg-gray-50 text-center text-[10px] text-gray-400">
+              <div className="px-2 py-2 text-left">工人 / 工种</div>
+              {scheduleDays.map((day) => <div key={day.toISOString()} className="border-l border-gray-100 px-1 py-2"><div>{day.getMonth() + 1}/{day.getDate()}</div><div className="mt-0.5">{['日', '一', '二', '三', '四', '五', '六'][day.getDay()]}</div></div>)}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {visibleSchedules.map((schedule) => {
+                const start = parseDate(schedule.startDate) || scheduleRangeStart;
+                const end = parseDate(schedule.endDate) || start;
+                const startIndex = Math.max(0, Math.round((start.getTime() - scheduleRangeStart.getTime()) / 86_400_000));
+                const endIndex = Math.min(6, Math.round((end.getTime() - scheduleRangeStart.getTime()) / 86_400_000));
+                return <div key={schedule.id} className="grid min-h-[72px] grid-cols-[92px_1fr] border-b border-gray-100 last:border-b-0">
+                  <div className="min-w-0 px-3 py-3"><div className="truncate text-xs font-semibold text-gray-800">{schedule.workerName}</div><div className="mt-1 truncate text-[10px] text-[#a37816]">{schedule.stageName}</div></div>
+                  <div className="relative grid grid-cols-7">
+                    {scheduleDays.map((day) => <div key={day.toISOString()} className="border-l border-gray-100" />)}
+                    <div className="absolute inset-y-3 flex items-center rounded border border-amber-300 bg-amber-50 px-2 text-[10px] text-amber-700" style={{ left: `${startIndex / 7 * 100}%`, width: `${Math.max(1, endIndex - startIndex + 1) / 7 * 100}%` }}>
+                      <span className="truncate">{schedule.projectAddress}</span>
+                    </div>
+                  </div>
+                </div>;
+              })}
+              {visibleSchedules.length === 0 && <div className="flex h-full min-h-40 items-center justify-center px-5 text-center text-xs text-gray-400">未来 7 天暂无工人进场安排</div>}
+            </div>
+          </section>
         </div>
       </div>
     </main>
