@@ -380,7 +380,11 @@ async function buildScreenData(db) {
       overdueTodos,
       arrivalsNext7Days: upcomingSchedules.filter((item) => item.startDate >= tomorrow).length,
     },
-    projects: activeProjects.sort((a, b) => b.pendingTodos - a.pendingTodos || a.progress - b.progress),
+    projects: activeProjects.sort((a, b) => {
+      const updatedA = new Date(a.updatedAt || 0).getTime() || 0;
+      const updatedB = new Date(b.updatedAt || 0).getTime() || 0;
+      return updatedB - updatedA || a.address.localeCompare(b.address, 'zh-CN');
+    }),
     stageDistribution,
     schedules: upcomingSchedules,
   };

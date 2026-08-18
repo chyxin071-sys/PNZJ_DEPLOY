@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, BadgeCheck, Building2, CalendarClock, CheckCircle2, Clock3,
+  AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, BadgeCheck, Building2, CalendarClock, CheckCircle2, Clock3,
   ListTodo, Maximize2, RefreshCw, UserPlus, UsersRound, UserX, Wifi, WifiOff,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,6 +19,19 @@ import {
 const REFRESH_MS = 15_000;
 const PROJECT_ROW_HEIGHT = 76;
 const AUTO_SCROLL_MS = 8_000;
+
+type ProjectSortKey = 'updatedAt' | 'project' | 'currentStage' | 'nextStage' | 'progress' | 'pendingTodos';
+type SortDirection = 'asc' | 'desc';
+
+function sortableTimestamp(value?: string) {
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) {
+    const numeric = Number(value);
+    return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+  }
+  const timestamp = new Date(value.replace(/-/g, '/')).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
 
 const EMPTY_STATS: OperationsScreenData['stats'] = {
   totalCustomers: 0,
@@ -170,14 +183,30 @@ function Stat({ label, value, icon: Icon, tone = 'dark', badge, badgeTone = 'neu
   return <div className="min-w-0 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm"><div className="flex items-center justify-between gap-2"><span className={`flex h-8 w-8 items-center justify-center rounded-md ${iconColors[tone]}`}><Icon size={17} /></span>{badge && <span className={`truncate rounded-full px-2 py-1 text-[10px] ${badgeColors[badgeTone]}`}>{badge}</span>}</div><div className={`mt-2 text-2xl font-bold tabular-nums ${colors[tone]}`}>{value}</div><div className="mt-0.5 text-[11px] text-gray-400">{label}</div></div>;
 }
 
+function ProjectSortButton({ label, sortKey, activeKey, direction, onSort }: { label: string; sortKey: ProjectSortKey; activeKey: ProjectSortKey; direction: SortDirection; onSort: (key: ProjectSortKey) => void }) {
+  const active = sortKey === activeKey;
+  const Icon = active ? (direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className={`inline-flex items-center gap-1 text-left transition-colors hover:text-gray-700 ${active ? 'font-medium text-[#a37816]' : ''}`}
+    >
+      <span>{label}</span><Icon size={11} />
+    </button>
+  );
+}
+
 function DashboardView({ token }: { token: string }) {
   const [data, setData] = useState<OperationsScreenData | null>(null);
   const [lastSuccess, setLastSuccess] = useState('');
   const [stale, setStale] = useState(false);
   const [projectPosition, setProjectPosition] = useState(1);
+  const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: SortDirection }>({ key: 'updatedAt', direction: 'desc' });
   const [now, setNow] = useState(new Date());
   const refreshingRef = useRef(false);
   const projectScrollRef = useRef<HTMLDivElement>(null);
+  const projectHorizontalRef = useRef<HTMLDivElement>(null);
   const interactionPauseUntilRef = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -224,7 +253,39 @@ function DashboardView({ token }: { token: string }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const projects = data?.projects || [];
+  const projects = useMemo(() => {
+    const source = [...(data?.projects || [])];
+    const direction = projectSort.direction === 'asc' ? 1 : -1;
+    return source.sort((a, b) => {
+      let comparison = 0;
+      if (projectSort.key === 'updatedAt') comparison = sortableTimestamp(a.updatedAt) - sortableTimestamp(b.updatedAt);
+      if (projectSort.key === 'project') comparison = `${a.address} ${a.people.join(' ')}`.localeCompare(`${b.address} ${b.people.join(' ')}`, 'zh-CN');
+      if (projectSort.key === 'currentStage') comparison = a.currentStage.localeCompare(b.currentStage, 'zh-CN');
+      if (projectSort.key === 'nextStage') comparison = a.nextStage.localeCompare(b.nextStage, 'zh-CN');
+      if (projectSort.key === 'progress') comparison = a.progress - b.progress;
+      if (projectSort.key === 'pendingTodos') comparison = a.pendingTodos - b.pendingTodos;
+      return comparison * direction || sortableTimestamp(b.updatedAt) - sortableTimestamp(a.updatedAt) || a.address.localeCompare(b.address, 'zh-CN');
+    });
+  }, [data?.projects, projectSort]);
+
+  const changeProjectSort = useCallback((key: ProjectSortKey) => {
+    setProjectSort((current) => ({
+      key,
+      direction: current.key === key
+        ? (current.direction === 'asc' ? 'desc' : 'asc')
+        : (key === 'progress' || key === 'pendingTodos' || key === 'updatedAt' ? 'desc' : 'asc'),
+    }));
+    setProjectPosition(1);
+    projectScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    interactionPauseUntilRef.current = Date.now() + 15_000;
+  }, []);
+
+  const resetProjectSort = useCallback(() => {
+    setProjectSort({ key: 'updatedAt', direction: 'desc' });
+    setProjectPosition(1);
+    projectScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    interactionPauseUntilRef.current = Date.now() + 15_000;
+  }, []);
   const scheduleDays = useMemo(() => {
     const today = startOfDay(new Date());
     return Array.from({ length: 7 }, (_, index) => addDays(today, index));
@@ -265,26 +326,51 @@ function DashboardView({ token }: { token: string }) {
         </section>
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-4">
-          <section className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5"><div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">待办与施工进度总览</p></div><span className="text-xs text-gray-400">{Math.min(projectPosition, projects.length || 1)} / {projects.length || 1}</span></div>
-            <div className="grid grid-cols-[minmax(220px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] gap-4 border-b border-gray-100 bg-gray-50 px-5 py-2 text-[11px] text-gray-400"><span>工地 / 负责人</span><span>当前阶段</span><span>下一阶段</span><span>施工进度</span><span>待解决</span></div>
-            <div
-              ref={projectScrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth"
-              onWheel={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
-              onPointerDown={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
-              onTouchStart={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
-              onScroll={(event) => setProjectPosition(Math.min(projects.length || 1, Math.floor(event.currentTarget.scrollTop / PROJECT_ROW_HEIGHT) + 1))}
-            >
-              {projects.length > 0 ? projects.map((project) => (
-                <div key={project.id} className="grid h-[76px] grid-cols-[minmax(220px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] items-center gap-4 border-b border-gray-100 px-5 last:border-b-0">
-                  <div className="min-w-0"><div className="truncate text-sm font-medium text-gray-900">{project.address}</div><div className="mt-1 truncate text-[11px] text-gray-400">{project.people.join(' · ') || '暂未设置负责人'}</div></div>
-                  <div className="truncate text-sm font-medium">{project.currentStage}</div>
-                  <div className="truncate text-sm text-gray-500">{project.nextStage}</div>
-                  <div className="flex items-center gap-3"><div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-[#d4a843]" style={{ width: `${project.progress}%` }} /></div><span className="w-9 text-right text-xs font-semibold tabular-nums text-[#a37816]">{project.progress}%</span></div>
-                  <div>{project.pendingTodos > 0 ? <span className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600"><AlertTriangle size={12} />{project.pendingTodos} 项</span> : <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 size={13} />正常</span>}</div>
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5">
+              <div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">待办与施工进度总览</p></div>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={resetProjectSort} className={`inline-flex items-center gap-1 text-xs ${projectSort.key === 'updatedAt' ? 'font-medium text-[#a37816]' : 'text-gray-400 hover:text-gray-700'}`}><Clock3 size={13} />最近更新</button>
+                <span className="text-xs text-gray-400">{Math.min(projectPosition, projects.length || 1)} / {projects.length || 1}</span>
+              </div>
+            </div>
+            <div ref={projectHorizontalRef} className="min-h-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex h-full min-w-[900px] flex-col">
+                <div
+                  className="grid shrink-0 grid-cols-[minmax(240px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] gap-4 border-b border-gray-100 bg-gray-50 px-5 py-2 text-[11px] text-gray-400"
+                  onWheel={(event) => {
+                    const container = projectHorizontalRef.current;
+                    if (!container || container.scrollWidth <= container.clientWidth) return;
+                    event.preventDefault();
+                    container.scrollLeft += event.deltaX || event.deltaY;
+                    interactionPauseUntilRef.current = Date.now() + 15_000;
+                  }}
+                >
+                  <ProjectSortButton label="工地 / 负责人" sortKey="project" activeKey={projectSort.key} direction={projectSort.direction} onSort={changeProjectSort} />
+                  <ProjectSortButton label="当前阶段" sortKey="currentStage" activeKey={projectSort.key} direction={projectSort.direction} onSort={changeProjectSort} />
+                  <ProjectSortButton label="下一阶段" sortKey="nextStage" activeKey={projectSort.key} direction={projectSort.direction} onSort={changeProjectSort} />
+                  <ProjectSortButton label="施工进度" sortKey="progress" activeKey={projectSort.key} direction={projectSort.direction} onSort={changeProjectSort} />
+                  <ProjectSortButton label="待解决" sortKey="pendingTodos" activeKey={projectSort.key} direction={projectSort.direction} onSort={changeProjectSort} />
                 </div>
-              )) : <div className="flex h-full items-center justify-center text-sm text-gray-400">暂无施工中工地</div>}
+                <div
+                  ref={projectScrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  onWheel={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
+                  onPointerDown={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
+                  onTouchStart={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
+                  onScroll={(event) => setProjectPosition(Math.min(projects.length || 1, Math.floor(event.currentTarget.scrollTop / PROJECT_ROW_HEIGHT) + 1))}
+                >
+                  {projects.length > 0 ? projects.map((project) => (
+                    <div key={project.id} className="grid h-[76px] grid-cols-[minmax(240px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] items-center gap-4 border-b border-gray-100 px-5 last:border-b-0">
+                      <div className="min-w-0"><div className="truncate text-sm font-medium text-gray-900">{project.address}</div><div className="mt-1 truncate text-[11px] text-gray-400">{project.people.join(' · ') || '暂未设置负责人'}</div></div>
+                      <div className="truncate text-sm font-medium">{project.currentStage}</div>
+                      <div className="truncate text-sm text-gray-500">{project.nextStage}</div>
+                      <div className="flex items-center gap-3"><div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-[#d4a843]" style={{ width: `${project.progress}%` }} /></div><span className="w-9 text-right text-xs font-semibold tabular-nums text-[#a37816]">{project.progress}%</span></div>
+                      <div>{project.pendingTodos > 0 ? <span className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600"><AlertTriangle size={12} />{project.pendingTodos} 项</span> : <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 size={13} />正常</span>}</div>
+                    </div>
+                  )) : <div className="flex h-full items-center justify-center text-sm text-gray-400">暂无施工中工地</div>}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -294,7 +380,7 @@ function DashboardView({ token }: { token: string }) {
               <div className="px-2 py-2 text-left">工人 / 工种</div>
               {scheduleDays.map((day) => <div key={day.toISOString()} className="border-l border-gray-100 px-1 py-2"><div>{day.getMonth() + 1}/{day.getDate()}</div><div className="mt-0.5">{['日', '一', '二', '三', '四', '五', '六'][day.getDay()]}</div></div>)}
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {visibleSchedules.map((schedule) => {
                 const start = parseDate(schedule.startDate) || scheduleRangeStart;
                 const end = parseDate(schedule.endDate) || start;
