@@ -101,6 +101,11 @@ export default function WorkerSchedulePage() {
   const [scheduleForm, setScheduleForm] = useState({ workerId: '', projectId: '', stageId: '', startDate: toDateKey(new Date()), endDate: toDateKey(new Date()), status: 'confirmed' as WorkerScheduleStatus, note: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const currentWeekKey = toDateKey(startOfWeek(new Date()));
+  const visibleRangeEnd = addDays(anchorDate, viewDays - 1);
+  const rangeNavigationLabel = viewDays === 7 && toDateKey(anchorDate) === currentWeekKey
+    ? '本周'
+    : `${anchorDate.getMonth() + 1}/${anchorDate.getDate()}-${visibleRangeEnd.getMonth() + 1}/${visibleRangeEnd.getDate()}`;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -413,7 +418,7 @@ export default function WorkerSchedulePage() {
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 p-3">
           <div className="relative min-w-[180px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-gold-400" /></div>
           <Select value={tradeFilter} onChange={setTradeFilter} options={tradeOptions} className="w-[118px]" sheetTitle="选择工种" />
-          <div className="flex h-9 items-center rounded-lg border border-gray-200 bg-white"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full px-2 text-gray-500"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="border-x border-gray-200 px-3 text-xs font-medium">本周</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full px-2 text-gray-500"><ChevronRight size={16} /></button></div>
+          <div className="flex h-9 items-center rounded-lg border border-gray-200 bg-white"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full px-2 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-[92px] border-x border-gray-200 px-3 text-xs font-medium" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full px-2 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
           <div className="hidden rounded-lg bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 py-1.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
         </div>
 

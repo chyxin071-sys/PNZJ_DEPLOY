@@ -14,6 +14,7 @@ import { getErpVisibleNavGroups, getErpVisibleBottomItems } from '@/components/n
 import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import Tooltip from '@/components/Tooltip';
+import WorkerAvatar from '@/components/WorkerAvatar';
 import type { Worker, WorkerSchedule } from '@/types/workerSchedule';
 import { workerIdOf } from '@/types/workerSchedule';
 
@@ -63,6 +64,28 @@ function getDateRange(year: number, monthFrom: number, monthTo: number) {
     end: new Date(year, monthTo, 0, 23, 59, 59),
   };
 }
+
+const dashboardDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const dashboardAddDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+
+const dashboardWeekStart = (date: Date) => {
+  const day = date.getDay() || 7;
+  return dashboardAddDays(date, 1 - day);
+};
+
+const dashboardDayDistance = (start: string, end: string) => {
+  const parse = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day).getTime();
+  };
+  return Math.round((parse(end) - parse(start)) / 86_400_000);
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -386,21 +409,30 @@ export default function Dashboard() {
 
   // 本月/本周新增
   const now = new Date();
-  const toLocalDateValue = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-  const scheduleToday = toLocalDateValue(now);
-  const scheduleWindowEndDate = new Date(now);
-  scheduleWindowEndDate.setDate(scheduleWindowEndDate.getDate() + 7);
-  const scheduleWindowEnd = toLocalDateValue(scheduleWindowEndDate);
+  const scheduleToday = dashboardDateKey(now);
+  const scheduleWeekStartDate = dashboardWeekStart(now);
+  const scheduleWeekDates = Array.from({ length: 7 }, (_, index) => dashboardAddDays(scheduleWeekStartDate, index));
+  const scheduleWeekStart = dashboardDateKey(scheduleWeekDates[0]);
+  const scheduleWeekEnd = dashboardDateKey(scheduleWeekDates[6]);
   const upcomingWorkerSchedules = workerSchedules
-    .filter((item) => !['completed', 'cancelled'].includes(item.status) && item.endDate >= scheduleToday && item.startDate <= scheduleWindowEnd)
+    .filter((item) => item.status !== 'cancelled' && item.endDate >= scheduleWeekStart && item.startDate <= scheduleWeekEnd)
     .sort((a, b) => a.startDate.localeCompare(b.startDate) || (workers.find((worker) => workerIdOf(worker) === a.workerId)?.name || a.workerName).localeCompare(workers.find((worker) => workerIdOf(worker) === b.workerId)?.name || b.workerName));
   const dashboardWorkerName = (schedule: WorkerSchedule) => workers.find((worker) => workerIdOf(worker) === schedule.workerId)?.name || schedule.workerName;
   const activeWorkerScheduleCount = upcomingWorkerSchedules.filter((item) => item.status === 'in_progress').length;
+  const dashboardScheduleRows = upcomingWorkerSchedules.slice(0, 5).map((schedule) => {
+    const clippedStart = schedule.startDate < scheduleWeekStart ? scheduleWeekStart : schedule.startDate;
+    const clippedEnd = schedule.endDate > scheduleWeekEnd ? scheduleWeekEnd : schedule.endDate;
+    return {
+      schedule,
+      offset: dashboardDayDistance(scheduleWeekStart, clippedStart),
+      duration: dashboardDayDistance(clippedStart, clippedEnd) + 1,
+    };
+  });
+  const leadStatusOverview = [
+    { key: 'following', label: '跟进中', value: followUpLeads, color: 'bg-blue-500', text: 'text-blue-600' },
+    { key: 'signed', label: '已签单', value: signedLeads, color: 'bg-emerald-500', text: 'text-emerald-600' },
+    { key: 'lost', label: '已流失', value: lostLeads, color: 'bg-rose-400', text: 'text-rose-500' },
+  ];
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthLeads = leads.filter(l => {
     if (!canViewAllCustomers && l.creatorName !== myName && !includesPerson(l.sales, myName) && !includesPerson(l.designer, myName) && !includesPerson(l.manager, myName)) return false;
@@ -860,52 +892,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {canViewWorkerSchedule && (
-        <button
-          type="button"
-          onClick={() => navigate('/worker-schedule')}
-          className="block w-full overflow-hidden rounded-xl border border-gray-100 bg-white text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-gray-900">工人排期</h3>
-              <p className="mt-0.5 text-[11px] text-gray-400">未来 7 天 · {upcomingWorkerSchedules.length} 项安排 · {activeWorkerScheduleCount} 项进行中</p>
-            </div>
-            <span className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-amber-700">
-              查看排期 <ChevronRight size={14} />
-            </span>
-          </div>
-          {upcomingWorkerSchedules.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-gray-400">未来 7 天暂无进场安排</div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {upcomingWorkerSchedules.slice(0, 4).map((item) => (
-                <div
-                  key={String(item._id || item.id)}
-                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:grid-cols-[140px_minmax(180px,1fr)_120px_130px]"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{dashboardWorkerName(item)}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-gray-400 md:hidden">{item.projectAddress}</p>
-                  </div>
-                  <div className="hidden min-w-0 md:block">
-                    <p className="truncate text-sm text-gray-700">{item.projectAddress}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-gray-400">{item.customerName || '未填写客户'}</p>
-                  </div>
-                  <span className="hidden truncate text-sm text-gray-600 md:block">{item.stageName}</span>
-                  <div className="text-right">
-                    <p className="text-xs font-medium text-gray-700">{item.startDate.slice(5)} 至 {item.endDate.slice(5)}</p>
-                    <p className={`mt-1 text-[11px] ${item.status === 'in_progress' ? 'text-amber-600' : 'text-blue-600'}`}>
-                      {item.status === 'in_progress' ? '施工中' : item.status === 'confirmed' ? '已确认' : '待确认'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </button>
-      )}
-
       {canOpenFinanceReports && <section>
         <div className="mb-2 flex items-center justify-between">
           <div>
@@ -928,6 +914,84 @@ export default function Dashboard() {
           ))}
         </div>
       </section>}
+
+      {canViewWorkerSchedule && (
+        <section className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)]">
+          <button
+            type="button"
+            onClick={() => navigate('/leads')}
+            className="overflow-hidden rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">客户跟进情况</h3>
+                <p className="mt-0.5 text-[11px] text-gray-400">当前筛选范围 · 共 {totalLeads} 位客户</p>
+              </div>
+              <span className="flex shrink-0 items-center text-xs font-medium text-gray-400">查看客户 <ChevronRight size={14} /></span>
+            </div>
+            <div className="mt-5 flex h-2.5 overflow-hidden rounded-full bg-gray-100">
+              {leadStatusOverview.map((item) => (
+                <span key={item.key} className={item.color} style={{ width: `${totalLeads > 0 ? (item.value / totalLeads) * 100 : 0}%` }} />
+              ))}
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {leadStatusOverview.map((item) => (
+                <div key={item.key} className="min-w-0 rounded-lg bg-gray-50 px-3 py-3">
+                  <div className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className={`h-2 w-2 shrink-0 rounded-full ${item.color}`} />{item.label}</div>
+                  <div className={`mt-1.5 text-xl font-bold ${item.text}`}>{item.value}</div>
+                  <div className="mt-0.5 text-[10px] text-gray-400">占比 {totalLeads > 0 ? Math.round((item.value / totalLeads) * 100) : 0}%</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs">
+              <span className="text-gray-400">签单转化率</span>
+              <span className="font-semibold text-emerald-600">{convRate}%</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/worker-schedule')}
+            className="min-w-0 overflow-hidden rounded-xl border border-gray-100 bg-white text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-gray-900">工人排期</h3>
+                <p className="mt-0.5 text-[11px] text-gray-400">本周 · {upcomingWorkerSchedules.length} 项安排 · {activeWorkerScheduleCount} 项施工中</p>
+              </div>
+              <span className="flex shrink-0 items-center text-xs font-medium text-amber-700">完整排期 <ChevronRight size={14} /></span>
+            </div>
+            {dashboardScheduleRows.length === 0 ? (
+              <div className="px-4 py-16 text-center text-sm text-gray-400">本周暂无工人安排</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[520px]">
+                  <div className="grid grid-cols-[118px_repeat(7,minmax(52px,1fr))] border-b border-gray-100 bg-gray-50/80">
+                    <div className="flex h-10 items-center px-3 text-[11px] font-medium text-gray-400">工人</div>
+                    {scheduleWeekDates.map((date) => {
+                      const key = dashboardDateKey(date);
+                      return <div key={key} className={`flex h-10 flex-col items-center justify-center border-l border-gray-100 text-[10px] ${key === scheduleToday ? 'bg-gold-50 text-gold-700' : 'text-gray-500'}`}><span>{date.getMonth() + 1}/{date.getDate()}</span><span>周{'日一二三四五六'[date.getDay()]}</span></div>;
+                    })}
+                  </div>
+                  {dashboardScheduleRows.map(({ schedule, offset, duration }) => {
+                    const worker = workers.find((item) => workerIdOf(item) === schedule.workerId);
+                    const barTone = schedule.status === 'in_progress' ? 'border-amber-300 bg-amber-50 text-amber-700' : schedule.status === 'completed' ? 'border-gray-200 bg-gray-100 text-gray-500' : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                    return (
+                      <div key={String(schedule._id || schedule.id)} className="grid min-h-[52px] grid-cols-[118px_minmax(0,1fr)] border-b border-gray-100 last:border-b-0">
+                        <div className="flex min-w-0 items-center gap-2 px-3"><WorkerAvatar name={dashboardWorkerName(schedule)} fileID={worker?.photoFileID} className="h-7 w-7" /><div className="min-w-0"><div className="truncate text-xs font-medium text-gray-800">{dashboardWorkerName(schedule)}</div><div className="truncate text-[9px] text-gray-400">{schedule.stageName}</div></div></div>
+                        <div className="relative grid grid-cols-7">
+                          {scheduleWeekDates.map((date) => <span key={dashboardDateKey(date)} className={`border-l border-gray-100 ${dashboardDateKey(date) === scheduleToday ? 'bg-gold-50/35' : ''}`} />)}
+                          <span className={`absolute top-2 flex h-9 items-center overflow-hidden rounded-md border px-2 ${barTone}`} style={{ left: `calc(${offset} / 7 * 100% + 3px)`, width: `calc(${duration} / 7 * 100% - 6px)` }}><span className="truncate text-[10px] font-medium">{schedule.projectAddress}</span></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </button>
+        </section>
+      )}
 
       {isAdmin && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
