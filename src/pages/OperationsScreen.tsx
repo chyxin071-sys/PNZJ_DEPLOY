@@ -204,7 +204,7 @@ function DashboardView({ token }: { token: string }) {
   const [data, setData] = useState<OperationsScreenData | null>(null);
   const [lastSuccess, setLastSuccess] = useState('');
   const [stale, setStale] = useState(false);
-  const [projectPosition, setProjectPosition] = useState(1);
+  const [projectRange, setProjectRange] = useState({ start: 1, end: 1 });
   const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: SortDirection }>({ key: 'updatedAt', direction: 'desc' });
   const [todoProjectId, setTodoProjectId] = useState('');
   const [now, setNow] = useState(new Date());
@@ -271,6 +271,24 @@ function DashboardView({ token }: { token: string }) {
       return comparison * direction || sortableTimestamp(b.updatedAt) - sortableTimestamp(a.updatedAt) || a.address.localeCompare(b.address, 'zh-CN');
     });
   }, [data?.projects, projectSort]);
+  const updateProjectRange = useCallback((container = projectScrollRef.current) => {
+    if (!container || projects.length === 0) {
+      setProjectRange({ start: 0, end: 0 });
+      return;
+    }
+    const start = Math.min(projects.length, Math.floor(container.scrollTop / PROJECT_ROW_HEIGHT) + 1);
+    const end = Math.min(projects.length, Math.ceil((container.scrollTop + container.clientHeight) / PROJECT_ROW_HEIGHT));
+    setProjectRange({ start, end: Math.max(start, end) });
+  }, [projects.length]);
+
+  useEffect(() => {
+    const container = projectScrollRef.current;
+    if (!container) return undefined;
+    updateProjectRange(container);
+    const observer = new ResizeObserver(() => updateProjectRange(container));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [updateProjectRange]);
   const todoProject = useMemo(
     () => (data?.projects || []).find((project) => project.id === todoProjectId) || null,
     [data?.projects, todoProjectId],
@@ -283,17 +301,17 @@ function DashboardView({ token }: { token: string }) {
         ? (current.direction === 'asc' ? 'desc' : 'asc')
         : (key === 'progress' || key === 'pendingTodos' || key === 'updatedAt' ? 'desc' : 'asc'),
     }));
-    setProjectPosition(1);
+    setProjectRange({ start: projects.length > 0 ? 1 : 0, end: projects.length > 0 ? 1 : 0 });
     projectScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     interactionPauseUntilRef.current = Date.now() + 15_000;
-  }, []);
+  }, [projects.length]);
 
   const resetProjectSort = useCallback(() => {
     setProjectSort({ key: 'updatedAt', direction: 'desc' });
-    setProjectPosition(1);
+    setProjectRange({ start: projects.length > 0 ? 1 : 0, end: projects.length > 0 ? 1 : 0 });
     projectScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     interactionPauseUntilRef.current = Date.now() + 15_000;
-  }, []);
+  }, [projects.length]);
   const scheduleDays = useMemo(() => {
     const today = startOfDay(new Date());
     return Array.from({ length: 7 }, (_, index) => addDays(today, index));
@@ -339,7 +357,9 @@ function DashboardView({ token }: { token: string }) {
               <div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">待办与施工进度总览</p></div>
               <div className="flex items-center gap-3">
                 <button type="button" onClick={resetProjectSort} className={`inline-flex items-center gap-1 text-xs ${projectSort.key === 'updatedAt' ? 'font-medium text-[#a37816]' : 'text-gray-400 hover:text-gray-700'}`}><Clock3 size={13} />最近更新</button>
-                <span className="text-xs text-gray-400">{Math.min(projectPosition, projects.length || 1)} / {projects.length || 1}</span>
+                <span className="text-xs tabular-nums text-gray-400">
+                  {projects.length > 0 ? `${projectRange.start}-${projectRange.end} / ${projects.length}` : '0 / 0'}
+                </span>
               </div>
             </div>
             <div ref={projectHorizontalRef} className="min-h-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -366,7 +386,7 @@ function DashboardView({ token }: { token: string }) {
                   onWheel={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
                   onPointerDown={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
                   onTouchStart={() => { interactionPauseUntilRef.current = Date.now() + 15_000; }}
-                  onScroll={(event) => setProjectPosition(Math.min(projects.length || 1, Math.floor(event.currentTarget.scrollTop / PROJECT_ROW_HEIGHT) + 1))}
+                  onScroll={(event) => updateProjectRange(event.currentTarget)}
                 >
                   {projects.length > 0 ? projects.map((project) => (
                     <div key={project.id} className="grid h-[76px] grid-cols-[minmax(240px,1.45fr)_0.75fr_0.75fr_1.1fr_0.72fr] items-center gap-4 border-b border-gray-100 px-5 last:border-b-0">
