@@ -16,31 +16,19 @@ let cloudApp;
 let screenCollectionsReady;
 function getDb() {
   if (!cloudApp) {
-    const hasStaticCredentials = Boolean(
-      (process.env.TCB_SECRET_ID && process.env.TCB_SECRET_KEY)
-      || (process.env.SECRET_ID && process.env.SECRET_KEY),
-    );
-    const hasCloudRuntimeIdentity = Boolean(
-      process.env.TCB_ENV_ID
-      || process.env.CLOUDBASE_ENV_ID
-      || process.env.CLOUD_RUN_ENV
-      || process.env.K_SERVICE,
-    );
-    if (!hasStaticCredentials && !hasCloudRuntimeIdentity) {
-      throw new Error('本机未配置 CloudBase 服务端凭据');
-    }
-    const config = {};
-    if (process.env.TCB_ENV_ID || process.env.CLOUDBASE_ENV_ID) {
-      config.env = cloudbase.SYMBOL_CURRENT_ENV;
-    } else {
+    const secretId = process.env.TCB_SECRET_ID
+      || process.env.CLOUDBASE_SECRETID
+      || process.env.TENCENTCLOUD_SECRETID
+      || process.env.SECRET_ID;
+    const secretKey = process.env.TCB_SECRET_KEY
+      || process.env.CLOUDBASE_SECRETKEY
+      || process.env.TENCENTCLOUD_SECRETKEY
+      || process.env.SECRET_KEY;
+    const config = { env: cloudbase.SYMBOL_CURRENT_ENV };
+    if (secretId && secretKey) {
       config.env = ENV_ID;
-    }
-    if (process.env.TCB_SECRET_ID && process.env.TCB_SECRET_KEY) {
-      config.secretId = process.env.TCB_SECRET_ID;
-      config.secretKey = process.env.TCB_SECRET_KEY;
-    } else if (process.env.SECRET_ID && process.env.SECRET_KEY) {
-      config.secretId = process.env.SECRET_ID;
-      config.secretKey = process.env.SECRET_KEY;
+      config.secretId = secretId;
+      config.secretKey = secretKey;
     }
     cloudApp = cloudbase.init(config);
   }
