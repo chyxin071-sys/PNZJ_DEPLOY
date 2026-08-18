@@ -1640,7 +1640,7 @@ export default function ProjectBizDetail() {
     photo: any,
     allPhotos: any[] = [photo],
     deleteContext: PreviewDeleteContext | null = null,
-    viewer: PreviewViewer = 'auto',
+    viewer: PreviewViewer = 'web',
   ) => {
     if (isPreviewLoading) return;
     setIsPreviewLoading(true);
