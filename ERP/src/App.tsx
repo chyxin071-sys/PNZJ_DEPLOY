@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useFinanceStore, type FinanceDataset } from '@/store/financeStore';
-import { useAuthStore, menuPermissions, canViewFinancialData } from '@/store/authStore';
+import { useAuthStore, menuPermissions, canViewFinancialData, normalizeRoles } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { initCloudBase } from '@/db/cloudbase';
 import { installNativeImageUploadBridge } from '@/utils/nativeImageUploadBridge';
@@ -35,6 +35,7 @@ const LeadDetail = lazy(() => import('@/pages/LeadDetail'));
 const SignedContracts = lazy(() => import('@/pages/SignedContracts'));
 const Todos = lazy(() => import('@/pages/Todos'));
 const ProjectsBiz = lazy(() => import('@/pages/ProjectsBiz'));
+const WorkerSchedule = lazy(() => import('@/pages/WorkerSchedule'));
 const ProjectBizDetail = lazy(() => import('@/pages/ProjectBizDetail'));
 const ProjectShareAccess = lazy(() => import('@/pages/ProjectShareAccess'));
 const TemplateLibrary = lazy(() => import('@/pages/TemplateLibrary'));
@@ -47,6 +48,8 @@ const Materials = lazy(() => import('@/pages/Materials'));
 const MaterialDetail = lazy(() => import('@/pages/MaterialDetail'));
 const InventoryRecords = lazy(() => import('@/pages/InventoryRecords'));
 const Profile = lazy(() => import('@/pages/Profile'));
+const ScreenDevices = lazy(() => import('@/pages/ScreenDevices'));
+const OperationsScreen = lazy(() => import('@/pages/OperationsScreen'));
 
 const INIT_TIMEOUT_MS = 25000;
 function withTimeout<T>(promise: Promise<T>, message: string, timeout = INIT_TIMEOUT_MS): Promise<T> {
@@ -82,11 +85,12 @@ function RoleGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (!isLoggedIn) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
-  const allowedPaths = menuPermissions[user?.role || 'employee'];
-  if (allowedPaths && location.pathname !== '/login') {
+  const userRoles = normalizeRoles(user?.roles, user?.role || 'employee');
+  const allowedPaths = Array.from(new Set(userRoles.flatMap(role => menuPermissions[role] || [])));
+  if (location.pathname !== '/login') {
     const isContractDetail = /^\/contracts\/[^/]+$/.test(location.pathname);
     const isAllowed = isContractDetail || allowedPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
     if (!isAllowed) {
@@ -175,12 +179,12 @@ function FinanceGuard({ children }: { children: React.ReactNode }) {
 }
 
 function AppInit() {
-  const { isLoggedIn, user } = useAuthStore();
+  const { isLoggedIn, user, validateSession } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const loadNotifications = useNotificationStore((s) => s.loadNotifications);
   const resetFinance = useFinanceStore((s) => s.reset);
-  const { showConfirm } = useDialogStore();
+  const { showConfirm, showAlert } = useDialogStore();
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
   useEffect(() => {
@@ -220,6 +224,40 @@ function AppInit() {
       navigate(normalizedRoute, { replace: true });
     }
   }, [isLoggedIn, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (!cloudReady || !isLoggedIn || !user?.id) return;
+
+    let disposed = false;
+    let checking = false;
+    const checkSession = async () => {
+      if (disposed || checking) return;
+      checking = true;
+      const valid = await validateSession();
+      checking = false;
+      if (!valid && !disposed) {
+        await showAlert('管理员已更新您的账号、角色、状态或密码，请重新登录。', { title: '账号信息已更新' });
+        navigate('/login', { replace: true });
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void checkSession();
+    };
+    const handleFocus = () => void checkSession();
+
+    void checkSession();
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void checkSession();
+    }, 30_000);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [cloudReady, isLoggedIn, navigate, showAlert, user?.id, validateSession]);
 
   useEffect(() => {
     if (!cloudReady || !isLoggedIn || !user?.id) return;
@@ -390,6 +428,7 @@ function AppInit() {
         <Route path="/signed-contracts" element={<SignedContracts />} />
         <Route path="/todos" element={<Todos />} />
         <Route path="/projects-biz" element={<ProjectsBiz />} />
+        <Route path="/worker-schedule" element={<WorkerSchedule />} />
         <Route path="/projects-biz/:id/share-access" element={<ProjectShareAccess />} />
         <Route path="/projects-biz/:id" element={<ProjectBizDetail />} />
         <Route path="/projects-biz/:id/:section" element={<ProjectBizDetail />} />
@@ -402,6 +441,7 @@ function AppInit() {
         <Route path="/quotes-biz/:id" element={<QuoteBizDetail />} />
         <Route path="/quotation-builder/:sourceType/:sourceId/:quotationId" element={<QuotationBuilder />} />
         <Route path="/employees" element={<EmployeeManagement />} />
+        <Route path="/screen-devices" element={<ScreenDevices />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
@@ -416,7 +456,12 @@ function AppInit() {
 export default function App() {
   return (
     <Router basename="/erp">
-      <AppInit />
+      <Suspense fallback={<LoadingScreen message="正在加载页面..." />}>
+        <Routes>
+          <Route path="/operations-screen" element={<OperationsScreen />} />
+          <Route path="*" element={<AppInit />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }

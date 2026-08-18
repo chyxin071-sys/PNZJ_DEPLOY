@@ -384,6 +384,10 @@ export const usersAPI = {
       return [];
     }
   },
+  getById: async (id: string): Promise<UserRecord | undefined> => {
+    const { data } = await cloudDB.collection(COLLECTIONS.users).doc(id).get();
+    return (Array.isArray(data) ? data[0] : data || undefined) as UserRecord | undefined;
+  },
   where: async (conditions: Record<string, unknown>): Promise<{ first: () => Promise<UserRecord | undefined> }> => {
     const query = cloudDB.collection(COLLECTIONS.users).where(conditions);
     // 返回类似 Dexie 的接口
