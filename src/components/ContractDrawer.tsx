@@ -31,13 +31,15 @@ type StageForm = { name: string; amount: number; ratio: number };
 const emptyStage = (): StageForm => ({ name: '', amount: 0, ratio: 0 });
 const homeDefaultStages = (): StageForm[] => [
   { name: '定金', amount: 0, ratio: 0 },
-  { name: '开工款', amount: 0, ratio: 0 },
-  { name: '水电验收款', amount: 0, ratio: 0 },
-  { name: '泥木验收款', amount: 0, ratio: 0 },
-  { name: '竣工尾款', amount: 0, ratio: 0 },
+  { name: '开工', amount: 0, ratio: 0 },
+  { name: '木工', amount: 0, ratio: 0 },
+  { name: '瓦工', amount: 0, ratio: 0 },
+  { name: '定制下单', amount: 0, ratio: 0 },
+  { name: '定制安装前', amount: 0, ratio: 0 },
+  { name: '尾款', amount: 0, ratio: 0 },
 ];
-const HOME_STAGE_WEIGHTS = [0.1, 0.3, 0.25, 0.25, 0.1];
-const HOME_DEFAULT_STAGE_NAMES = ['定金', '开工款', '水电验收款', '泥木验收款', '竣工尾款'];
+const HOME_STAGE_WEIGHTS = [0.1, 0.25, 0.15, 0.15, 0.2, 0.1, 0.05];
+const HOME_DEFAULT_STAGE_NAMES = ['定金', '开工', '木工', '瓦工', '定制下单', '定制安装前', '尾款'];
 const commercialDefaultStages = (): StageForm[] => [
   { name: '回款', amount: 0, ratio: 0 },
   { name: '质保金', amount: 0, ratio: 0 },

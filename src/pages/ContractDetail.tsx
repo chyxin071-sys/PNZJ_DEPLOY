@@ -42,10 +42,12 @@ const defaultCommercialStages = (): PaymentStage[] => [
 ];
 const defaultHomeStages = (): PaymentStage[] => [
   { name: '定金', amount: 0, ratio: 0 },
-  { name: '开工款', amount: 0, ratio: 0 },
-  { name: '水电验收款', amount: 0, ratio: 0 },
-  { name: '泥木验收款', amount: 0, ratio: 0 },
-  { name: '竣工尾款', amount: 0, ratio: 0 },
+  { name: '开工', amount: 0, ratio: 0 },
+  { name: '木工', amount: 0, ratio: 0 },
+  { name: '瓦工', amount: 0, ratio: 0 },
+  { name: '定制下单', amount: 0, ratio: 0 },
+  { name: '定制安装前', amount: 0, ratio: 0 },
+  { name: '尾款', amount: 0, ratio: 0 },
 ];
 
 function parseMoneyInput(value: string | number) {
@@ -340,7 +342,7 @@ export default function ContractDetail() {
     remark: '',
     attachments: [] as AttachmentValue[],
   });
-  const [showBasicInfo, setShowBasicInfo] = useState(true);
+  const [showBasicInfo, setShowBasicInfo] = useState(false);
   const [quotationFiles, setQuotationFiles] = useState<File[]>([]);
   const [quotationSubmitting, setQuotationSubmitting] = useState(false);
   const [contractUploading, setContractUploading] = useState(false);
@@ -1371,10 +1373,10 @@ export default function ContractDetail() {
           <button
             type="button"
             onClick={() => setShowBasicInfo(v => !v)}
-            className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors md:pointer-events-none"
+            className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
           >
             <h3 className="text-sm font-semibold text-gray-900">基本信息</h3>
-            <ChevronDown size={16} className={`text-gray-400 transition-transform duration-200 md:hidden ${showBasicInfo ? '' : '-rotate-90'}`} />
+            <ChevronDown size={16} className={`text-gray-400 transition-transform duration-200 ${showBasicInfo ? '' : '-rotate-90'}`} />
           </button>
           {showBasicInfo && (
             <div className="px-5 pb-5 pt-1">
