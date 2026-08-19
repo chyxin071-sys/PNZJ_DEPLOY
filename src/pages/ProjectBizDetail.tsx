@@ -14,6 +14,7 @@ import type { ProjectLog, ProjectInspection } from '@/types';
 import { cloudDB, cloudApp } from '@/db/cloudbase';
 import { uploadFile as uploadToCloud, getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
 import { formatDate, generateId } from '@/utils/format';
+import { isMiniProgramWebView } from '@/utils/miniProgramPreview';
 import { openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
 import ContractDrawer from '@/components/ContractDrawer';
@@ -460,12 +461,14 @@ export default function ProjectBizDetail() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const previewHistoryPushedRef = useRef(false);
   const previewRequestRef = useRef<{
     photo: any;
     allPhotos: any[];
     deleteContext: PreviewDeleteContext | null;
   } | null>(null);
   const currentPhotoDeleteContext = previewImages[previewIndex]?.deleteContext || null;
+  const isMiniProgram = isMiniProgramWebView();
 
   const [editingSubNode, setEditingSubNode] = useState<{ nodeId: string; sectionIdx: number; subIdx: number } | null>(null);
   const [editSubNodeForm, setEditSubNodeForm] = useState({ name: '', type: DEFAULT_NODE_TYPE, standard: '', checklist: '' });
@@ -534,10 +537,19 @@ export default function ProjectBizDetail() {
   const [isSubmittingInspection, setIsSubmittingInspection] = useState(false);
   const [isSubmittingRectify, setIsSubmittingRectify] = useState(false);
   const isProjectActionBusy = (key?: string) => !!pendingAction && (!key || pendingAction === key);
+  const closePreviewModal = useCallback(() => {
+    if (previewHistoryPushedRef.current && window.location.hash === '#media-preview') {
+      window.history.back();
+      return;
+    }
+    previewHistoryPushedRef.current = false;
+    setShowPreviewModal(false);
+  }, []);
+
   useEffect(() => {
     if (!showPreviewModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowPreviewModal(false);
+      if (e.key === 'Escape') closePreviewModal();
       if (e.key === 'ArrowLeft' && previewImages.length > 1) {
         setPreviewIndex(prev => prev > 0 ? prev - 1 : previewImages.length - 1);
       }
@@ -547,7 +559,22 @@ export default function ProjectBizDetail() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showPreviewModal, previewImages.length]);
+  }, [closePreviewModal, showPreviewModal, previewImages.length]);
+
+  useEffect(() => {
+    if (!showPreviewModal) return;
+    if (!previewHistoryPushedRef.current && window.location.hash !== '#media-preview') {
+      window.history.pushState({ pnzjMediaPreview: true }, '', `${window.location.pathname}${window.location.search}#media-preview`);
+      previewHistoryPushedRef.current = true;
+    }
+    const handlePopState = () => {
+      if (!previewHistoryPushedRef.current) return;
+      previewHistoryPushedRef.current = false;
+      setShowPreviewModal(false);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [showPreviewModal]);
 
   useEffect(() => {
     if (!showPreviewModal) return;
@@ -5113,7 +5140,7 @@ export default function ProjectBizDetail() {
       {showPreviewModal && previewImages.length > 0 && createPortal(
         <div
           className="fixed inset-0 bg-black/90 z-[300] isolate flex items-center justify-center p-4"
-          onClick={() => setShowPreviewModal(false)}
+          onClick={closePreviewModal}
         >
           <div
             className="absolute top-3 right-3 z-[310] flex items-center gap-2 sm:top-5 sm:right-5"
@@ -5124,7 +5151,7 @@ export default function ProjectBizDetail() {
                 onClick={() => {
                   if (!currentPhotoDeleteContext) return;
                   deletePhoto(currentPhotoDeleteContext.nodeId, currentPhotoDeleteContext.secIdx, currentPhotoDeleteContext.subIdx, currentPhotoDeleteContext.photoIdx);
-                  setShowPreviewModal(false);
+                  closePreviewModal();
                 }}
                 className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-red-500/80 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-red-600/80 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
                 title="删除当前媒体"
@@ -5133,7 +5160,7 @@ export default function ProjectBizDetail() {
                 <Trash2 size={16} /> <span className="hidden sm:inline">删除</span>
               </button>
             )}
-            <button 
+            {!isMiniProgram && <button 
               onClick={() => {
                 const url = previewImages[previewIndex]?.url;
                 if (!url) return;
@@ -5152,9 +5179,9 @@ export default function ProjectBizDetail() {
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span className="hidden sm:inline">下载</span>
-            </button>
+            </button>}
             <button
-              onClick={() => setShowPreviewModal(false)}
+              onClick={closePreviewModal}
               className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
               title="关闭预览"
               aria-label="关闭预览"
