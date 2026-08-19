@@ -2434,7 +2434,7 @@ export default function ProjectBizDetail() {
   const canEdit = isAdmin || project.creatorName === myName || includesPerson(project.manager, myName) || includesPerson(project.designer, myName) || (lead && includesPerson(lead.sales, myName));
   const isProjectCompleted = project.status === '已完工';
   const canEditSite = canEdit && !isProjectCompleted;
-  const canManageConstruction = !isAdmin && includesPerson(project.manager, myName) && !isProjectCompleted;
+  const canManageConstruction = (isAdmin || includesPerson(project.manager, myName)) && !isProjectCompleted;
   const canManageConstructionStructure = isAdmin && !isProjectCompleted;
   const canCreateProjectTodo = isAdmin || includesPerson(project.manager, myName);
   const canEditProjectInfo = canEdit && !isProjectCompleted;
