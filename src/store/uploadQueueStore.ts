@@ -8,6 +8,7 @@ export interface UploadTask {
   file: File;
   fileName: string;
   fileSize: number;
+  previewUrl?: string;
   folder: string;
   title: string;
   context?: Record<string, string | number | boolean | undefined>;
@@ -33,6 +34,24 @@ interface UploadQueueState {
 
 const makeTaskId = () => `upload_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+const makePreviewUrl = (file: File) => {
+  if (typeof URL === 'undefined' || !file.type.match(/^(image|video)\//)) return undefined;
+  try {
+    return URL.createObjectURL(file);
+  } catch {
+    return undefined;
+  }
+};
+
+const revokePreviewUrl = (task?: UploadTask) => {
+  if (!task?.previewUrl || typeof URL === 'undefined') return;
+  try {
+    URL.revokeObjectURL(task.previewUrl);
+  } catch {
+    // The browser may already have released the object URL.
+  }
+};
+
 export const useUploadQueueStore = create<UploadQueueState>((set, get) => ({
   tasks: [],
   activeTaskId: null,
@@ -42,6 +61,7 @@ export const useUploadQueueStore = create<UploadQueueState>((set, get) => ({
     const tasks: UploadTask[] = items.map(item => ({
       ...item,
       id: makeTaskId(),
+      previewUrl: makePreviewUrl(item.file),
       status: 'queued',
       progress: 0,
       createdAt: Date.now(),
@@ -62,12 +82,17 @@ export const useUploadQueueStore = create<UploadQueueState>((set, get) => ({
   },
 
   removeTask: (taskId) => {
+    const task = get().tasks.find(item => item.id === taskId && item.status !== 'uploading');
+    revokePreviewUrl(task);
     set(state => ({
       tasks: state.tasks.filter(task => task.id !== taskId || task.status === 'uploading'),
     }));
   },
 
   clearFinished: () => {
+    get().tasks
+      .filter(task => task.status !== 'queued' && task.status !== 'uploading')
+      .forEach(revokePreviewUrl);
     set(state => ({ tasks: state.tasks.filter(task => task.status === 'queued' || task.status === 'uploading') }));
   },
 
@@ -108,6 +133,7 @@ export const useUploadQueueStore = create<UploadQueueState>((set, get) => ({
         ),
       }));
       window.setTimeout(() => {
+        revokePreviewUrl(get().tasks.find(item => item.id === task.id));
         set(current => ({
           tasks: current.tasks.filter(item => item.id !== task.id || item.status !== 'success'),
         }));

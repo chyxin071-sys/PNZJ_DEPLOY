@@ -2039,6 +2039,7 @@ export default function LeadDetail() {
       uploadProgress: task.progress,
       uploadTaskId: task.id,
       uploadError: task.error,
+      previewUrl: task.previewUrl,
     });
   });
   
@@ -2305,7 +2306,7 @@ export default function LeadDetail() {
   const returnToLeads = (location.state as { from?: string } | null)?.from || '/leads';
   const renderMobileFileRow = (file: any) => {
     const fType = file.type || getFileType(file.name);
-    const fThumb = !file.isUploading && fType === 'image' ? fileImgUrls[file.fileID] : null;
+    const fThumb = fType === 'image' ? (file.isUploading ? file.previewUrl : fileImgUrls[file.fileID]) : null;
     return (
       <div
         key={file.fileID}
@@ -2779,6 +2780,7 @@ export default function LeadDetail() {
                           uploadProgress: task.progress,
                           uploadTaskId: task.id,
                           uploadError: task.error,
+                          previewUrl: task.previewUrl,
                         })),
                       ];
                       const nfLoading = nodeFileLoading[node.id] || false;
@@ -3027,7 +3029,9 @@ export default function LeadDetail() {
                                               ? 'bg-purple-50 text-purple-500'
                                               : 'bg-violet-50 text-violet-500'
                                       }`}>
-                                        {fileType === 'image' ? <ImageIcon size={20} /> : ext}
+                                        {fileType === 'image' && f.previewUrl ? (
+                                          <img src={f.previewUrl} alt="上传中" className="h-full w-full object-cover" />
+                                        ) : fileType === 'image' ? <ImageIcon size={20} /> : ext}
                                       </span>
                                       <span className="min-w-0 flex-1">
                                         <span className="block truncate text-[15px] font-semibold text-slate-700">{f.name}</span>
@@ -3557,7 +3561,7 @@ export default function LeadDetail() {
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                                   {folderFiles.map((file: any) => {
                                      const fType = file.type || getFileType(file.name);
-                                     const fThumb = !file.isUploading && fType === 'image' ? fileImgUrls[file.fileID] : null;
+                                     const fThumb = fType === 'image' ? (file.isUploading ? file.previewUrl : fileImgUrls[file.fileID]) : null;
                                      return (
                                        <div key={file.fileID}
                                          className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
@@ -3616,7 +3620,7 @@ export default function LeadDetail() {
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {filesInFolder.map((file: any) => {
                             const sType = file.type || getFileType(file.name);
-                            const sThumb = !file.isUploading && sType === 'image' ? fileImgUrls[file.fileID] : null;
+                            const sThumb = sType === 'image' ? (file.isUploading ? file.previewUrl : fileImgUrls[file.fileID]) : null;
                             return (
                               <div key={file.fileID}
                                 className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}

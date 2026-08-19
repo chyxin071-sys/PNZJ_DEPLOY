@@ -272,6 +272,7 @@ export default function ContractDetail() {
       uploadProgress: task.progress,
       uploadTaskId: task.id,
       uploadError: task.error,
+      previewUrl: task.previewUrl,
     } as any)),
   ]) : [];
 
@@ -1460,7 +1461,11 @@ export default function ContractDetail() {
                   className="relative flex items-center justify-between gap-3 overflow-hidden bg-white px-3 py-3 text-sm text-gray-700"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <Paperclip size={14} className="text-gray-400 shrink-0" />
+                    {file.isUploading && file.previewUrl && String(file.type || '').startsWith('image/') ? (
+                      <img src={file.previewUrl} alt="上传中" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <Paperclip size={14} className="text-gray-400 shrink-0" />
+                    )}
                     <div className="min-w-0">
                       <div className="truncate font-medium text-gray-800">{file.name}</div>
                       <div className="mt-0.5 text-xs text-gray-400">

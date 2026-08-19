@@ -21,7 +21,7 @@ import ContractDrawer from '@/components/ContractDrawer';
 import { canViewFinancialData, hasRole, useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useBizStore } from '@/store/bizStore';
-import { useUploadQueueStore } from '@/store/uploadQueueStore';
+import { useUploadQueueStore, type UploadTask } from '@/store/uploadQueueStore';
 import { useDialogStore } from '@/store/dialogStore';
 import { getCurrentReturnPath, useSmartBack } from '@/hooks/useSmartBack';
 import {
@@ -77,6 +77,21 @@ const isVideoMedia = (item: any) => {
 const toPreviewMedia = (item: any) => ({
   fileID: mediaSourceOf(item),
   type: isVideoMedia(item) ? 'video' : 'image',
+});
+
+const uploadTaskToPendingMedia = (task: UploadTask, uploader: string) => ({
+  fileID: `uploading:${task.id}`,
+  url: task.previewUrl || '',
+  type: task.file.type.startsWith('video/') ? 'video' : 'image',
+  name: task.fileName,
+  size: task.fileSize,
+  sizeStr: (task.fileSize / 1024).toFixed(1) + 'KB',
+  uploader,
+  uploadTime: new Date(task.createdAt).toISOString(),
+  isUploading: true,
+  uploadStatus: task.status,
+  uploadProgress: task.progress,
+  uploadTaskId: task.id,
 });
 
 type PreviewDeleteContext = {
@@ -157,8 +172,44 @@ const normalizeVideoPoster = (poster?: string) => {
 };
 
 function CloudVideo({ src, className, poster }: { src: string, className?: string, poster?: string }) {
+  const [videoUrl, setVideoUrl] = useState('');
   const validPoster = normalizeVideoPoster(poster);
+
+  useEffect(() => {
+    let cancelled = false;
+    const source = normalizeCloudMediaSource(src);
+    if (!source) {
+      setVideoUrl('');
+      return;
+    }
+    if (source.startsWith('cloud://')) {
+      getTempFileURL([source])
+        .then((urls) => {
+          if (!cancelled) setVideoUrl(urls[source] || '');
+        })
+        .catch(() => {
+          if (!cancelled) setVideoUrl('');
+        });
+    } else {
+      setVideoUrl(source);
+    }
+    return () => { cancelled = true; };
+  }, [src]);
+
   if (validPoster) return <img src={validPoster} className={className} alt="视频缩略图" loading="lazy" decoding="async" />;
+
+  if (videoUrl) {
+    return (
+      <video
+        src={videoUrl}
+        className={className}
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
   return <div className={`flex items-center justify-center bg-gray-100 text-gray-400 ${className}`}><ImageIcon className="h-4 w-4" /></div>;
 }
 
@@ -408,6 +459,7 @@ export default function ProjectBizDetail() {
   const uploadTasks = useUploadQueueStore(s => s.tasks);
   const retryUploadTask = useUploadQueueStore(s => s.retryTask);
   const removeUploadTask = useUploadQueueStore(s => s.removeTask);
+  const visibleUploadStatuses = ['queued', 'uploading', 'error'];
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
   const canViewFinance = canViewFinancialData(user?.roles, user?.role);
   const { currentBizType } = useBizStore();
@@ -1268,6 +1320,15 @@ export default function ProjectBizDetail() {
     );
   };
 
+  const getProjectDraftUploadTasks = (scope: string) => {
+    const projectId = getProjectDocId(project) || id;
+    return uploadTasks.filter(task =>
+      task.context?.scope === scope &&
+      task.context?.projectId === projectId &&
+      visibleUploadStatuses.includes(task.status)
+    );
+  };
+
   const showBlockingUploadMessage = (tasks: typeof uploadTasks, target: string) => {
     const failedCount = tasks.filter(task => task.status === 'error').length;
     const pendingCount = tasks.length - failedCount;
@@ -1920,6 +1981,11 @@ export default function ProjectBizDetail() {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
     }
+    const blockingUploads = getProjectDraftUploadTasks('project-log-media');
+    if (blockingUploads.length > 0) {
+      showBlockingUploadMessage(blockingUploads, '施工日志');
+      return;
+    }
     setIsSubmittingLog(true);
     try {
       const logId = editingLog?.id || makeId();
@@ -2054,6 +2120,11 @@ export default function ProjectBizDetail() {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
       return;
     }
+    const blockingUploads = getProjectDraftUploadTasks('project-inspection-media');
+    if (blockingUploads.length > 0) {
+      showBlockingUploadMessage(blockingUploads, '工地巡检');
+      return;
+    }
     setIsSubmittingInspection(true);
     try {
       const inspectionId = makeId();
@@ -2143,6 +2214,11 @@ export default function ProjectBizDetail() {
     if (!showRectifyModal || !rectifyForm.rectifyDescription.trim() || isSubmittingRectify) return;
     if (project?.status === '已完工') {
       alert('工地已完工，仅支持预览。如需修改，请先恢复为施工中。');
+      return;
+    }
+    const blockingUploads = getProjectDraftUploadTasks('project-rectify-media');
+    if (blockingUploads.length > 0) {
+      showBlockingUploadMessage(blockingUploads, '整改反馈');
       return;
     }
     setIsSubmittingRectify(true);
@@ -2790,7 +2866,9 @@ export default function ProjectBizDetail() {
     return `${item.title || '巡检记录'}${item.status ? `（${item.status}）` : ''}`;
   };
   const projectUploadTaskKey = getProjectDocId(project) || id;
-  const visibleUploadStatuses = ['queued', 'uploading', 'error'];
+  const logPendingPhotos = getProjectDraftUploadTasks('project-log-media').map(task => uploadTaskToPendingMedia(task, myName));
+  const inspectionPendingPhotos = getProjectDraftUploadTasks('project-inspection-media').map(task => uploadTaskToPendingMedia(task, myName));
+  const rectifyPendingPhotos = getProjectDraftUploadTasks('project-rectify-media').map(task => uploadTaskToPendingMedia(task, myName));
 
   return (
     <div className="erp-page max-w-[1500px] mx-auto space-y-4">
@@ -3713,7 +3791,7 @@ export default function ProjectBizDetail() {
                                           ...(sn.acceptanceRecord?.photos || []),
                                           ...subNodeUploadTasks.map(task => ({
                                             fileID: `uploading:${task.id}`,
-                                            url: '',
+                                            url: task.previewUrl || '',
                                             type: task.file.type.startsWith('video/') ? 'video' : 'image',
                                             name: task.fileName,
                                             size: task.fileSize,
@@ -3767,7 +3845,15 @@ export default function ProjectBizDetail() {
                                                     );
                                                   }} className="relative h-full w-full overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
-                                                      <ImageIcon className="h-5 w-5 text-gray-300" />
+                                                      p.url ? (
+                                                        isVideo ? (
+                                                          <CloudVideo src={p.url} className="h-full w-full object-cover opacity-70" />
+                                                        ) : (
+                                                          <img src={p.url} className="h-full w-full object-cover opacity-70" alt="上传中" />
+                                                        )
+                                                      ) : (
+                                                        <ImageIcon className="h-5 w-5 text-gray-300" />
+                                                      )
                                                     ) : isVideo ? (
                                                       <CloudVideo src={p.url || p.fileID} poster={p.poster || p.thumbUrl || p.thumbTempFilePath} className="h-full w-full object-cover" />
                                                     ) : (
@@ -3782,10 +3868,9 @@ export default function ProjectBizDetail() {
                                               {canEditRecord && (
                                                 <button
                                                   onClick={() => triggerSubNodePhoto(sn._id)}
-                                                  disabled={uploadingSubNode === sn._id}
-                                                  className="flex aspect-square h-full w-full items-center justify-center rounded-[5px] border border-dashed border-gray-300 bg-gray-50 text-gray-500 disabled:opacity-50"
+                                                  className="flex aspect-square h-full w-full items-center justify-center rounded-[5px] border border-dashed border-gray-300 bg-gray-50 text-gray-500"
                                                 >
-                                                  {uploadingSubNode === sn._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                                  <Plus className="h-4 w-4" />
                                                 </button>
                                               )}
                                             </div>
@@ -4314,7 +4399,7 @@ export default function ProjectBizDetail() {
                                       ...(sn.acceptanceRecord?.photos || []),
                                       ...subNodeUploadTasks.map(task => ({
                                         fileID: `uploading:${task.id}`,
-                                        url: '',
+                                        url: task.previewUrl || '',
                                         type: task.file.type.startsWith('video/') ? 'video' : 'image',
                                         name: task.fileName,
                                         size: task.fileSize,
@@ -4344,8 +4429,8 @@ export default function ProjectBizDetail() {
                                           <div className="text-sm leading-relaxed text-gray-700">{sn.name}</div>
                                           {canManageConstruction && canEditRecord && (
                                             <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                                              <button onClick={() => triggerSubNodePhoto(sn._id)} disabled={uploadingSubNode === sn._id} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gold-600 transition-colors">
-                                                {uploadingSubNode === sn._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                                              <button onClick={() => triggerSubNodePhoto(sn._id)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gold-600 transition-colors">
+                                                <Camera className="w-3.5 h-3.5" />
                                               </button>
                                             </div>
                                           )}
@@ -4390,7 +4475,15 @@ export default function ProjectBizDetail() {
                                                     );
                                                   }} className="relative w-full h-full rounded-[5px] bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
                                                     {p.isUploading ? (
-                                                      <ImageIcon className="h-5 w-5 text-gray-300" />
+                                                      p.url ? (
+                                                        isVideo ? (
+                                                          <CloudVideo src={p.url} className="h-full w-full object-cover opacity-70" />
+                                                        ) : (
+                                                          <img src={p.url} className="h-full w-full object-cover opacity-70" alt="上传中" />
+                                                        )
+                                                      ) : (
+                                                        <ImageIcon className="h-5 w-5 text-gray-300" />
+                                                      )
                                                     ) : isVideo ? (
                                                       <CloudVideo src={p.url || p.fileID} poster={p.poster || p.thumbUrl || p.thumbTempFilePath} className="w-full h-full object-cover" />
                                                     ) : (
@@ -4412,7 +4505,15 @@ export default function ProjectBizDetail() {
                                                 <div key={pi} className="relative group">
                                                   <button onClick={() => { if (!p.isUploading) openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
-                                                      <ImageIcon className="h-5 w-5 text-gray-300" />
+                                                      p.url ? (
+                                                        isVideo ? (
+                                                          <CloudVideo src={p.url} className="h-full w-full object-cover opacity-70" />
+                                                        ) : (
+                                                          <img src={p.url} className="h-full w-full object-cover opacity-70" alt="上传中" />
+                                                        )
+                                                      ) : (
+                                                        <ImageIcon className="h-5 w-5 text-gray-300" />
+                                                      )
                                                     ) : isVideo ? (
                                                       <CloudVideo src={p.url || p.fileID} poster={p.poster || p.thumbUrl || p.thumbTempFilePath} className="h-full w-full object-cover" />
                                                     ) : (
@@ -5459,14 +5560,19 @@ export default function ProjectBizDetail() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">现场照片</label>
                 <div className="flex flex-wrap gap-2">
-                  {newLogForm.photos.map((p, idx) => (
+                  {[...newLogForm.photos.map(fileID => ({ fileID, type: 'image' })), ...logPendingPhotos].map((p: any, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview({ fileID: p }, newLogForm.photos.map(fileID => ({ fileID })))} className="h-full w-full">
-                        <CloudImage src={p} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => { if (!p.isUploading) openPreview(p, newLogForm.photos.map(fileID => ({ fileID, type: 'image' }))); }} className="flex h-full w-full items-center justify-center bg-gray-100">
+                        {p.isUploading ? (
+                          p.url ? <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" /> : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
+                        ) : (
+                          <CloudImage src={mediaSourceOf(p)} className="w-full h-full object-cover" />
+                        )}
                       </button>
-                      <button type="button" onClick={() => setNewLogForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
+                      <button type="button" onClick={() => p.isUploading ? removeUploadTask(p.uploadTaskId) : setNewLogForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
                       </button>
+                      <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
                   <button type="button" onClick={() => logFileInputRef.current?.click()} className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-gold-500 hover:border-gold-300 bg-gray-50">
@@ -5477,10 +5583,17 @@ export default function ProjectBizDetail() {
                 <input ref={logFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length) return;
-                  try {
-                    const uploaded = await Promise.all(files.map(f => uploadToCloud(f, `project/logs/${id}/${Date.now()}_${f.name}`)));
-                    setNewLogForm(p => ({ ...p, photos: [...p.photos, ...uploaded.map(u => u.fileID)] }));
-                  } catch (err) { alert('上传失败'); }
+                  addUploadTasks(files.map(file => ({
+                    file,
+                    fileName: file.name,
+                    fileSize: file.size,
+                    folder: `project/logs/${id}`,
+                    title: '施工日志 / 现场照片',
+                    context: { scope: 'project-log-media', projectId: projectUploadTaskKey },
+                    onSuccess: ({ fileID }) => {
+                      setNewLogForm(p => ({ ...p, photos: [...p.photos, fileID] }));
+                    },
+                  })));
                   if (logFileInputRef.current) logFileInputRef.current.value = '';
                 }} />
               </div>
@@ -5544,14 +5657,23 @@ export default function ProjectBizDetail() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">现场图片/视频</label>
                 <div className="flex flex-wrap gap-2">
-                  {newInspectionForm.photos.map((p, idx) => (
+                  {[...newInspectionForm.photos.map(toPreviewMedia), ...inspectionPendingPhotos].map((p: any, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview(toPreviewMedia(p), newInspectionForm.photos.map(toPreviewMedia))} className="h-full w-full">
-                        <MediaThumb src={p} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), newInspectionForm.photos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
+                        {p.isUploading ? (
+                          p.url ? (
+                            p.type === 'video'
+                              ? <CloudVideo src={p.url} className="w-full h-full object-cover opacity-70" />
+                              : <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" />
+                          ) : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
+                        ) : (
+                          <MediaThumb src={mediaSourceOf(p)} className="w-full h-full object-cover" />
+                        )}
                       </button>
-                      <button type="button" onClick={() => setNewInspectionForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
+                      <button type="button" onClick={() => p.isUploading ? removeUploadTask(p.uploadTaskId) : setNewInspectionForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
                       </button>
+                      <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
                   <button type="button" onClick={() => inspectionFileInputRef.current?.click()} className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-300 bg-gray-50">
@@ -5562,10 +5684,17 @@ export default function ProjectBizDetail() {
                 <input ref={inspectionFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length) return;
-                  try {
-                    const uploaded = await Promise.all(files.map(f => uploadToCloud(f, `project/inspections/${id}/${Date.now()}_${f.name}`)));
-                    setNewInspectionForm(p => ({ ...p, photos: [...p.photos, ...uploaded.map(u => u.fileID)] }));
-                  } catch (err) { alert('上传失败'); }
+                  addUploadTasks(files.map(file => ({
+                    file,
+                    fileName: file.name,
+                    fileSize: file.size,
+                    folder: `project/inspections/${id}`,
+                    title: '工地巡检 / 现场图片视频',
+                    context: { scope: 'project-inspection-media', projectId: projectUploadTaskKey },
+                    onSuccess: ({ fileID }) => {
+                      setNewInspectionForm(p => ({ ...p, photos: [...p.photos, fileID] }));
+                    },
+                  })));
                   if (inspectionFileInputRef.current) inspectionFileInputRef.current.value = '';
                 }} />
               </div>
@@ -5600,14 +5729,23 @@ export default function ProjectBizDetail() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">整改后图片/视频</label>
                 <div className="flex flex-wrap gap-2">
-                  {rectifyForm.rectifyPhotos.map((p, idx) => (
+                  {[...rectifyForm.rectifyPhotos.map(toPreviewMedia), ...rectifyPendingPhotos].map((p: any, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview(toPreviewMedia(p), rectifyForm.rectifyPhotos.map(toPreviewMedia))} className="h-full w-full">
-                        <MediaThumb src={p} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), rectifyForm.rectifyPhotos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
+                        {p.isUploading ? (
+                          p.url ? (
+                            p.type === 'video'
+                              ? <CloudVideo src={p.url} className="w-full h-full object-cover opacity-70" />
+                              : <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" />
+                          ) : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
+                        ) : (
+                          <MediaThumb src={mediaSourceOf(p)} className="w-full h-full object-cover" />
+                        )}
                       </button>
-                      <button type="button" onClick={() => setRectifyForm(prev => ({ ...prev, rectifyPhotos: prev.rectifyPhotos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
+                      <button type="button" onClick={() => p.isUploading ? removeUploadTask(p.uploadTaskId) : setRectifyForm(prev => ({ ...prev, rectifyPhotos: prev.rectifyPhotos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
                       </button>
+                      <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
                   <button type="button" onClick={() => rectifyFileInputRef.current?.click()} className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-rose-500 hover:border-rose-300 bg-gray-50">
@@ -5618,10 +5756,17 @@ export default function ProjectBizDetail() {
                 <input ref={rectifyFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length) return;
-                  try {
-                    const uploaded = await Promise.all(files.map(f => uploadToCloud(f, `project/rectify/${id}/${Date.now()}_${f.name}`)));
-                    setRectifyForm(p => ({ ...p, rectifyPhotos: [...p.rectifyPhotos, ...uploaded.map(u => u.fileID)] }));
-                  } catch (err) { alert('上传失败'); }
+                  addUploadTasks(files.map(file => ({
+                    file,
+                    fileName: file.name,
+                    fileSize: file.size,
+                    folder: `project/rectify/${id}`,
+                    title: '整改反馈 / 图片视频',
+                    context: { scope: 'project-rectify-media', projectId: projectUploadTaskKey },
+                    onSuccess: ({ fileID }) => {
+                      setRectifyForm(p => ({ ...p, rectifyPhotos: [...p.rectifyPhotos, fileID] }));
+                    },
+                  })));
                   if (rectifyFileInputRef.current) rectifyFileInputRef.current.value = '';
                 }} />
               </div>
