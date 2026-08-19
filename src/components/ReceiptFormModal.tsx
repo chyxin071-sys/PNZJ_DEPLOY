@@ -25,13 +25,6 @@ type PendingUpload = UploadProgressItem & { file: File };
 
 const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
 
-function getStageReceiptStatus(stage: { amount: number; paid: number; due: number }) {
-  if ((stage.amount || 0) <= 0) return 'unset';
-  if (stage.due <= 0) return 'paid';
-  if (stage.paid > 0) return 'partial';
-  return 'pending';
-}
-
 function focusNextOnEnter(event: React.KeyboardEvent<HTMLElement>) {
   if (event.key !== 'Enter' || event.shiftKey) return;
   const target = event.target as HTMLElement;
@@ -56,13 +49,11 @@ interface ReceiptFormModalProps {
   onDirectUpdate?: (receipt: Receipt) => Promise<void>;
   /** 是否为简化模式（从客户详情页打开，合同固定） */
   compact?: boolean;
-  /** 隐藏合同阶段收款进度摘要 */
-  hidePaymentSummary?: boolean;
   /** 固定当前阶段，适用于从合同阶段卡片直接收款 */
   lockStage?: boolean;
 }
 
-export default function ReceiptFormModal({ open, onClose, defaultContractId, defaultStage, editingReceipt, onSuccess, defaultContract, receiptsOverride, onDirectAdd, onDirectUpdate, compact, hidePaymentSummary = false, lockStage = false }: ReceiptFormModalProps) {
+export default function ReceiptFormModal({ open, onClose, defaultContractId, defaultStage, editingReceipt, onSuccess, defaultContract, receiptsOverride, onDirectAdd, onDirectUpdate, compact, lockStage = false }: ReceiptFormModalProps) {
   const { receipts, contracts, addReceipt, updateReceipt } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user } = useAuthStore();
@@ -363,43 +354,6 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
                 <p className="text-xs text-gray-400">{selectedContract?.contractNo} · {selectedContract?.customerName}</p>
               </div>
             )}
-          </div>
-        )}
-
-        {/* 收款阶段进度 - compact模式不显示 */}
-        {!compact && !hidePaymentSummary && contractPaymentInfo && (
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>合同总额 {formatMoney(contractPaymentInfo.totalAmount)}</span>
-              <span>已收 {formatMoney(contractPaymentInfo.totalReceived)}</span>
-              <div className="flex items-center gap-1.5">
-                <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(contractPaymentInfo.progress * 100, 100)}%` }} />
-                </div>
-                <span>{(contractPaymentInfo.progress * 100).toFixed(0)}%</span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              {contractPaymentInfo.stages.map((s, i) => {
-                const status = getStageReceiptStatus(s);
-                return (
-                  <div key={i} className={`flex items-center justify-between text-xs px-2 py-1 rounded ${
-                    status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                    status === 'partial' ? 'bg-amber-50 text-amber-600' :
-                    status === 'unset' ? 'bg-gray-100 text-gray-400' :
-                    'text-gray-400'
-                  }`}>
-                    <span>{s.name}</span>
-                    <span>
-                      {status === 'paid' ? '✓ 已收齐' :
-                        status === 'partial' ? `${formatMoney(s.paid)} / ${formatMoney(s.amount)}` :
-                        status === 'unset' ? '待设置金额' :
-                        `应收 ${formatMoney(s.amount)}`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         )}
 

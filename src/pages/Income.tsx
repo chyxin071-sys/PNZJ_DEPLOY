@@ -35,13 +35,6 @@ const isActiveReceipt = (receipt: any) => !['deleted', 'voided', 'reversed'].inc
 const PAYMENT_METHODS = ['银行转账', '微信', '支付宝', '现金', '其他'];
 const incomeCategoryBadgeClass = (name: string) => name === '工程款项' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-600';
 
-function getStageReceiptStatus(stage: { amount: number; paid: number; due: number }) {
-  if ((stage.amount || 0) <= 0) return 'unset';
-  if (stage.due <= 0) return 'paid';
-  if (stage.paid > 0) return 'partial';
-  return 'pending';
-}
-
 export default function Income() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -675,43 +668,6 @@ export default function Income() {
             )}
           </div>
 
-          {/* 收款阶段选择 + 提示 */}
-          {contractPaymentInfo && (
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>合同总额 {formatMoney(contractPaymentInfo.totalAmount)}</span>
-                <span>已收 {formatMoney(contractPaymentInfo.totalReceived)}</span>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(contractPaymentInfo.progress * 100, 100)}%` }} />
-                  </div>
-                  <span>{(contractPaymentInfo.progress * 100).toFixed(0)}%</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                {contractPaymentInfo.stages.map((s, i) => {
-                  const status = getStageReceiptStatus(s);
-                  return (
-                    <div key={i} className={`flex items-center justify-between text-xs px-2 py-1 rounded ${
-                      status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                      status === 'partial' ? 'bg-amber-50 text-amber-600' :
-                      status === 'unset' ? 'bg-gray-100 text-gray-400' :
-                      'text-gray-400'
-                    }`}>
-                      <span>{s.name}</span>
-                      <span>
-                        {status === 'paid' ? '✓ 已收齐' :
-                          status === 'partial' ? `${formatMoney(s.paid)} / ${formatMoney(s.amount)}` :
-                          status === 'unset' ? '待设置金额' :
-                          `应收 ${formatMoney(s.amount)}`}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段 *</label>
@@ -737,7 +693,7 @@ export default function Income() {
                     secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
                     category: categoryChild?.name || v || form.category,
                   });
-                }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（应收 ${formatMoney(s.amount)}）` }))} />
+                }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: s.name }))} />
               ) : (
                 <input value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })} className="erp-input" placeholder="例如：临时补款、追加款" />
               )}

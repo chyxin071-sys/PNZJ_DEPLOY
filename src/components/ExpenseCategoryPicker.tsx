@@ -23,6 +23,7 @@ export default function ExpenseCategoryPicker({
 }: ExpenseCategoryPickerProps) {
   const primary = categories.find((category) => category.id === primaryId) || categories[0];
   const secondaryOptions = primary?.children || [];
+  const isCompact = categories.length <= 1 && secondaryOptions.length <= 3;
 
   const selectPrimary = (nextPrimaryId: string) => {
     const nextPrimary = categories.find((category) => category.id === nextPrimaryId) || categories[0];
@@ -42,6 +43,37 @@ export default function ExpenseCategoryPicker({
       secondaryName: nextSecondary?.name || '',
     });
   };
+
+  if (isCompact) {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-2">
+        <div className="mb-2 flex items-center justify-between gap-3 text-xs text-gray-400">
+          <span>{primary?.name || (kind === 'income' ? '收入类别' : '费用类别')}</span>
+          {secondaryOptions.length > 1 ? <span>选择明细</span> : null}
+        </div>
+        {secondaryOptions.length > 0 ? (
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(secondaryOptions.length, 3)}, minmax(0, 1fr))` }}>
+            {secondaryOptions.map((child) => (
+              <button
+                key={child.id}
+                type="button"
+                onClick={() => selectSecondary(child.id)}
+                className={`rounded-md px-3 py-2 text-left text-xs font-medium leading-5 transition-colors ${
+                  child.id === secondaryId
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                {child.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="px-3 py-3 text-center text-xs leading-5 text-gray-400">请先在类别管理中添加二级分类</div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-[220px] grid-cols-[minmax(120px,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-lg border border-gray-200 bg-white">
