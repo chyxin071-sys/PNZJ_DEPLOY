@@ -94,6 +94,28 @@ const uploadTaskToPendingMedia = (task: UploadTask, uploader: string) => ({
   uploadTaskId: task.id,
 });
 
+const uploadTaskVideoPoster = (task: UploadTask) => (
+  task.file.type.startsWith('video/') && task.previewUrl?.startsWith('data:image/')
+    ? task.previewUrl
+    : ''
+);
+
+const uploadedMediaFromTask = (fileID: string, task: UploadTask, uploader: string) => {
+  const isVideo = task.file.type.startsWith('video/');
+  const poster = uploadTaskVideoPoster(task);
+  return {
+    fileID,
+    url: fileID,
+    type: isVideo ? 'video' : 'image',
+    name: task.fileName,
+    size: task.fileSize,
+    sizeStr: (task.fileSize / 1024).toFixed(1) + 'KB',
+    uploader,
+    uploadTime: new Date().toISOString(),
+    ...(poster ? { poster, thumbUrl: poster } : {}),
+  };
+};
+
 type PreviewDeleteContext = {
   nodeId: string;
   secIdx: number;
@@ -109,6 +131,8 @@ type PreviewMediaItem = {
   deleteContext?: PreviewDeleteContext;
 };
 
+type ProjectMediaAttachment = string | Record<string, any>;
+
 const clampPreviewZoom = (value: number) => Math.min(4, Math.max(1, value));
 const touchDistance = (touches: React.TouchList) => {
   if (touches.length < 2) return 0;
@@ -117,11 +141,11 @@ const touchDistance = (touches: React.TouchList) => {
   return Math.hypot(dx, dy);
 };
 
-function MediaThumb({ src, className }: { src: string; className?: string }) {
+function MediaThumb({ src, className, poster }: { src: string; className?: string; poster?: string }) {
   if (!isVideoMedia(src)) return <CloudImage src={src} className={className} />;
   return (
     <div className={`relative flex items-center justify-center bg-gray-100 text-gray-500 ${className || ''}`}>
-      <CloudImage src={src} className="absolute inset-0 h-full w-full object-cover opacity-40" />
+      <CloudVideo src={src} poster={poster} className="absolute inset-0 h-full w-full object-cover opacity-80" />
       <div className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm">
         <PlayCircle className="h-5 w-5 text-gray-800" />
       </div>
@@ -623,13 +647,13 @@ export default function ProjectBizDetail() {
   });
   
   const [showInspectionModal, setShowInspectionModal] = useState(false);
-  const [newInspectionForm, setNewInspectionForm] = useState({ title: '', status: '合格', description: '', photos: [] as string[] });
+  const [newInspectionForm, setNewInspectionForm] = useState({ title: '', status: '合格', description: '', photos: [] as ProjectMediaAttachment[] });
   const inspectionFileInputRef = useRef<HTMLInputElement>(null);
   const [swipedInspectionId, setSwipedInspectionId] = useState<string | null>(null);
   const inspectionSwipeStartX = useRef<number | null>(null);
   
   const [showRectifyModal, setShowRectifyModal] = useState<ProjectInspection | null>(null);
-  const [rectifyForm, setRectifyForm] = useState({ rectifyDescription: '', rectifyPhotos: [] as string[] });
+  const [rectifyForm, setRectifyForm] = useState({ rectifyDescription: '', rectifyPhotos: [] as ProjectMediaAttachment[] });
   const rectifyFileInputRef = useRef<HTMLInputElement>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completionDate, setCompletionDate] = useState('');
@@ -1752,7 +1776,7 @@ export default function ProjectBizDetail() {
       folder: 'project/nodes',
       title: `工地节点 / ${targetInfo?.sectionName || '施工记录'} / ${targetInfo?.subNode?.name || '检查项'}`,
       context: { scope: 'project-node-media', projectId: projectDocId || id, subNodeId },
-      onSuccess: async ({ fileID }) => {
+      onSuccess: async ({ fileID, task }) => {
         if (!projectDocId) return;
         const latestData = await projectsAPI.doc(projectDocId).get();
         const latestProject = Array.isArray(latestData) ? latestData[0] : latestData;
@@ -1763,17 +1787,7 @@ export default function ProjectBizDetail() {
             if (!sn) continue;
             if (!sn.acceptanceRecord) sn.acceptanceRecord = { photos: [] };
             if (!sn.acceptanceRecord.photos) sn.acceptanceRecord.photos = [];
-            const isVideo = file.type.startsWith('video/');
-            sn.acceptanceRecord.photos.push({
-              fileID,
-              url: fileID,
-              type: isVideo ? 'video' : 'image',
-              name: file.name,
-              size: file.size,
-              sizeStr: (file.size / 1024).toFixed(1) + 'KB',
-              uploader: myName,
-              uploadTime: new Date().toISOString(),
-            });
+            sn.acceptanceRecord.photos.push(uploadedMediaFromTask(fileID, task, myName));
             const progressSummary = buildProjectProgressSummary(newNodesData);
             await projectsAPI.update(projectDocId, { nodesData: newNodesData, progressSummary });
             void createNotificationEventSafely({
@@ -4918,7 +4932,7 @@ export default function ProjectBizDetail() {
                         <div className="flex flex-wrap gap-2 pt-1">
                           {ins.photos.map((photo, idx) => (
                             <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), ins.photos.map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                              <MediaThumb src={mediaSourceOf(photo)} className="w-full h-full object-cover" />
+                              <MediaThumb src={mediaSourceOf(photo)} poster={(photo as any).poster || (photo as any).thumbUrl || (photo as any).thumbTempFilePath} className="w-full h-full object-cover" />
                             </button>
                           ))}
                         </div>
@@ -4937,7 +4951,7 @@ export default function ProjectBizDetail() {
                           <div className="flex flex-wrap gap-2 mt-2">
                             {ins.rectifyPhotos.map((photo, idx) => (
                               <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), (ins.rectifyPhotos || []).map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded-lg border border-amber-200/50 bg-white">
-                                <MediaThumb src={mediaSourceOf(photo)} className="w-full h-full object-cover" />
+                                <MediaThumb src={mediaSourceOf(photo)} poster={(photo as any).poster || (photo as any).thumbUrl || (photo as any).thumbTempFilePath} className="w-full h-full object-cover" />
                               </button>
                             ))}
                           </div>
@@ -5759,7 +5773,7 @@ export default function ProjectBizDetail() {
                               : <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" />
                           ) : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
                         ) : (
-                          <MediaThumb src={mediaSourceOf(p)} className="w-full h-full object-cover" />
+                          <MediaThumb src={mediaSourceOf(p)} poster={p.poster || p.thumbUrl || p.thumbTempFilePath} className="w-full h-full object-cover" />
                         )}
                       </button>
                       <button type="button" onClick={() => { if (p.isUploading) removeUploadTask(p.uploadTaskId); else void removeInspectionPhoto(idx); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
@@ -5783,8 +5797,8 @@ export default function ProjectBizDetail() {
                     folder: `project/inspections/${id}`,
                     title: '工地巡检 / 现场图片视频',
                     context: { scope: 'project-inspection-media', projectId: projectUploadTaskKey },
-                    onSuccess: ({ fileID }) => {
-                      setNewInspectionForm(p => ({ ...p, photos: [...p.photos, fileID] }));
+                    onSuccess: ({ fileID, task }) => {
+                      setNewInspectionForm(p => ({ ...p, photos: [...p.photos, uploadedMediaFromTask(fileID, task, myName)] }));
                     },
                   })));
                   if (inspectionFileInputRef.current) inspectionFileInputRef.current.value = '';
@@ -5831,7 +5845,7 @@ export default function ProjectBizDetail() {
                               : <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" />
                           ) : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
                         ) : (
-                          <MediaThumb src={mediaSourceOf(p)} className="w-full h-full object-cover" />
+                          <MediaThumb src={mediaSourceOf(p)} poster={p.poster || p.thumbUrl || p.thumbTempFilePath} className="w-full h-full object-cover" />
                         )}
                       </button>
                       <button type="button" onClick={() => { if (p.isUploading) removeUploadTask(p.uploadTaskId); else void removeRectifyPhoto(idx); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
@@ -5855,8 +5869,8 @@ export default function ProjectBizDetail() {
                     folder: `project/rectify/${id}`,
                     title: '整改反馈 / 图片视频',
                     context: { scope: 'project-rectify-media', projectId: projectUploadTaskKey },
-                    onSuccess: ({ fileID }) => {
-                      setRectifyForm(p => ({ ...p, rectifyPhotos: [...p.rectifyPhotos, fileID] }));
+                    onSuccess: ({ fileID, task }) => {
+                      setRectifyForm(p => ({ ...p, rectifyPhotos: [...p.rectifyPhotos, uploadedMediaFromTask(fileID, task, myName)] }));
                     },
                   })));
                   if (rectifyFileInputRef.current) rectifyFileInputRef.current.value = '';

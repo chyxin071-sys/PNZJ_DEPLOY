@@ -119,6 +119,12 @@ function UploadingMediaThumb({ type, src, alt, className }: { type: string; src?
   return <FileTy type={type} size={18} />;
 }
 
+function uploadPosterFromTask(task: { file?: File; previewUrl?: string }) {
+  return task.file?.type?.startsWith('video/') && task.previewUrl?.startsWith('data:image/')
+    ? task.previewUrl
+    : '';
+}
+
 function UploadingItemOverlay({
   item,
   onRetry,
@@ -1476,7 +1482,8 @@ export default function LeadDetail() {
       folder: `design_files/${leadId}`,
       title: `设计进度 / ${nodeName}`,
       context: { scope: 'lead-design-node', leadId, nodeId: targetNodeId, visibility },
-      onSuccess: async ({ fileID }) => {
+      onSuccess: async ({ fileID, task }) => {
+        const poster = uploadPosterFromTask(task);
         const uploaded = {
           fileID,
           name: file.name,
@@ -1487,6 +1494,7 @@ export default function LeadDetail() {
           uploadTime: new Date().toISOString(),
           folderName: targetFolder,
           isVisible: visibility === 'public',
+          ...(poster ? { poster, thumbUrl: poster } : {}),
         };
         const latestData = await leadsAPI.doc(leadId).get();
         const latestLead = Array.isArray(latestData) ? latestData[0] : latestData;
@@ -1700,7 +1708,8 @@ export default function LeadDetail() {
       folder: `project_files/${leadId}`,
       title: `项目资料 / ${targetFolder}`,
       context: { scope: 'lead-project-files', leadId, folder: targetFolder },
-      onSuccess: async ({ fileID }) => {
+      onSuccess: async ({ fileID, task }) => {
+        const poster = uploadPosterFromTask(task);
         const uploaded = {
           fileID,
           name: file.name,
@@ -1711,6 +1720,7 @@ export default function LeadDetail() {
           uploadTime: new Date().toISOString(),
           folderName: targetFolder,
           isVisible: visibility === 'public',
+          ...(poster ? { poster, thumbUrl: poster } : {}),
         };
         const freshData = await leadsAPI.doc(leadId).get();
         const freshLead = Array.isArray(freshData) ? freshData[0] : freshData;
@@ -2331,7 +2341,7 @@ export default function LeadDetail() {
   const returnToLeads = (location.state as { from?: string } | null)?.from || '/leads';
   const renderMobileFileRow = (file: any) => {
     const fType = file.type || getFileType(file.name);
-    const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : null;
+    const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : fType === 'video' ? (file.poster || file.thumbUrl) : null;
     return (
       <div
         key={file.fileID}
@@ -3054,8 +3064,8 @@ export default function LeadDetail() {
                                               ? 'bg-purple-50 text-purple-500'
                                               : 'bg-violet-50 text-violet-500'
                                       }`}>
-                                        {f.isUploading && f.previewUrl ? (
-                                          <UploadingMediaThumb type={fileType} src={f.previewUrl} alt={f.name} className="h-full w-full object-cover" />
+                                        {(f.isUploading && f.previewUrl) || (fileType === 'video' && (f.poster || f.thumbUrl)) ? (
+                                          <UploadingMediaThumb type={fileType} src={f.isUploading ? f.previewUrl : (f.poster || f.thumbUrl)} alt={f.name} className="h-full w-full object-cover" />
                                         ) : fileType === 'image' ? <ImageIcon size={20} /> : ext}
                                       </span>
                                       <span className="min-w-0 flex-1">
@@ -3586,7 +3596,7 @@ export default function LeadDetail() {
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                                   {folderFiles.map((file: any) => {
                                      const fType = file.type || getFileType(file.name);
-                                     const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : null;
+                                     const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : fType === 'video' ? (file.poster || file.thumbUrl) : null;
                                      return (
                                        <div key={file.fileID}
                                          className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
@@ -3645,7 +3655,7 @@ export default function LeadDetail() {
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {filesInFolder.map((file: any) => {
                             const sType = file.type || getFileType(file.name);
-                            const sThumb = file.isUploading ? file.previewUrl : sType === 'image' ? fileImgUrls[file.fileID] : null;
+                            const sThumb = file.isUploading ? file.previewUrl : sType === 'image' ? fileImgUrls[file.fileID] : sType === 'video' ? (file.poster || file.thumbUrl) : null;
                             return (
                               <div key={file.fileID}
                                 className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}

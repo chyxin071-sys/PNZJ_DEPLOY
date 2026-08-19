@@ -78,8 +78,8 @@ function isContractFileFolder(folderName?: string) {
 
 function UploadingAttachmentThumb({ file }: { file: any }) {
   const type = String(file.type || '');
-  const src = String(file.previewUrl || '');
-  if (!file.isUploading || !src) return <Paperclip size={14} className="text-gray-400 shrink-0" />;
+  const src = String(file.previewUrl || file.poster || file.thumbUrl || '');
+  if (!src) return <Paperclip size={14} className="text-gray-400 shrink-0" />;
   if (type.startsWith('image/') || src.startsWith('data:image/')) {
     return <img src={src} alt="上传中" className="h-9 w-9 shrink-0 rounded-lg object-cover" />;
   }
@@ -101,6 +101,12 @@ function UploadingAttachmentThumb({ file }: { file: any }) {
     );
   }
   return <Paperclip size={14} className="text-gray-400 shrink-0" />;
+}
+
+function uploadPosterFromTask(task: { file?: File; previewUrl?: string }) {
+  return task.file?.type?.startsWith('video/') && task.previewUrl?.startsWith('data:image/')
+    ? task.previewUrl
+    : '';
 }
 
 function mergeAttachmentsByFileId(items: Array<FileAttachment & Record<string, any>>) {
@@ -632,8 +638,9 @@ export default function ContractDetail() {
       folder: `finance/contracts/${contractKey}`,
       title: `合同资料 / ${contract.contractNo}`,
       context: { scope: 'contract-attachments', contractId: contractKey },
-      onSuccess: async ({ fileID }) => {
+      onSuccess: async ({ fileID, task }) => {
         const uploadTime = new Date().toISOString();
+        const poster = uploadPosterFromTask(task);
         const uploaded: AttachmentValue = {
           fileID,
           name: file.name,
@@ -642,6 +649,7 @@ export default function ContractDetail() {
           type: file.type || file.name.split('.').pop()?.toLowerCase() || 'file',
           uploader: user?.name || 'ERP',
           uploadTime,
+          ...(poster ? { poster, thumbUrl: poster } : {}),
         };
         const latestContract = await contractsAPI.doc(contractKey).get()
           || (await contractsAPI.where({ id: contractKey }).toArray())[0]
