@@ -24,7 +24,7 @@ type UploadRequestResult = {
 const NATIVE_UPLOAD_PAGE = '/pages/native-upload/index';
 const POLL_INTERVAL_MS = 700;
 const POLL_TIMEOUT_MS = 30 * 60 * 1000;
-const ENABLE_NATIVE_IMAGE_UPLOAD_BRIDGE = false;
+const ENABLE_NATIVE_IMAGE_UPLOAD_BRIDGE = true;
 let activeSelection = false;
 
 function sleep(ms: number) {
