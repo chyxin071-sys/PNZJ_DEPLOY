@@ -5478,6 +5478,10 @@ export default function ProjectBizDetail() {
                 alt="预览"
                 className="max-h-[100dvh] max-w-screen select-none object-contain"
                 draggable={false}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  closePreviewModal();
+                }}
                 style={{
                   transform: `translate3d(${previewOffset.x}px, ${previewOffset.y}px, 0) scale(${previewZoom})`,
                   transition: previewGestureRef.current.mode === 'idle' ? 'transform 160ms ease-out' : 'none',
