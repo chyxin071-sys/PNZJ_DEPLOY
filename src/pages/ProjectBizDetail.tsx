@@ -233,6 +233,54 @@ function VideoPlayBadge({ className = '' }: { className?: string }) {
   );
 }
 
+function PreviewVideo({ src, poster }: { src: string; poster?: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    const playVideo = async () => {
+      try {
+        await video.play();
+      } catch {
+        try {
+          video.muted = true;
+          await video.play();
+        } catch {
+          // Controls remain visible if the WebView blocks autoplay completely.
+        }
+      }
+    };
+    void playVideo();
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      key={src}
+      src={src}
+      poster={poster}
+      controls
+      autoPlay
+      playsInline
+      preload="auto"
+      className="h-full max-h-[100dvh] w-full max-w-screen object-contain"
+      onClick={(event) => event.stopPropagation()}
+      onLoadedMetadata={(event) => {
+        const video = event.currentTarget;
+        if (Number.isFinite(video.duration) && video.duration > 0 && video.currentTime < 0.1) {
+          video.currentTime = Math.min(0.1, video.duration / 2);
+        }
+        void video.play().catch(() => {});
+      }}
+      onCanPlay={(event) => {
+        void event.currentTarget.play().catch(() => {});
+      }}
+    />
+  );
+}
+
 function CloudImage({ src, className, alt }: { src: string, className?: string, alt?: string }) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(true);
@@ -5472,15 +5520,9 @@ export default function ProjectBizDetail() {
                 <p className="text-sm">加载中...</p>
               </div>
             ) : previewImages[previewIndex].isVideo ? (
-              <video
-                key={previewImages[previewIndex].url}
+              <PreviewVideo
                 src={previewImages[previewIndex].url}
                 poster={previewImages[previewIndex].poster}
-                controls
-                autoPlay
-                playsInline
-                preload="metadata"
-                className="h-full max-h-[100dvh] w-full max-w-screen object-contain"
               />
             ) : (
               <img
