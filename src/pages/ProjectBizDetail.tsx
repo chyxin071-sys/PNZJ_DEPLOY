@@ -1820,11 +1820,47 @@ export default function ProjectBizDetail() {
     if (!project) return;
     if (!canManageConstruction) return;
     if (project.status === '已完工') return;
+    const confirmed = await confirmUser('删除后无法恢复。', {
+      title: '确认删除这张照片吗？',
+      confirmStyle: 'danger',
+      confirmText: '删除',
+    });
+    if (!confirmed) return;
     const newNodesData = [...(project.nodesData || [])];
     const node = newNodesData.find((n: any) => n._id === nodeId);
     if (!node) return;
     node.sections[secIdx].subNodes[subIdx].acceptanceRecord.photos.splice(photoIdx, 1);
     syncToDB(newNodesData);
+  };
+
+  const removeLogPhoto = async (idx: number) => {
+    const confirmed = await confirmUser('删除后无法恢复。', {
+      title: '确认删除这张照片吗？',
+      confirmStyle: 'danger',
+      confirmText: '删除',
+    });
+    if (!confirmed) return;
+    setNewLogForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }));
+  };
+
+  const removeInspectionPhoto = async (idx: number) => {
+    const confirmed = await confirmUser('删除后无法恢复。', {
+      title: '确认删除这张照片吗？',
+      confirmStyle: 'danger',
+      confirmText: '删除',
+    });
+    if (!confirmed) return;
+    setNewInspectionForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }));
+  };
+
+  const removeRectifyPhoto = async (idx: number) => {
+    const confirmed = await confirmUser('删除后无法恢复。', {
+      title: '确认删除这张照片吗？',
+      confirmStyle: 'danger',
+      confirmText: '删除',
+    });
+    if (!confirmed) return;
+    setRectifyForm(prev => ({ ...prev, rectifyPhotos: prev.rectifyPhotos.filter((_, i) => i !== idx) }));
   };
 
   const updateProjectCraftsmanship = (nodeId: string, craftIdx: number, updates: any, persist = false) => {
@@ -5569,7 +5605,7 @@ export default function ProjectBizDetail() {
                           <CloudImage src={mediaSourceOf(p)} className="w-full h-full object-cover" />
                         )}
                       </button>
-                      <button type="button" onClick={() => p.isUploading ? removeUploadTask(p.uploadTaskId) : setNewLogForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
+                      <button type="button" onClick={() => { if (p.isUploading) removeUploadTask(p.uploadTaskId); else void removeLogPhoto(idx); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
                       </button>
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
@@ -5670,7 +5706,7 @@ export default function ProjectBizDetail() {
                           <MediaThumb src={mediaSourceOf(p)} className="w-full h-full object-cover" />
                         )}
                       </button>
-                      <button type="button" onClick={() => p.isUploading ? removeUploadTask(p.uploadTaskId) : setNewInspectionForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
+                      <button type="button" onClick={() => { if (p.isUploading) removeUploadTask(p.uploadTaskId); else void removeInspectionPhoto(idx); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
                       </button>
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
@@ -5742,7 +5778,7 @@ export default function ProjectBizDetail() {
                           <MediaThumb src={mediaSourceOf(p)} className="w-full h-full object-cover" />
                         )}
                       </button>
-                      <button type="button" onClick={() => p.isUploading ? removeUploadTask(p.uploadTaskId) : setRectifyForm(prev => ({ ...prev, rectifyPhotos: prev.rectifyPhotos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
+                      <button type="button" onClick={() => { if (p.isUploading) removeUploadTask(p.uploadTaskId); else void removeRectifyPhoto(idx); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
                         <X size={10} />
                       </button>
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />

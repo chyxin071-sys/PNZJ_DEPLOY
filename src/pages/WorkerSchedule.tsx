@@ -11,6 +11,7 @@ import WorkerAvatar from '@/components/WorkerAvatar';
 import { projectsAPI } from '@/db/api';
 import { findScheduleConflicts, workersAPI, workerSchedulesAPI } from '@/db/workerScheduleApi';
 import { useAuthStore } from '@/store/authStore';
+import { useDialogStore } from '@/store/dialogStore';
 import type { Worker, WorkerSchedule, WorkerScheduleStatus, WorkerStatus } from '@/types/workerSchedule';
 import { scheduleIdOf, stageTradeLabel, tradeForStage, workerIdOf, workerMatchesStage, WORKER_TRADES } from '@/types/workerSchedule';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
@@ -82,6 +83,7 @@ const emptyWorker = (): Omit<Worker, '_id' | 'id'> => ({
 
 export default function WorkerSchedulePage() {
   const user = useAuthStore((state) => state.user);
+  const { showConfirm } = useDialogStore();
   const isAdmin = user?.role === 'admin' || user?.roles?.includes('admin');
   const canEdit = isAdmin || user?.role === 'manager' || user?.roles?.includes('manager');
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -430,7 +432,12 @@ export default function WorkerSchedulePage() {
     if (schedules.some((item) => item.workerId === workerIdOf(worker) && !['completed', 'cancelled'].includes(item.status))) {
       alert('该工人仍有未结束排期，请先处理排期'); return;
     }
-    if (!window.confirm(`确定删除“${worker.name}”吗？历史排期仍会保留。`)) return;
+    const confirmed = await showConfirm('删除后该工人档案无法恢复，历史排期仍会保留。', {
+      title: `确认删除“${worker.name}”？`,
+      confirmStyle: 'danger',
+      confirmText: '删除',
+    });
+    if (!confirmed) return;
     await workersAPI.delete(workerIdOf(worker));
     await loadData();
     setEditingWorker(null);
