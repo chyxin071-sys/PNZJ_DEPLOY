@@ -98,7 +98,6 @@ export default function WorkerSchedulePage() {
   const [preserveScheduleDates, setPreserveScheduleDates] = useState(false);
   const [workerEditorOpen, setWorkerEditorOpen] = useState(false);
   const [workerEditorMode, setWorkerEditorMode] = useState<WorkerEditorMode>('list');
-  const [workerManagerTradeFilter, setWorkerManagerTradeFilter] = useState('');
   const [workerManagerSearch, setWorkerManagerSearch] = useState('');
   const [profileWorker, setProfileWorker] = useState<Worker | null>(null);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
@@ -191,7 +190,6 @@ export default function WorkerSchedulePage() {
   const conflicts = selectedWorker ? findScheduleConflicts(selectedWorker, scheduleForm, schedules, scheduleIdOf(editingSchedule || {} as WorkerSchedule)) : [];
   const tradeOptions = [{ value: '', label: '全部工种' }, ...WORKER_TRADES.map((trade) => ({ value: trade, label: trade }))];
   const workerStatusOptions = Object.entries(WORKER_STATUS_LABEL).map(([value, label]) => ({ value, label }));
-  const scheduleStatusOptions = Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }));
   const eligibleWorkers = workers.filter((worker) => worker.status !== 'inactive' && (!selectedStage || workerMatchesStage(worker, selectedStage.name || '')));
   const workerOptions = eligibleWorkers.map((worker) => ({ value: workerIdOf(worker), label: worker.name, description: worker.trades.join('/') }));
   const projectOptions = projects.filter((item) => !['已完工', '已暂停'].includes(item.status)).map((project) => ({ value: recordId(project), label: project.address || project.customer || '未命名工地' }));
@@ -200,7 +198,6 @@ export default function WorkerSchedulePage() {
   const workerById = (id: string) => workers.find((worker) => workerIdOf(worker) === id);
   const workerNameForSchedule = (schedule: WorkerSchedule) => workerById(schedule.workerId)?.name || schedule.workerName;
   const managedWorkers = workers
-    .filter((worker) => !workerManagerTradeFilter || worker.trades.includes(workerManagerTradeFilter))
     .filter((worker) => !workerManagerSearch || [worker.name, worker.phone, worker.trades.join(' ')].join(' ').toLowerCase().includes(workerManagerSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
   const groupedManagedWorkers = [...WORKER_TRADES, '未分类'].map((trade) => ({
@@ -247,7 +244,6 @@ export default function WorkerSchedulePage() {
   };
 
   const openWorkerManager = () => {
-    setWorkerManagerTradeFilter('');
     setWorkerManagerSearch('');
     setEditingWorker(null);
     setWorkerForm(emptyWorker());
@@ -258,7 +254,6 @@ export default function WorkerSchedulePage() {
 
   const openWorkerManagerFor = (worker: Worker) => {
     setProfileWorker(null);
-    setWorkerManagerTradeFilter('');
     setWorkerManagerSearch('');
     setWorkerEditorOpen(true);
     selectWorkerForPreview(worker);
@@ -305,10 +300,6 @@ export default function WorkerSchedulePage() {
       console.error('[worker-schedule] local worker photo preview failed', previewError);
       setError('所选照片无法读取，请重新选择');
     }
-  };
-
-  const filterManagedWorkers = (trade: string) => {
-    setWorkerManagerTradeFilter(trade);
   };
 
   const openEditSchedule = (schedule: WorkerSchedule) => {
@@ -393,7 +384,7 @@ export default function WorkerSchedulePage() {
       workerId: workerIdOf(selectedWorker), workerName: selectedWorker.name,
       projectId: recordId(selectedProject), projectAddress: selectedProject.address || '未填写地址', customerName: selectedProject.customerName || selectedProject.customer || '',
       stageId: String(selectedStage._id || selectedStage.id), stageName: selectedStage.name || '施工阶段', trade: tradeForStage(selectedStage.name || ''),
-      startDate: scheduleForm.startDate, endDate: scheduleForm.endDate, status: scheduleForm.status, note: scheduleForm.note,
+      startDate: scheduleForm.startDate, endDate: scheduleForm.endDate, status: editingSchedule?.status || 'confirmed', note: scheduleForm.note,
       createdBy: user?.name || '', createdAt: editingSchedule?.createdAt || now, updatedAt: now,
     };
     try {
@@ -467,11 +458,11 @@ export default function WorkerSchedulePage() {
       </div>
 
       <div className="mt-4 erp-surface overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 p-3">
-          <div className="relative min-w-[180px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-gold-400" /></div>
-          <Select value={tradeFilter} onChange={setTradeFilter} options={tradeOptions} className="w-[118px]" sheetTitle="选择工种" />
-          <div className="flex h-9 items-center rounded-lg border border-gray-200 bg-white"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full px-2 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-[92px] border-x border-gray-200 px-3 text-xs font-medium" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full px-2 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
-          <div className="hidden rounded-lg bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 py-1.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
+        <div className="sticky top-0 z-40 grid grid-cols-[minmax(0,1fr)_7.25rem] items-center gap-2 border-b border-gray-100 bg-white/95 p-2 backdrop-blur md:flex md:flex-wrap md:p-2.5">
+          <div className="relative h-9 min-w-0 md:h-10 md:flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 md:size-[15px]" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-full w-full rounded-lg border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3 md:text-sm" /></div>
+          <Select value={tradeFilter} onChange={setTradeFilter} options={tradeOptions} className="h-9 w-full min-w-0 [&>.erp-select]:h-full [&>.erp-select]:px-2.5 [&>.erp-select]:text-xs md:h-10 md:w-[132px] md:[&>.erp-select]:px-3 md:[&>.erp-select]:text-sm" sheetTitle="选择工种" />
+          <div className="col-span-2 flex h-9 w-full items-center rounded-lg border border-gray-200 bg-white md:col-span-1 md:h-10 md:w-auto"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-0 flex-1 border-x border-gray-200 px-3 text-xs font-medium md:min-w-[92px] md:flex-none" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
+          <div className="hidden h-10 rounded-lg bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
         </div>
 
         {error && !workerEditorOpen && !scheduleEditorOpen && <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-xs leading-5 text-red-600">{error}</div>}
@@ -532,10 +523,9 @@ export default function WorkerSchedulePage() {
             <div className="space-y-4 p-4">
               <label className="block text-xs text-gray-500">工地 *<Select value={scheduleForm.projectId} onChange={chooseProject} options={projectOptions} placeholder="请选择工地" searchable className="mt-1" sheetTitle="选择工地" /></label>
               <label className="block text-xs text-gray-500">施工阶段 *<Select value={scheduleForm.stageId} onChange={chooseStage} options={stageOptions} placeholder="请选择施工阶段" className="mt-1" sheetTitle="选择施工阶段" /></label>
-              <label className="block text-xs text-gray-500">工人 *{selectedStageTrade && <span className="ml-1 text-gold-600">仅显示{selectedStageTrade}工人</span>}<Select value={scheduleForm.workerId} onChange={(value) => setScheduleForm({ ...scheduleForm, workerId: value })} options={workerOptions} placeholder={selectedStage ? `请选择${selectedStageTrade}工人` : '请先选择工地和施工阶段'} searchable className="mt-1" sheetTitle="选择匹配工种的工人" /></label>
+              <label className="block text-xs text-gray-500">工人 *<Select value={scheduleForm.workerId} onChange={(value) => setScheduleForm({ ...scheduleForm, workerId: value })} options={workerOptions} placeholder={selectedStage ? `请选择${selectedStageTrade}工人` : '请先选择工地和施工阶段'} searchable className="mt-1" sheetTitle="选择匹配工种的工人" /></label>
               {selectedStage && eligibleWorkers.length === 0 && <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无可用的{selectedStageTrade}工人，请先在工人管理中为师傅添加对应工种。</div>}
               <div className="grid grid-cols-2 gap-3"><label className="text-xs text-gray-500">开始日期<DatePicker value={scheduleForm.startDate} onChange={(value) => setScheduleForm({ ...scheduleForm, startDate: value })} className="mt-1" /></label><label className="text-xs text-gray-500">结束日期<DatePicker value={scheduleForm.endDate} onChange={(value) => setScheduleForm({ ...scheduleForm, endDate: value })} className="mt-1" /></label></div>
-              <label className="block text-xs text-gray-500">排期状态<Select value={scheduleForm.status} onChange={(value) => setScheduleForm({ ...scheduleForm, status: value as WorkerScheduleStatus })} options={scheduleStatusOptions} className="mt-1" sheetTitle="选择排期状态" /></label>
               <label className="block text-xs text-gray-500">备注<textarea value={scheduleForm.note} onChange={(event) => setScheduleForm({ ...scheduleForm, note: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none" /></label>
               {conflicts.length > 0 && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{conflicts[0].schedule.projectAddress}，{formatShortDate(conflicts[0].schedule.startDate)}至{formatShortDate(conflicts[0].schedule.endDate)}</p></div>}
               {error && <p className="text-xs leading-5 text-red-500">{error}</p>}
@@ -579,20 +569,21 @@ export default function WorkerSchedulePage() {
       )}
 
       {workerEditorOpen && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/40 p-3" onClick={() => setWorkerEditorOpen(false)}>
-          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-black/40 p-3" onClick={() => setWorkerEditorOpen(false)}>
+          <div className="flex h-[min(90vh,760px)] max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div><h2 className="font-semibold text-gray-900">工人管理</h2><p className="text-xs text-gray-400">按工种查找并维护工人档案</p></div>
               <button onClick={() => setWorkerEditorOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button>
             </div>
             <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-              <div className={`${workerEditorMode !== 'list' ? 'hidden md:flex' : 'flex'} max-h-[72vh] shrink-0 flex-col border-b border-gray-100 md:max-h-none md:w-[320px] md:border-b-0 md:border-r`}>
-                  <div className="space-y-2 border-b border-gray-100 p-3">
-                    <button onClick={startCreatingWorker} className="flex w-full items-center justify-center gap-2 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-sm font-medium text-gold-700"><Plus size={15} />新增工人</button>
-                    <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-xs outline-none focus:border-gold-400" /></div>
-                    <Select value={workerManagerTradeFilter} onChange={filterManagedWorkers} options={tradeOptions} sheetTitle="按工种筛选工人" />
+              <div className={`${workerEditorMode !== 'list' ? 'hidden md:flex' : 'flex'} min-h-0 flex-1 flex-col overflow-hidden border-b border-gray-100 md:w-[320px] md:flex-none md:border-b-0 md:border-r`}>
+                  <div className="border-b border-gray-100 p-3">
+                    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2 md:grid-cols-[7rem_minmax(0,1fr)]">
+                      <button onClick={startCreatingWorker} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-gold-200 bg-gold-50 px-2.5 text-xs font-medium text-gold-700 md:h-10 md:px-3 md:text-sm"><Plus size={14} className="md:size-[15px]" />新增工人</button>
+                      <div className="relative h-9 min-w-0 md:h-10"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-full w-full rounded-lg border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3" /></div>
+                    </div>
                   </div>
-                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
                   {groupedManagedWorkers.map((group) => (
                     <section key={group.trade}>
                       <div className="mb-1.5 flex items-center justify-between px-1"><h3 className="text-xs font-medium text-gray-500">{group.trade}</h3><span className="text-[10px] text-gray-400">{group.workers.length} 人</span></div>
@@ -610,7 +601,7 @@ export default function WorkerSchedulePage() {
                   {managedWorkers.length === 0 && <div className="py-10 text-center text-xs text-gray-400">该工种暂无工人</div>}
                   </div>
                 </div>
-              <div className={`${workerEditorMode === 'list' ? 'hidden md:block' : 'block'} min-h-0 flex-1 overflow-y-auto p-4`}>
+              <div className={`${workerEditorMode === 'list' ? 'hidden md:block' : 'block'} min-h-0 flex-1 overflow-y-auto overscroll-contain p-4`}>
                 {workerEditorMode === 'list' ? (
                   <div className="flex h-full min-h-[360px] flex-col items-center justify-center text-center"><UsersRound size={32} className="text-gray-200" /><p className="mt-3 text-sm font-medium text-gray-500">从左侧选择一位师傅</p><p className="mt-1 text-xs text-gray-400">点击后查看完整档案，再进入编辑</p></div>
                 ) : workerEditorMode === 'preview' && editingWorker ? (
