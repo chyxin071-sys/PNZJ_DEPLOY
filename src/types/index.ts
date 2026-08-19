@@ -49,6 +49,7 @@ export interface Contract {
   remark: string;
   attachments?: AttachmentValue[];
   createdAt: string;
+  updatedAt?: string;
   createdBy?: string;   // 录入人姓名，用于权限过滤（可选，兼容存量数据）
 }
 

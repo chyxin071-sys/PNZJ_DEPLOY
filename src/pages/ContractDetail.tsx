@@ -58,16 +58,14 @@ function parseMoneyInput(value: string | number) {
 function normalizePaymentStages(contract?: Contract | null): PaymentStage[] {
   const stages = contract?.paymentStages || [];
   if (!contract) return defaultHomeStages();
-  if (contract.bizType !== '工装') return stages.length > 0 ? stages : defaultHomeStages();
-  const hasHomeDefault = stages.some((stage) => ['预付款', '中期款', '竣工款'].includes(stage.name));
-  if (!hasHomeDefault) return stages.length > 0 ? stages : defaultCommercialStages();
-  const warranty = stages.find((stage) => stage.name === '质保金');
-  const warrantyAmount = warranty?.amount || 0;
-  const receiptAmount = Math.max(0, stages.reduce((sum, stage) => sum + (stage.amount || 0), 0) - warrantyAmount);
-  return [
-    { name: '回款', amount: receiptAmount, ratio: 0 },
-    { name: '质保金', amount: warrantyAmount, ratio: 0 },
-  ];
+  if (stages.length > 0) return stages;
+  return contract.bizType === '工装' ? defaultCommercialStages() : defaultHomeStages();
+}
+
+function isSameContractDoc(a: Contract, b: Contract) {
+  const aDocId = a._id || a.id;
+  const bDocId = b._id || b.id;
+  return aDocId === bDocId || a.id === b.id || (!!a._id && a._id === b.id) || (!!b._id && b._id === a.id);
 }
 
 const CONTRACT_FILE_FOLDERS = ['合同资料', '合同文件夹'];
@@ -187,15 +185,24 @@ export default function ContractDetail() {
   const [directLoading, setDirectLoading] = useState(false);
 
   useEffect(() => {
-    if (contract || !id) return;
+    if (!id) return;
     let cancelled = false;
-    setDirectLoading(true);
+    if (!contract) setDirectLoading(true);
     (async () => {
       try {
         const direct = await contractsAPI.doc(id).get();
         const found = direct || (await contractsAPI.where({ id }).toArray())[0];
         if (found && !cancelled) {
-          setDirectContract(found as Contract);
+          const latestContract = found as Contract;
+          setDirectContract(latestContract);
+          if (canViewFinance) {
+            useFinanceStore.setState((state) => ({
+              contracts: state.contracts.some((item) => isSameContractDoc(item, latestContract))
+                ? state.contracts.map((item) => (isSameContractDoc(item, latestContract) ? latestContract : item))
+                : [latestContract, ...state.contracts],
+              loadedDatasets: Array.from(new Set([...state.loadedDatasets, 'contracts'])),
+            }));
+          }
           const contractKey = found.id || found._id;
           if (contractKey && !canViewFinance) {
             const foundReceipts = await receiptsAPI.where({ contractId: contractKey }).toArray();
@@ -209,7 +216,7 @@ export default function ContractDetail() {
       }
     })();
     return () => { cancelled = true; };
-  }, [canViewFinance, contract, id]);
+  }, [canViewFinance, id]);
 
   useEffect(() => {
     if (!contract) {
@@ -415,13 +422,17 @@ export default function ContractDetail() {
   };
 
   const saveContractChanges = async (nextContract: Contract) => {
+    const payload = {
+      ...nextContract,
+      updatedAt: new Date().toISOString(),
+    };
     if (canViewFinance) {
-      await updateContract(nextContract);
-      setDirectContract(nextContract);
+      await updateContract(payload);
+      setDirectContract(payload);
       return;
     }
-    await contractsAPI.put(nextContract);
-    setDirectContract(nextContract);
+    await contractsAPI.put(payload);
+    setDirectContract(payload);
   };
 
   const handleEditSave = async () => {
