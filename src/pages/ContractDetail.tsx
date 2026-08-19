@@ -17,6 +17,7 @@ import { getAttachmentSummary, normalizeAttachments, uploadFinanceAttachments, m
 import { useDialogStore } from '@/store/dialogStore';
 import { getCurrentReturnPath, useSmartBack } from '@/hooks/useSmartBack';
 import { Users } from 'lucide-react';
+import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
 
 const QUOTATION_STATUS_CLASS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-500',
@@ -161,7 +162,7 @@ export default function ContractDetail() {
   } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { showAlert, showConfirm } = useDialogStore();
-  const { user } = useAuthStore();
+  const { user, users, loadUsers } = useAuthStore();
   const canViewFinance = canViewFinancialData(user?.roles, user?.role);
   const isAdmin = hasRole(user?.roles, 'admin', user?.role);
   const addUploadTasks = useUploadQueueStore(s => s.addTasks);
@@ -186,6 +187,10 @@ export default function ContractDetail() {
     return directMatches ? directContract : contracts.find((c) => c.id === id || (c as any)._id === id) || directContract;
   }, [contracts, directContract, id]);
   const [directLoading, setDirectLoading] = useState(false);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   useEffect(() => {
     if (!id) return;
@@ -325,6 +330,8 @@ export default function ContractDetail() {
   const [stageForm, setStageForm] = useState<PaymentStage[]>([]);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null);
+  const [reverseReceipt, setReverseReceipt] = useState<Receipt | null>(null);
+  const [reverseReason, setReverseReason] = useState('');
   const [receiptDefaultStage, setReceiptDefaultStage] = useState('');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -355,6 +362,11 @@ export default function ContractDetail() {
     quotationDate: new Date().toISOString().slice(0, 10),
     attachments: [] as string[],
   });
+
+  const adminUserIds = useMemo(() => users
+    .filter((u: any) => u.role === 'admin' && u.status !== 'inactive' && u.isActive !== false)
+    .map((u: any) => String(u._id || u.id || '').trim())
+    .filter(Boolean), [users]);
 
   const initEditForm = () => {
     if (!contract) return;
@@ -466,6 +478,71 @@ export default function ContractDetail() {
     }
     await contractsAPI.put(payload);
     setDirectContract(payload);
+  };
+
+  const openEditReceipt = (receipt: Receipt) => {
+    setEditingReceipt(receipt);
+    setShowReceiptModal(true);
+  };
+
+  const openReverseReceipt = (receipt: Receipt) => {
+    setReverseReceipt(receipt);
+    setReverseReason('');
+  };
+
+  const handleReverseReceipt = async () => {
+    if (!reverseReceipt) return;
+    const reason = reverseReason.trim();
+    if (!reason) {
+      await showAlert('收款冲销必须填写原因。');
+      return;
+    }
+    const confirmed = await showConfirm(
+      `客户：${reverseReceipt.customerName || '-'}\n金额：${formatMoney(reverseReceipt.amount || 0)}`,
+      { title: '确认冲销该收款记录吗？', confirmStyle: 'danger', confirmText: '确认冲销' },
+    );
+    if (!confirmed) return;
+    try {
+      const now = new Date().toISOString();
+      const operatorName = user?.name || '';
+      const next = {
+        ...reverseReceipt,
+        lifecycleStatus: 'reversed',
+        reversedAt: now,
+        reversedBy: operatorName,
+        reverseReason: reason,
+      } as any;
+      await updateReceipt(next);
+      await recordFinanceAuditAction({
+        module: 'receipt',
+        action: 'reverse',
+        recordId: String((reverseReceipt as any)._id || reverseReceipt.id),
+        recordName: `${reverseReceipt.customerName || '-'}-${reverseReceipt.stage || '收款'}`,
+        bizType: currentBizType,
+        amount: reverseReceipt.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName,
+        before: reverseReceipt,
+        after: next,
+      });
+      await notifyFinanceAuditAction({
+        module: 'receipt',
+        action: 'reverse',
+        recordId: String((reverseReceipt as any)._id || reverseReceipt.id),
+        recordName: `${reverseReceipt.customerName || '-'}-${reverseReceipt.stage || '收款'}`,
+        bizType: currentBizType,
+        amount: reverseReceipt.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName,
+        recipientUserIds: adminUserIds,
+      });
+      setReverseReceipt(null);
+      setReverseReason('');
+    } catch (error: any) {
+      await showAlert('冲销失败：' + (error?.message || '未知错误'));
+    }
   };
 
   const handleEditSave = async () => {
@@ -952,14 +1029,13 @@ export default function ContractDetail() {
       width: '150px',
       render: (r: Receipt) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
+          <button onClick={() => openEditReceipt(r)} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
           {canViewFinance ? (
             <button
-              onClick={() => navigate(`/income?focus=${encodeURIComponent(String((r as any)._id || r.id))}`)}
+              onClick={() => openReverseReceipt(r)}
               className="text-xs text-red-500 hover:text-red-600"
-              title="到收入管理页冲销"
             >
-              去处理
+              冲销
             </button>
           ) : null}
         </div>
@@ -1005,17 +1081,6 @@ export default function ContractDetail() {
               await useFinanceStore.getState().updateReceipt({ ...r, attachments: newAttachments });
             }}
           />
-          <div className="flex items-center gap-3">
-            <button onClick={() => { setEditingReceipt(r); setShowReceiptModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
-            {canViewFinance ? (
-              <button
-                onClick={() => navigate(`/income?focus=${encodeURIComponent(String((r as any)._id || r.id))}`)}
-                className="text-xs font-medium text-red-500 hover:text-red-600"
-              >
-                去处理
-              </button>
-            ) : null}
-          </div>
         </div>
       ),
     },
@@ -1676,6 +1741,49 @@ export default function ContractDetail() {
           setDirectReceipts(prev => prev.map(item => item.id === receipt.id ? receipt : item));
         }}
       />
+      <Modal
+        open={!!reverseReceipt}
+        onClose={() => { setReverseReceipt(null); setReverseReason(''); }}
+        title="冲销收款记录"
+        size="sm"
+      >
+        {reverseReceipt && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-600">
+              冲销后该记录不再计入收款汇总，但会保留原始记录和操作痕迹。
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              <div>客户：<span className="font-medium text-gray-900">{reverseReceipt.customerName || '-'}</span></div>
+              <div className="mt-1">金额：<span className="font-medium text-emerald-600">{formatMoney(reverseReceipt.amount || 0)}</span></div>
+              <div className="mt-1">阶段：<span className="font-medium text-gray-900">{reverseReceipt.stage || '-'}</span></div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-500">冲销原因</label>
+              <textarea
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                rows={3}
+                className="erp-input min-h-[90px] resize-none"
+                placeholder="请填写冲销原因，便于后续查账"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => { setReverseReceipt(null); setReverseReason(''); }}
+                className="erp-btn-secondary"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleReverseReceipt}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
+              >
+                确认冲销
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
       {canViewFinance && (
         <>
           <ExpenseFormModal
@@ -1734,6 +1842,18 @@ export default function ContractDetail() {
             emptyText="暂无收款记录"
             rowKey={(r) => String(r.id)}
             mobileCardColumns={receiptMobileColumns}
+            mobileSwipeActions={[
+              {
+                label: '编辑',
+                onClick: openEditReceipt,
+                className: 'bg-gold-500 text-white active:bg-gold-600',
+              },
+              ...(canViewFinance ? [{
+                label: '冲销',
+                onClick: openReverseReceipt,
+                className: 'bg-red-500 text-white active:bg-red-600',
+              }] : []),
+            ]}
             compactEmpty
           />
         </div>

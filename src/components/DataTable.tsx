@@ -2,6 +2,13 @@ import { Column } from '@/types';
 import { useRef, useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 
+interface SwipeAction<T> {
+  label: string;
+  onClick: (row: T) => void;
+  className?: string;
+  width?: number;
+}
+
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
@@ -16,6 +23,8 @@ interface DataTableProps<T> {
   canDelete?: (row: T) => boolean;
   /** 移动端卡片模式下显示的列（传数字取前 N 列，传数组用指定列） */
   mobileCardColumns?: number | Column<T>[];
+  /** 移动端卡片左滑操作按钮 */
+  mobileSwipeActions?: SwipeAction<T>[];
   /** 需要固定在左侧的列数，默认固定第一列 */
   fixedLeft?: number;
   /** 移动端固定在左侧的列数，默认与 fixedLeft 一致；传 0 则移动端整表跟手横滑 */
@@ -42,6 +51,7 @@ export default function DataTable<T>({
   emptyText = '暂无数据',
   sortField, sortOrder, onSort, rowKey,
   mobileCardColumns,
+  mobileSwipeActions,
   fixedLeft = 1,
   mobileFixedLeft = fixedLeft,
   mobileTruncateWidth = 160,
@@ -215,34 +225,50 @@ export default function DataTable<T>({
           {data.map((row, idx) => {
             const key = getRowKey(row, idx);
             const isSwipeOpen = openSwipeKey === key;
-            const rowCanDelete = Boolean(onDelete && (!canDelete || canDelete(row)));
+            const actions: SwipeAction<T>[] = mobileSwipeActions && mobileSwipeActions.length > 0
+              ? mobileSwipeActions
+              : onDelete && (!canDelete || canDelete(row))
+                ? [{
+                  label: '删除',
+                  onClick: onDelete,
+                  className: 'bg-red-500 text-white active:bg-red-600',
+                }]
+                : [];
+            const swipeWidth = actions.reduce((total, action) => total + (action.width || 88), 0);
+            const rowCanSwipe = actions.length > 0;
             return (
               <div key={key} className="relative overflow-hidden bg-white">
-                {rowCanDelete && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenSwipeKey(null);
-                      onDelete(row);
-                    }}
-                    className="absolute inset-y-0 right-0 w-[88px] bg-red-500 text-white flex flex-col items-center justify-center gap-1 text-xs font-medium active:bg-red-600"
-                    aria-label="删除"
-                  >
-                    <Trash2 size={18} />
-                    删除
-                  </button>
+                {rowCanSwipe && (
+                  <div className="absolute inset-y-0 right-0 flex" style={{ width: `${swipeWidth}px` }}>
+                    {actions.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenSwipeKey(null);
+                          action.onClick(row);
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1 text-xs font-medium ${action.className || 'bg-gray-900 text-white active:bg-gray-800'}`}
+                        style={{ width: `${action.width || 88}px` }}
+                        aria-label={action.label}
+                      >
+                        {action.label === '删除' ? <Trash2 size={18} /> : null}
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
                 <div
                   className={`px-4 py-3 bg-white active:bg-gray-50 transition-transform duration-200 ease-out ${onRowClick ? 'cursor-pointer' : ''}`}
-                  style={{ transform: rowCanDelete && isSwipeOpen ? 'translateX(-88px)' : 'translateX(0)' }}
+                  style={{ transform: rowCanSwipe && isSwipeOpen ? `translateX(-${swipeWidth}px)` : 'translateX(0)' }}
                   onTouchStart={(e) => {
-                    if (!rowCanDelete) return;
+                    if (!rowCanSwipe) return;
                     const touch = e.touches[0];
                     touchStartRef.current = { x: touch.clientX, y: touch.clientY, key };
                   }}
                   onTouchMove={(e) => {
-                    if (!rowCanDelete || touchStartRef.current?.key !== key) return;
+                    if (!rowCanSwipe || touchStartRef.current?.key !== key) return;
                     const touch = e.touches[0];
                     const dx = touch.clientX - touchStartRef.current.x;
                     const dy = touch.clientY - touchStartRef.current.y;
@@ -252,7 +278,7 @@ export default function DataTable<T>({
                     }
                   }}
                   onTouchEnd={(e) => {
-                    if (!rowCanDelete || touchStartRef.current?.key !== key) return;
+                    if (!rowCanSwipe || touchStartRef.current?.key !== key) return;
                     const touch = e.changedTouches[0];
                     const dx = touch.clientX - touchStartRef.current.x;
                     const dy = touch.clientY - touchStartRef.current.y;
