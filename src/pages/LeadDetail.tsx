@@ -17,7 +17,6 @@ import { useBizStore } from '@/store/bizStore';
 import { useDialogStore } from '@/store/dialogStore';
 import { useUploadQueueStore } from '@/store/uploadQueueStore';
 import { formatDate, formatDateTime, generateId } from '@/utils/format';
-import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
 import { getCurrentReturnPath, useSmartBack } from '@/hooks/useSmartBack';
 import { downloadAttachment, openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
@@ -1907,13 +1906,6 @@ export default function LeadDetail() {
     const validUrls = urls.filter(Boolean);
     if (validUrls.length === 0) return;
     const safeIndex = Math.max(0, Math.min(currentIndex, validUrls.length - 1));
-
-    if (openNativeMediaPreview(
-      validUrls.map(url => ({ url, type: 'image' })),
-      safeIndex,
-    )) {
-      return;
-    }
 
     setPreviewImageList(validUrls);
     setPreviewImageIndex(safeIndex);

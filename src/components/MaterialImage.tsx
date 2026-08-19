@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image as ImageIcon, Loader2 } from 'lucide-react';
 import { getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
-import { isMiniProgramWebView, openNativeMediaPreview } from '@/utils/miniProgramPreview';
+import { isMiniProgramWebView } from '@/utils/miniProgramPreview';
 
 type Props = {
   fileID?: string;
@@ -71,10 +71,6 @@ export default function MaterialImage({ fileID = '', alt = '材料图片', class
     if (!fileID || failed) return;
 
     try {
-      if (isMiniProgramWebView()) {
-        if (openNativeMediaPreview([{ url: fileID, type: 'image' }], 0)) return;
-      }
-
       const previewUrl = import.meta.env.DEV && fileID.startsWith('cloud://')
         ? await getFileDataURL(fileID, 'original')
         : url || fileID;

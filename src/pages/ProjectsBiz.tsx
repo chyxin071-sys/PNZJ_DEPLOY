@@ -21,7 +21,6 @@ import Select from '@/components/Select';
 import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 import { uploadFile as uploadToCloud } from '@/utils/cloudStorage';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
-import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
 import { usePageScrollRestore } from '@/hooks/useListViewportState';
 import {
   buildProjectProgressSummary,
@@ -893,7 +892,6 @@ export default function ProjectsBiz() {
     const resolved = images.map(resolveCloudImageSrc).filter(Boolean);
     if (resolved.length === 0) return;
     const safeIndex = Math.max(0, Math.min(index, resolved.length - 1));
-    if (openNativeMediaPreview(resolved.map(url => ({ url, type: 'image' })), safeIndex)) return;
     setCraftPreview({ images: resolved, index: safeIndex });
   };
 

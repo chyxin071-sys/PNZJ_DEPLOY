@@ -1,6 +1,6 @@
 import { uploadFile, getTempFileURL } from './cloudStorage';
 import { formatSize } from './format';
-import { isMiniProgramWebView, openNativeFile, openNativeMediaPreview } from './miniProgramPreview';
+import { isMiniProgramWebView, openNativeFile } from './miniProgramPreview';
 import type { AttachmentValue, FileAttachment } from '@/types';
 
 export function getAttachmentFileType(name: string): string {
@@ -123,12 +123,7 @@ export async function openAttachment(file: AttachmentValue): Promise<void> {
     const url = await resolveAttachmentUrl(attachment);
     if (!url) throw new Error('未获取到附件地址');
 
-    if (attachment.type === 'image' || attachment.type === 'video') {
-      if (openNativeMediaPreview([{
-        url,
-        type: attachment.type === 'video' ? 'video' : 'image',
-      }])) return;
-    } else if (openNativeFile(url, sanitizeDownloadName(attachment.name), 'open')) {
+    if (attachment.type !== 'image' && attachment.type !== 'video' && openNativeFile(url, sanitizeDownloadName(attachment.name), 'open')) {
       return;
     }
 

@@ -5,7 +5,6 @@ import { cloudApp } from '@/db/cloudbase';
 import { DEFAULT_TEMPLATES, buildNodesFromTemplate, makeId } from '@/config/constructionTemplates';
 import { uploadFile as uploadToCloud } from '@/utils/cloudStorage';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
-import { openNativeMediaPreview } from '@/utils/miniProgramPreview';
 import { useSmartBack } from '@/hooks/useSmartBack';
 
 const TEMPLATE_DOC_ID = 'default_project_template';
@@ -86,7 +85,6 @@ export default function TemplateLibrary() {
     const resolved = images.map(resolveCloudImageSrc).filter(Boolean);
     if (resolved.length === 0) return;
     const safeIndex = Math.max(0, Math.min(index, resolved.length - 1));
-    if (openNativeMediaPreview(resolved.map(url => ({ url, type: 'image' })), safeIndex)) return;
     setCraftPreview({ images: resolved, index: safeIndex });
   };
   const [loading, setLoading] = useState(true);
