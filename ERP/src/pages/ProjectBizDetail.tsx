@@ -14,7 +14,6 @@ import type { ProjectLog, ProjectInspection } from '@/types';
 import { cloudDB, cloudApp } from '@/db/cloudbase';
 import { uploadFile as uploadToCloud, getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
 import { formatDate, generateId } from '@/utils/format';
-import { openNativeMediaPreview, isMiniProgramWebView } from '@/utils/miniProgramPreview';
 import { openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
 import ContractDrawer from '@/components/ContractDrawer';
@@ -94,7 +93,6 @@ type PreviewMediaItem = {
   deleteContext?: PreviewDeleteContext;
 };
 
-type PreviewViewer = 'auto' | 'web';
 
 function MediaThumb({ src, className }: { src: string; className?: string }) {
   if (!isVideoMedia(src)) return <CloudImage src={src} className={className} />;
@@ -466,7 +464,6 @@ export default function ProjectBizDetail() {
     photo: any;
     allPhotos: any[];
     deleteContext: PreviewDeleteContext | null;
-    viewer: PreviewViewer;
   } | null>(null);
   const currentPhotoDeleteContext = previewImages[previewIndex]?.deleteContext || null;
 
@@ -1640,25 +1637,18 @@ export default function ProjectBizDetail() {
     photo: any,
     allPhotos: any[] = [photo],
     deleteContext: PreviewDeleteContext | null = null,
-    viewer: PreviewViewer = 'web',
   ) => {
     if (isPreviewLoading) return;
     setIsPreviewLoading(true);
     setPreviewError('');
-    previewRequestRef.current = { photo, allPhotos, deleteContext, viewer };
-    
-    const isMiniProgram = isMiniProgramWebView();
-    const forceWebViewer = viewer === 'web';
-    
-    if (!isMiniProgram || forceWebViewer) {
-      setPreviewImages([{
-        url: '',
-        isVideo: isVideoMedia(photo),
-        ...(deleteContext ? { deleteContext } : {}),
-      }]);
-      setPreviewIndex(0);
-      setShowPreviewModal(true);
-    }
+    previewRequestRef.current = { photo, allPhotos, deleteContext };
+    setPreviewImages([{
+      url: '',
+      isVideo: isVideoMedia(photo),
+      ...(deleteContext ? { deleteContext } : {}),
+    }]);
+    setPreviewIndex(0);
+    setShowPreviewModal(true);
     
     try {
       const previewSources = allPhotos.map((p: any, originalIndex: number) => {
@@ -1669,24 +1659,6 @@ export default function ProjectBizDetail() {
       }).filter(Boolean) as { photo: any; rawUrl: string; source: string; originalIndex: number }[];
 
       const targetSource = mediaSourceOf(photo);
-
-      if (isMiniProgram && !forceWebViewer && previewSources.length > 0) {
-        let targetIndex = previewSources.findIndex(item => (
-          item.photo === photo || (!!targetSource && mediaSourceOf(item.photo) === targetSource)
-        ));
-        if (targetIndex < 0) targetIndex = 0;
-
-        const nativeOpened = openNativeMediaPreview(previewSources.map(item => ({
-          url: item.source,
-          type: item.photo.type === 'video' || VIDEO_MEDIA_PATTERN.test(item.rawUrl) ? 'video' : 'image',
-        })), targetIndex);
-
-        if (nativeOpened) {
-          setShowPreviewModal(false);
-          setIsPreviewLoading(false);
-          return;
-        }
-      }
 
       const cloudSources = Array.from(new Set(previewSources.filter(item => item.source.startsWith('cloud://')).map(item => item.source)));
       const tempUrlMap = cloudSources.length > 0 ? await Promise.race([
@@ -1723,24 +1695,14 @@ export default function ProjectBizDetail() {
       }
 
       if (images.length > 0) {
-        if (isMiniProgram && !forceWebViewer) {
-          console.warn('[ProjectBizDetail] 原生预览不可用，跳过');
-          setIsPreviewLoading(false);
-          return;
-        }
         setPreviewImages(images);
         setPreviewIndex(targetIndex);
       }
       setIsPreviewLoading(false);
     } catch (e) {
       console.error(e);
-      if (isMiniProgram && !forceWebViewer) {
-        // 小程序环境：静默失败，不弹alert
-        setIsPreviewLoading(false);
-      } else {
-        setPreviewError(e instanceof Error ? e.message : '获取预览链接失败');
-        setIsPreviewLoading(false);
-      }
+      setPreviewError(e instanceof Error ? e.message : '获取预览链接失败');
+      setIsPreviewLoading(false);
     }
   };
 
@@ -2523,14 +2485,6 @@ export default function ProjectBizDetail() {
     }
   };
 
-  const openCurrentPreviewInWechat = () => {
-    const nativeOpened = openNativeMediaPreview(previewImages.map(item => ({
-      url: item.source || item.url,
-      type: item.isVideo ? 'video' : 'image',
-      poster: item.poster,
-    })), previewIndex);
-    if (!nativeOpened) setPreviewError('微信预览暂不可用，请使用当前查看器');
-  };
   const openWorkerScheduleModal = () => {
     const fallbackDate = todayDateValue();
     setWorkerScheduleForm({
@@ -3761,7 +3715,6 @@ export default function ProjectBizDetail() {
                                                       p,
                                                       photos,
                                                       canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null,
-                                                      'web',
                                                     );
                                                   }} className="relative h-full w-full overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
@@ -4385,7 +4338,6 @@ export default function ProjectBizDetail() {
                                                       p,
                                                       photos,
                                                       canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null,
-                                                      'web',
                                                     );
                                                   }} className="relative w-full h-full rounded-[5px] bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
                                                     {p.isUploading ? (
@@ -4409,7 +4361,7 @@ export default function ProjectBizDetail() {
                                               const isVideo = p.type === 'video' || (p.url && !!p.url.match(/\.(mp4|mov|avi)$/i));
                                               return (
                                                 <div key={pi} className="relative group">
-                                                  <button onClick={() => { if (!p.isUploading) openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null, 'web'); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
+                                                  <button onClick={() => { if (!p.isUploading) openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null); }} className="h-14 w-14 overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
                                                     ) : isVideo ? (
@@ -4631,7 +4583,7 @@ export default function ProjectBizDetail() {
                             {log.photos.map((photo, idx) => {
                               const isVideo = isVideoMedia(photo);
                               return (
-                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: isVideoMedia(p) ? 'video' : 'image' })), null, 'web')} className="relative aspect-square min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 md:h-16 md:w-16">
+                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: isVideoMedia(p) ? 'video' : 'image' })))} className="relative aspect-square min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 md:h-16 md:w-16">
                                 {isVideo
                                   ? <CloudVideo src={photo as string} className="h-full w-full object-cover" />
                                   : <CloudImage src={photo as string} className="h-full w-full object-cover" />}
@@ -5201,17 +5153,6 @@ export default function ProjectBizDetail() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span className="hidden sm:inline">下载</span>
             </button>
-            {isMiniProgramWebView() && (
-              <button
-                type="button"
-                onClick={openCurrentPreviewInWechat}
-                className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/20 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
-                title="使用微信原生预览"
-                aria-label="使用微信原生预览"
-              >
-                <ExternalLink size={16} /> <span className="hidden sm:inline">微信预览</span>
-              </button>
-            )}
             <button
               onClick={() => setShowPreviewModal(false)}
               className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
@@ -5255,7 +5196,7 @@ export default function ProjectBizDetail() {
                     const request = previewRequestRef.current;
                     if (!request) return;
                     setIsPreviewLoading(false);
-                    void openPreview(request.photo, request.allPhotos, request.deleteContext, request.viewer);
+                    void openPreview(request.photo, request.allPhotos, request.deleteContext);
                   }}
                 >
                   重新加载
@@ -5397,7 +5338,7 @@ export default function ProjectBizDetail() {
                 <div className="flex flex-wrap gap-2">
                   {newLogForm.photos.map((p, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <button type="button" onClick={() => openPreview({ fileID: p }, newLogForm.photos.map(fileID => ({ fileID })), null, 'web')} className="h-full w-full">
+                      <button type="button" onClick={() => openPreview({ fileID: p }, newLogForm.photos.map(fileID => ({ fileID })))} className="h-full w-full">
                         <CloudImage src={p} className="w-full h-full object-cover" />
                       </button>
                       <button type="button" onClick={() => setNewLogForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
