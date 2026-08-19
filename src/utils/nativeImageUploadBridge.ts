@@ -153,6 +153,9 @@ function dispatchNativeFiles(
     if (item.size && item.size > file.size) {
       Object.defineProperty(file, 'size', { value: item.size });
     }
+    if (item.previewDataURL) {
+      Object.defineProperty(file, '__pnzjPreviewDataURL', { value: item.previewDataURL });
+    }
     const uploadResult = item.fileID
       ? Promise.resolve({ fileID: item.fileID })
       : completion?.then((completed) => {

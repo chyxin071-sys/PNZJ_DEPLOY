@@ -196,6 +196,10 @@ function CloudVideo({ src, className, poster }: { src: string, className?: strin
     return () => { cancelled = true; };
   }, [src]);
 
+  if (videoUrl.startsWith('data:image/')) {
+    return <img src={videoUrl} className={className} alt="视频缩略图" loading="lazy" decoding="async" />;
+  }
+
   if (validPoster) return <img src={validPoster} className={className} alt="视频缩略图" loading="lazy" decoding="async" />;
 
   if (videoUrl) {
@@ -205,7 +209,13 @@ function CloudVideo({ src, className, poster }: { src: string, className?: strin
         className={className}
         muted
         playsInline
-        preload="metadata"
+        preload="auto"
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          if (Number.isFinite(video.duration) && video.duration > 0 && video.currentTime < 0.1) {
+            video.currentTime = Math.min(0.1, video.duration / 2);
+          }
+        }}
       />
     );
   }

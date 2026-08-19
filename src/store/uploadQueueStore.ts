@@ -35,6 +35,8 @@ interface UploadQueueState {
 const makeTaskId = () => `upload_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const makePreviewUrl = (file: File) => {
+  const nativePreview = (file as File & { __pnzjPreviewDataURL?: string }).__pnzjPreviewDataURL;
+  if (nativePreview) return nativePreview;
   if (typeof URL === 'undefined' || !file.type.match(/^(image|video)\//)) return undefined;
   try {
     return URL.createObjectURL(file);
@@ -44,7 +46,7 @@ const makePreviewUrl = (file: File) => {
 };
 
 const revokePreviewUrl = (task?: UploadTask) => {
-  if (!task?.previewUrl || typeof URL === 'undefined') return;
+  if (!task?.previewUrl || task.previewUrl.startsWith('data:') || typeof URL === 'undefined') return;
   try {
     URL.revokeObjectURL(task.previewUrl);
   } catch {

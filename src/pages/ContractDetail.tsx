@@ -76,6 +76,33 @@ function isContractFileFolder(folderName?: string) {
   return CONTRACT_FILE_FOLDERS.includes(String(folderName || '').trim());
 }
 
+function UploadingAttachmentThumb({ file }: { file: any }) {
+  const type = String(file.type || '');
+  const src = String(file.previewUrl || '');
+  if (!file.isUploading || !src) return <Paperclip size={14} className="text-gray-400 shrink-0" />;
+  if (type.startsWith('image/') || src.startsWith('data:image/')) {
+    return <img src={src} alt="上传中" className="h-9 w-9 shrink-0 rounded-lg object-cover" />;
+  }
+  if (type.startsWith('video/')) {
+    return (
+      <video
+        src={src}
+        className="h-9 w-9 shrink-0 rounded-lg object-cover"
+        muted
+        playsInline
+        preload="auto"
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          if (Number.isFinite(video.duration) && video.duration > 0 && video.currentTime < 0.1) {
+            video.currentTime = Math.min(0.1, video.duration / 2);
+          }
+        }}
+      />
+    );
+  }
+  return <Paperclip size={14} className="text-gray-400 shrink-0" />;
+}
+
 function mergeAttachmentsByFileId(items: Array<FileAttachment & Record<string, any>>) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -1461,11 +1488,7 @@ export default function ContractDetail() {
                   className="relative flex items-center justify-between gap-3 overflow-hidden bg-white px-3 py-3 text-sm text-gray-700"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    {file.isUploading && file.previewUrl && String(file.type || '').startsWith('image/') ? (
-                      <img src={file.previewUrl} alt="上传中" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-                    ) : (
-                      <Paperclip size={14} className="text-gray-400 shrink-0" />
-                    )}
+                    <UploadingAttachmentThumb file={file} />
                     <div className="min-w-0">
                       <div className="truncate font-medium text-gray-800">{file.name}</div>
                       <div className="mt-0.5 text-xs text-gray-400">

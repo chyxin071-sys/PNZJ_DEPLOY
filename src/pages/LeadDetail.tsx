@@ -94,6 +94,31 @@ function FileTy({ type, size = 14 }: { type: string; size?: number }) {
   }
 }
 
+function UploadingMediaThumb({ type, src, alt, className }: { type: string; src?: string; alt?: string; className?: string }) {
+  if (!src) return <FileTy type={type} size={18} />;
+  if (type === 'image' || src.startsWith('data:image/')) {
+    return <img src={src} alt={alt || '上传中'} className={className} />;
+  }
+  if (type === 'video') {
+    return (
+      <video
+        src={src}
+        className={className}
+        muted
+        playsInline
+        preload="auto"
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          if (Number.isFinite(video.duration) && video.duration > 0 && video.currentTime < 0.1) {
+            video.currentTime = Math.min(0.1, video.duration / 2);
+          }
+        }}
+      />
+    );
+  }
+  return <FileTy type={type} size={18} />;
+}
+
 function UploadingItemOverlay({
   item,
   onRetry,
@@ -2306,7 +2331,7 @@ export default function LeadDetail() {
   const returnToLeads = (location.state as { from?: string } | null)?.from || '/leads';
   const renderMobileFileRow = (file: any) => {
     const fType = file.type || getFileType(file.name);
-    const fThumb = fType === 'image' ? (file.isUploading ? file.previewUrl : fileImgUrls[file.fileID]) : null;
+    const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : null;
     return (
       <div
         key={file.fileID}
@@ -2315,7 +2340,7 @@ export default function LeadDetail() {
       >
         <div className="flex items-center gap-3 py-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50">
-            {fThumb ? <img src={fThumb} alt={file.name} className="h-full w-full object-cover" /> : <FileTy type={fType} size={18} />}
+            {fThumb ? <UploadingMediaThumb type={fType} src={fThumb} alt={file.name} className="h-full w-full object-cover" /> : <FileTy type={fType} size={18} />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-medium text-gray-900">{file.name}</div>
@@ -3029,8 +3054,8 @@ export default function LeadDetail() {
                                               ? 'bg-purple-50 text-purple-500'
                                               : 'bg-violet-50 text-violet-500'
                                       }`}>
-                                        {fileType === 'image' && f.previewUrl ? (
-                                          <img src={f.previewUrl} alt="上传中" className="h-full w-full object-cover" />
+                                        {f.isUploading && f.previewUrl ? (
+                                          <UploadingMediaThumb type={fileType} src={f.previewUrl} alt={f.name} className="h-full w-full object-cover" />
                                         ) : fileType === 'image' ? <ImageIcon size={20} /> : ext}
                                       </span>
                                       <span className="min-w-0 flex-1">
@@ -3561,14 +3586,14 @@ export default function LeadDetail() {
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                                   {folderFiles.map((file: any) => {
                                      const fType = file.type || getFileType(file.name);
-                                     const fThumb = fType === 'image' ? (file.isUploading ? file.previewUrl : fileImgUrls[file.fileID]) : null;
+                                     const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : null;
                                      return (
                                        <div key={file.fileID}
                                          className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
                                          onClick={() => { if (isMobile && !file.isUploading) void openManagedFile(file); }}>
                                          <div className="w-full aspect-[4/3] rounded-lg bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
                                            {fThumb ? (
-                                             <img src={fThumb} alt={file.name} className="w-full h-full object-cover" />
+                                             <UploadingMediaThumb type={fType} src={fThumb} alt={file.name} className="w-full h-full object-cover" />
                                            ) : (
                                              <FileTy type={fType} size={24} />
                                            )}
@@ -3620,14 +3645,14 @@ export default function LeadDetail() {
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {filesInFolder.map((file: any) => {
                             const sType = file.type || getFileType(file.name);
-                            const sThumb = sType === 'image' ? (file.isUploading ? file.previewUrl : fileImgUrls[file.fileID]) : null;
+                            const sThumb = file.isUploading ? file.previewUrl : sType === 'image' ? fileImgUrls[file.fileID] : null;
                             return (
                               <div key={file.fileID}
                                 className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
                                 onClick={() => { if (isMobile && !file.isUploading) void openManagedFile(file); }}>
                                 <div className="w-full aspect-[4/3] rounded-lg bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
                                   {sThumb ? (
-                                    <img src={sThumb} alt={file.name} className="w-full h-full object-cover" />
+                                    <UploadingMediaThumb type={sType} src={sThumb} alt={file.name} className="w-full h-full object-cover" />
                                   ) : (
                                     <FileTy type={sType} size={24} />
                                   )}
