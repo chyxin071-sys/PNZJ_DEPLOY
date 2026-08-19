@@ -332,6 +332,7 @@ export default function ContractDetail() {
   const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null);
   const [reverseReceipt, setReverseReceipt] = useState<Receipt | null>(null);
   const [reverseReason, setReverseReason] = useState('');
+  const [reverseSubmitting, setReverseSubmitting] = useState(false);
   const [receiptDefaultStage, setReceiptDefaultStage] = useState('');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -491,7 +492,7 @@ export default function ContractDetail() {
   };
 
   const handleReverseReceipt = async () => {
-    if (!reverseReceipt) return;
+    if (!reverseReceipt || reverseSubmitting) return;
     const reason = reverseReason.trim();
     if (!reason) {
       await showAlert('收款冲销必须填写原因。');
@@ -502,6 +503,7 @@ export default function ContractDetail() {
       { title: '确认冲销该收款记录吗？', confirmStyle: 'danger', confirmText: '确认冲销' },
     );
     if (!confirmed) return;
+    setReverseSubmitting(true);
     try {
       const now = new Date().toISOString();
       const operatorName = user?.name || '';
@@ -542,6 +544,8 @@ export default function ContractDetail() {
       setReverseReason('');
     } catch (error: any) {
       await showAlert('冲销失败：' + (error?.message || '未知错误'));
+    } finally {
+      setReverseSubmitting(false);
     }
   };
 
@@ -1743,7 +1747,11 @@ export default function ContractDetail() {
       />
       <Modal
         open={!!reverseReceipt}
-        onClose={() => { setReverseReceipt(null); setReverseReason(''); }}
+        onClose={() => {
+          if (reverseSubmitting) return;
+          setReverseReceipt(null);
+          setReverseReason('');
+        }}
         title="冲销收款记录"
         size="sm"
       >
@@ -1762,23 +1770,27 @@ export default function ContractDetail() {
               <textarea
                 value={reverseReason}
                 onChange={(e) => setReverseReason(e.target.value)}
+                disabled={reverseSubmitting}
                 rows={3}
-                className="erp-input min-h-[90px] resize-none"
+                className="erp-input min-h-[90px] resize-none disabled:opacity-60"
                 placeholder="请填写冲销原因，便于后续查账"
               />
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <button
                 onClick={() => { setReverseReceipt(null); setReverseReason(''); }}
-                className="erp-btn-secondary"
+                disabled={reverseSubmitting}
+                className="erp-btn-secondary disabled:opacity-50"
               >
                 取消
               </button>
               <button
                 onClick={handleReverseReceipt}
-                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
+                disabled={reverseSubmitting}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                确认冲销
+                {reverseSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                {reverseSubmitting ? '冲销中...' : '确认冲销'}
               </button>
             </div>
           </div>
