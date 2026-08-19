@@ -94,6 +94,13 @@ type PreviewMediaItem = {
   deleteContext?: PreviewDeleteContext;
 };
 
+const clampPreviewZoom = (value: number) => Math.min(4, Math.max(1, value));
+const touchDistance = (touches: React.TouchList) => {
+  if (touches.length < 2) return 0;
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+};
 
 function MediaThumb({ src, className }: { src: string; className?: string }) {
   if (!isVideoMedia(src)) return <CloudImage src={src} className={className} />;
@@ -461,6 +468,8 @@ export default function ProjectBizDetail() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
   const previewHistoryPushedRef = useRef(false);
   const previewRequestRef = useRef<{
     photo: any;
@@ -495,6 +504,13 @@ export default function ProjectBizDetail() {
   const logFileInputRef = useRef<HTMLInputElement>(null);
   const logSwipeStartX = useRef<number | null>(null);
   const previewSwipeStartX = useRef<number | null>(null);
+  const previewGestureRef = useRef({
+    mode: 'idle' as 'idle' | 'swipe' | 'pan' | 'pinch',
+    lastX: 0,
+    lastY: 0,
+    startDistance: 0,
+    startZoom: 1,
+  });
   
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [newInspectionForm, setNewInspectionForm] = useState({ title: '', status: '合格', description: '', photos: [] as string[] });
@@ -584,6 +600,12 @@ export default function ProjectBizDetail() {
       document.body.style.overflow = previousOverflow;
     };
   }, [showPreviewModal]);
+
+  useEffect(() => {
+    setPreviewZoom(1);
+    setPreviewOffset({ x: 0, y: 0 });
+    previewGestureRef.current.mode = 'idle';
+  }, [previewIndex, showPreviewModal]);
 
   const getProjectDocId = useCallback((source?: any) => {
     const rawId = source?._docId || source?._id || source?.id || id;
@@ -5139,7 +5161,7 @@ export default function ProjectBizDetail() {
       {/* 画廊预览弹窗 */}
       {showPreviewModal && previewImages.length > 0 && createPortal(
         <div
-          className="fixed inset-0 bg-black/90 z-[300] isolate flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black z-[300] isolate flex items-center justify-center overflow-hidden"
           onClick={closePreviewModal}
         >
           <div
@@ -5200,10 +5222,78 @@ export default function ProjectBizDetail() {
           )}
 
           <div
-            className="w-full max-w-4xl max-h-[85vh] flex items-center justify-center touch-pan-y"
+            className="flex h-[100dvh] w-screen items-center justify-center overflow-hidden"
             onClick={(e) => e.stopPropagation()}
-            onTouchStart={(event) => { previewSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
+            onWheel={(event) => {
+              if (previewImages[previewIndex]?.isVideo) return;
+              event.stopPropagation();
+              setPreviewZoom((current) => {
+                const next = clampPreviewZoom(current + (event.deltaY < 0 ? 0.25 : -0.25));
+                if (next === 1) setPreviewOffset({ x: 0, y: 0 });
+                return next;
+              });
+            }}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              if (previewImages[previewIndex]?.isVideo) return;
+              setPreviewOffset({ x: 0, y: 0 });
+              setPreviewZoom((current) => current > 1 ? 1 : 2.5);
+            }}
+            onTouchStart={(event) => {
+              event.stopPropagation();
+              if (previewImages[previewIndex]?.isVideo) return;
+              if (event.touches.length >= 2) {
+                previewGestureRef.current = {
+                  mode: 'pinch',
+                  lastX: 0,
+                  lastY: 0,
+                  startDistance: touchDistance(event.touches),
+                  startZoom: previewZoom,
+                };
+                previewSwipeStartX.current = null;
+                return;
+              }
+              const touch = event.touches[0];
+              previewSwipeStartX.current = touch?.clientX ?? null;
+              previewGestureRef.current = {
+                mode: previewZoom > 1 ? 'pan' : 'swipe',
+                lastX: touch?.clientX ?? 0,
+                lastY: touch?.clientY ?? 0,
+                startDistance: 0,
+                startZoom: previewZoom,
+              };
+            }}
+            onTouchMove={(event) => {
+              if (previewImages[previewIndex]?.isVideo) return;
+              const gesture = previewGestureRef.current;
+              if (gesture.mode === 'pinch' && event.touches.length >= 2) {
+                event.preventDefault();
+                event.stopPropagation();
+                const distance = touchDistance(event.touches);
+                const nextZoom = clampPreviewZoom(gesture.startZoom * (distance / Math.max(1, gesture.startDistance)));
+                setPreviewZoom(nextZoom);
+                if (nextZoom === 1) setPreviewOffset({ x: 0, y: 0 });
+                return;
+              }
+              if (gesture.mode === 'pan' && event.touches.length === 1) {
+                event.preventDefault();
+                event.stopPropagation();
+                const touch = event.touches[0];
+                const dx = touch.clientX - gesture.lastX;
+                const dy = touch.clientY - gesture.lastY;
+                previewGestureRef.current.lastX = touch.clientX;
+                previewGestureRef.current.lastY = touch.clientY;
+                setPreviewOffset((current) => ({ x: current.x + dx, y: current.y + dy }));
+              }
+            }}
             onTouchEnd={(event) => {
+              event.stopPropagation();
+              const gestureMode = previewGestureRef.current.mode;
+              previewGestureRef.current.mode = 'idle';
+              if (gestureMode !== 'swipe' || previewZoom > 1) {
+                previewSwipeStartX.current = null;
+                return;
+              }
               const startX = previewSwipeStartX.current;
               previewSwipeStartX.current = null;
               if (startX === null || previewImages.length < 2) return;
@@ -5243,13 +5333,19 @@ export default function ProjectBizDetail() {
                 autoPlay
                 playsInline
                 preload="metadata"
-                className="max-w-full max-h-[85vh]"
+                className="h-full max-h-[100dvh] w-full max-w-screen object-contain"
               />
             ) : (
               <img
                 src={previewImages[previewIndex].url}
                 alt="预览"
-                className="max-w-full max-h-[85vh] object-contain shadow-2xl"
+                className="max-h-[100dvh] max-w-screen select-none object-contain"
+                draggable={false}
+                style={{
+                  transform: `translate3d(${previewOffset.x}px, ${previewOffset.y}px, 0) scale(${previewZoom})`,
+                  transition: previewGestureRef.current.mode === 'idle' ? 'transform 160ms ease-out' : 'none',
+                  touchAction: 'none',
+                }}
                 onError={async () => {
                   const current = previewImages[previewIndex];
                   if (!current?.source || current.url.startsWith('data:')) {
