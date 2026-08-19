@@ -56,9 +56,13 @@ interface ReceiptFormModalProps {
   onDirectUpdate?: (receipt: Receipt) => Promise<void>;
   /** 是否为简化模式（从客户详情页打开，合同固定） */
   compact?: boolean;
+  /** 隐藏合同阶段收款进度摘要 */
+  hidePaymentSummary?: boolean;
+  /** 固定当前阶段，适用于从合同阶段卡片直接收款 */
+  lockStage?: boolean;
 }
 
-export default function ReceiptFormModal({ open, onClose, defaultContractId, defaultStage, editingReceipt, onSuccess, defaultContract, receiptsOverride, onDirectAdd, onDirectUpdate, compact }: ReceiptFormModalProps) {
+export default function ReceiptFormModal({ open, onClose, defaultContractId, defaultStage, editingReceipt, onSuccess, defaultContract, receiptsOverride, onDirectAdd, onDirectUpdate, compact, hidePaymentSummary = false, lockStage = false }: ReceiptFormModalProps) {
   const { receipts, contracts, addReceipt, updateReceipt } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user } = useAuthStore();
@@ -214,6 +218,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
   };
 
   const warning = getAmountWarning();
+  const stageLocked = Boolean(lockStage && !editingReceipt && form.stageType === 'contract' && form.stage);
 
   const getContractProgress = (c: any) => {
     const contractReceipts = effectiveReceipts.filter(r => r.contractId === c.id);
@@ -362,7 +367,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         )}
 
         {/* 收款阶段进度 - compact模式不显示 */}
-        {!compact && contractPaymentInfo && (
+        {!compact && !hidePaymentSummary && contractPaymentInfo && (
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>合同总额 {formatMoney(contractPaymentInfo.totalAmount)}</span>
@@ -401,34 +406,43 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款阶段 *</label>
-            <div className="mb-2 grid grid-cols-2 rounded-md bg-gray-100 p-1">
-              {([
-                { value: 'contract', label: '合同阶段' },
-                { value: 'custom', label: '自定义阶段' },
-              ] as const).map((option) => (
-                <button key={option.value} type="button" onClick={() => setForm({ ...form, stageType: option.value, stage: '', amount: option.value === 'contract' ? '' : form.amount })}
-                  className={`rounded px-3 py-1.5 text-xs font-medium ${form.stageType === option.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            {form.stageType === 'contract' ? (
-              <Select value={form.stage} onChange={(v) => {
-                const stage = contractPaymentInfo?.stages.find(s => s.name === v);
-                const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
-                setForm({
-                  ...form,
-                  stage: v,
-                  amount: stage ? String(Math.max(stage.due, 0)) : form.amount,
-                  secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
-                  category: categoryChild?.name || v || form.category,
-                });
-              }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: `${s.name}（应收 ${formatMoney(s.amount)}）` }))} />
+            {stageLocked ? (
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-800">
+                {form.stage}
+              </div>
             ) : (
-              <input value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })} className="erp-input" placeholder="例如：临时补款、追加款" />
+              <>
+                <div className="mb-2 grid grid-cols-2 rounded-md bg-gray-100 p-1">
+                  {([
+                    { value: 'contract', label: '合同阶段' },
+                    { value: 'custom', label: '自定义阶段' },
+                  ] as const).map((option) => (
+                    <button key={option.value} type="button" onClick={() => setForm({ ...form, stageType: option.value, stage: '', amount: option.value === 'contract' ? '' : form.amount })}
+                      className={`rounded px-3 py-1.5 text-xs font-medium ${form.stageType === option.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {form.stageType === 'contract' ? (
+                  <Select value={form.stage} onChange={(v) => {
+                    const stage = contractPaymentInfo?.stages.find(s => s.name === v);
+                    const categoryChild = incomeCategories[0]?.children.find((child) => child.name === v);
+                    setForm({
+                      ...form,
+                      stage: v,
+                      amount: stage ? String(Math.max(stage.due, 0)) : form.amount,
+                      secondaryCategoryId: categoryChild?.id || form.secondaryCategoryId,
+                      category: categoryChild?.name || v || form.category,
+                    });
+                  }} options={(selectedContract?.paymentStages || []).map(s => ({ value: s.name, label: s.name }))} />
+                ) : (
+                  <input value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })} className="erp-input" placeholder="例如：临时补款、追加款" />
+                )}
+              </>
             )}
-            {form.stageType === 'custom' ? <p className="mt-1 text-[11px] text-gray-400">自定义阶段只计入实际收入，不进入合同收款计划。</p> : null}
+            {!stageLocked && form.stageType === 'custom' ? <p className="mt-1 text-[11px] text-gray-400">自定义阶段只计入实际收入，不进入合同收款计划。</p> : null}
           </div>
+          {!stageLocked && (
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">收入类别 *</label>
             <ExpenseCategoryPicker
@@ -444,6 +458,7 @@ export default function ReceiptFormModal({ open, onClose, defaultContractId, def
               })}
             />
           </div>
+          )}
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款金额 *</label>
             <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="erp-input" />

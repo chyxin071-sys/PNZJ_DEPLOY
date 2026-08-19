@@ -1735,6 +1735,8 @@ export default function ContractDetail() {
         defaultStage={receiptDefaultStage}
         editingReceipt={editingReceipt}
         defaultContract={{ ...contract, paymentStages: effectivePaymentStages }}
+        hidePaymentSummary
+        lockStage={Boolean(receiptDefaultStage)}
         receiptsOverride={canViewFinance ? undefined : contractReceipts}
         onDirectAdd={canViewFinance ? undefined : async (receipt) => {
           await receiptsAPI.add(receipt);
