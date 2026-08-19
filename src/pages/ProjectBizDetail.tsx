@@ -604,6 +604,8 @@ export default function ProjectBizDetail() {
   const [previewError, setPreviewError] = useState('');
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
+  const [previewDragX, setPreviewDragX] = useState(0);
+  const [isPreviewDragging, setIsPreviewDragging] = useState(false);
   const previewHistoryPushedRef = useRef(false);
   const previewRequestRef = useRef<{
     photo: any;
@@ -695,21 +697,30 @@ export default function ProjectBizDetail() {
     previewHistoryPushedRef.current = false;
     setShowPreviewModal(false);
   }, []);
+  const switchPreviewIndex = useCallback((direction: -1 | 1) => {
+    setPreviewDragX(0);
+    setIsPreviewDragging(false);
+    setPreviewIndex(prev => {
+      if (previewImages.length <= 1) return prev;
+      if (direction < 0) return prev > 0 ? prev - 1 : previewImages.length - 1;
+      return prev < previewImages.length - 1 ? prev + 1 : 0;
+    });
+  }, [previewImages.length]);
 
   useEffect(() => {
     if (!showPreviewModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closePreviewModal();
       if (e.key === 'ArrowLeft' && previewImages.length > 1) {
-        setPreviewIndex(prev => prev > 0 ? prev - 1 : previewImages.length - 1);
+        switchPreviewIndex(-1);
       }
       if (e.key === 'ArrowRight' && previewImages.length > 1) {
-        setPreviewIndex(prev => prev < previewImages.length - 1 ? prev + 1 : 0);
+        switchPreviewIndex(1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closePreviewModal, showPreviewModal, previewImages.length]);
+  }, [closePreviewModal, showPreviewModal, previewImages.length, switchPreviewIndex]);
 
   useEffect(() => {
     if (!showPreviewModal) return;
@@ -738,6 +749,8 @@ export default function ProjectBizDetail() {
   useEffect(() => {
     setPreviewZoom(1);
     setPreviewOffset({ x: 0, y: 0 });
+    setPreviewDragX(0);
+    setIsPreviewDragging(false);
     previewGestureRef.current.mode = 'idle';
   }, [previewIndex, showPreviewModal]);
 
@@ -5423,7 +5436,7 @@ export default function ProjectBizDetail() {
           
           {previewImages.length > 1 && (
             <button 
-              onClick={(e) => { e.stopPropagation(); setPreviewIndex((prev) => (prev > 0 ? prev - 1 : previewImages.length - 1)); }} 
+              onClick={(e) => { e.stopPropagation(); switchPreviewIndex(-1); }} 
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-4"
             >
               <ChevronLeft size={36} />
@@ -5450,8 +5463,21 @@ export default function ProjectBizDetail() {
             }}
             onTouchStart={(event) => {
               event.stopPropagation();
-              if (previewImages[previewIndex]?.isVideo) return;
+              if (previewImages[previewIndex]?.isVideo) {
+                const touch = event.touches[0];
+                previewSwipeStartX.current = touch?.clientX ?? null;
+                previewGestureRef.current = {
+                  mode: 'swipe',
+                  lastX: touch?.clientX ?? 0,
+                  lastY: touch?.clientY ?? 0,
+                  startDistance: 0,
+                  startZoom: 1,
+                };
+                return;
+              }
               if (event.touches.length >= 2) {
+                setPreviewDragX(0);
+                setIsPreviewDragging(false);
                 previewGestureRef.current = {
                   mode: 'pinch',
                   lastX: 0,
@@ -5473,8 +5499,8 @@ export default function ProjectBizDetail() {
               };
             }}
             onTouchMove={(event) => {
-              if (previewImages[previewIndex]?.isVideo) return;
               const gesture = previewGestureRef.current;
+              if (previewImages[previewIndex]?.isVideo && gesture.mode !== 'swipe') return;
               if (gesture.mode === 'pinch' && event.touches.length >= 2) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -5494,11 +5520,26 @@ export default function ProjectBizDetail() {
                 previewGestureRef.current.lastY = touch.clientY;
                 setPreviewOffset((current) => ({ x: current.x + dx, y: current.y + dy }));
               }
+              if (gesture.mode === 'swipe' && event.touches.length === 1 && previewImages.length > 1) {
+                const touch = event.touches[0];
+                const startX = previewSwipeStartX.current;
+                if (startX === null) return;
+                const dx = touch.clientX - startX;
+                const dy = touch.clientY - gesture.lastY;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setIsPreviewDragging(true);
+                  setPreviewDragX(dx);
+                }
+              }
             }}
             onTouchEnd={(event) => {
               event.stopPropagation();
               const gestureMode = previewGestureRef.current.mode;
               previewGestureRef.current.mode = 'idle';
+              setIsPreviewDragging(false);
+              setPreviewDragX(0);
               if (gestureMode !== 'swipe' || previewZoom > 1) {
                 previewSwipeStartX.current = null;
                 return;
@@ -5507,8 +5548,8 @@ export default function ProjectBizDetail() {
               previewSwipeStartX.current = null;
               if (startX === null || previewImages.length < 2) return;
               const delta = (event.changedTouches[0]?.clientX ?? startX) - startX;
-              if (delta < -44) setPreviewIndex(prev => prev < previewImages.length - 1 ? prev + 1 : 0);
-              if (delta > 44) setPreviewIndex(prev => prev > 0 ? prev - 1 : previewImages.length - 1);
+              if (delta < -44) switchPreviewIndex(1);
+              if (delta > 44) switchPreviewIndex(-1);
             }}
           >
             {previewError ? (
@@ -5533,50 +5574,77 @@ export default function ProjectBizDetail() {
                 <Loader2 className="w-12 h-12 animate-spin mb-4" />
                 <p className="text-sm">加载中...</p>
               </div>
-            ) : previewImages[previewIndex].isVideo ? (
-              <PreviewVideo
-                src={previewImages[previewIndex].url}
-                poster={previewImages[previewIndex].poster}
-              />
             ) : (
-              <img
-                src={previewImages[previewIndex].url}
-                alt="预览"
-                className="max-h-[100dvh] max-w-screen select-none object-contain"
-                draggable={false}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  closePreviewModal();
-                }}
-                style={{
-                  transform: `translate3d(${previewOffset.x}px, ${previewOffset.y}px, 0) scale(${previewZoom})`,
-                  transition: previewGestureRef.current.mode === 'idle' ? 'transform 160ms ease-out' : 'none',
-                  touchAction: 'none',
-                }}
-                onError={async () => {
-                  const current = previewImages[previewIndex];
-                  if (!current?.source || current.url.startsWith('data:')) {
-                    setPreviewError('图片加载失败，请重新获取访问地址');
-                    return;
-                  }
-                  setIsPreviewLoading(true);
-                  try {
-                    const dataUrl = await getFileDataURL(current.source);
-                    setPreviewImages(items => items.map((item, index) => index === previewIndex ? { ...item, url: dataUrl } : item));
-                    setPreviewError('');
-                  } catch (error) {
-                    setPreviewError(error instanceof Error ? error.message : '云端读取图片失败');
-                  } finally {
-                    setIsPreviewLoading(false);
-                  }
-                }}
-              />
+              <div className="h-[100dvh] w-screen overflow-hidden">
+                <div
+                  className="flex h-full"
+                  style={{
+                    width: `${previewImages.length * 100}%`,
+                    transform: `translate3d(calc(${-previewIndex * (100 / previewImages.length)}% + ${previewDragX}px), 0, 0)`,
+                    transition: isPreviewDragging ? 'none' : 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                >
+                  {previewImages.map((item, idx) => (
+                    <div
+                      key={`${item.url || item.source || idx}-${idx}`}
+                      className="flex h-full items-center justify-center"
+                      style={{ width: `${100 / previewImages.length}%` }}
+                    >
+                      {idx === previewIndex && item.isVideo ? (
+                        <PreviewVideo src={item.url} poster={item.poster} />
+                      ) : item.isVideo ? (
+                        item.poster ? (
+                          <img src={item.poster} alt="视频封面" className="max-h-[100dvh] max-w-screen select-none object-contain" draggable={false} />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-black">
+                            <PlayCircle className="h-14 w-14 text-white/50" />
+                          </div>
+                        )
+                      ) : (
+                        <img
+                          src={item.url}
+                          alt="预览"
+                          className="max-h-[100dvh] max-w-screen select-none object-contain"
+                          draggable={false}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (idx === previewIndex) closePreviewModal();
+                          }}
+                          style={idx === previewIndex ? {
+                            transform: `translate3d(${previewOffset.x}px, ${previewOffset.y}px, 0) scale(${previewZoom})`,
+                            transition: previewGestureRef.current.mode === 'idle' ? 'transform 160ms ease-out' : 'none',
+                            touchAction: 'none',
+                          } : undefined}
+                          onError={async () => {
+                            if (idx !== previewIndex) return;
+                            const current = previewImages[previewIndex];
+                            if (!current?.source || current.url.startsWith('data:')) {
+                              setPreviewError('图片加载失败，请重新获取访问地址');
+                              return;
+                            }
+                            setIsPreviewLoading(true);
+                            try {
+                              const dataUrl = await getFileDataURL(current.source);
+                              setPreviewImages(items => items.map((previewItem, index) => index === previewIndex ? { ...previewItem, url: dataUrl } : previewItem));
+                              setPreviewError('');
+                            } catch (error) {
+                              setPreviewError(error instanceof Error ? error.message : '云端读取图片失败');
+                            } finally {
+                              setIsPreviewLoading(false);
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
           {previewImages.length > 1 && (
             <button 
-              onClick={(e) => { e.stopPropagation(); setPreviewIndex((prev) => (prev < previewImages.length - 1 ? prev + 1 : 0)); }} 
+              onClick={(e) => { e.stopPropagation(); switchPreviewIndex(1); }} 
               className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-4"
             >
               <ChevronRight size={36} />

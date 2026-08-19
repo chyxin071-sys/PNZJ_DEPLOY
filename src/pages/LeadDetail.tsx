@@ -8,6 +8,7 @@ import { uploadFile as uploadToCloud, getTempFileURL, getFileDataURL, downloadFi
 import DatePicker from '@/components/DatePicker';
 import BottomDrawer from '@/components/BottomDrawer';
 import ContractDrawer from '@/components/ContractDrawer';
+import ImagePreviewModal from '@/components/ImagePreviewModal';
 import ReceiptFormModal from '@/components/ReceiptFormModal';
 import ExpenseFormModal from '@/components/ExpenseFormModal';
 import { useAuthStore } from '@/store/authStore';
@@ -4681,41 +4682,20 @@ export default function LeadDetail() {
         document.body
       )}
 
-      {/* Image Preview Overlay */}
-      {previewUrl && createPortal(
-        <div className="fixed inset-0 bg-black/85 z-[60] flex items-center justify-center p-4" onClick={() => { setPreviewUrl(null); setPreviewImageList([]); }}>
-          <div className="relative max-w-[92vw] max-h-[92vh] flex items-center" onClick={e => e.stopPropagation()}>
-            <button onClick={() => { setPreviewUrl(null); setPreviewImageList([]); }}
-              className="absolute -top-10 right-0 w-8 h-8 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 z-10 transition-colors border border-white/10">
-              <X size={16} className="text-white" />
-            </button>
-            {previewImageList.length > 1 && (
-              <>
-                <button onClick={() => {
-                  const newIdx = previewImageIndex > 0 ? previewImageIndex - 1 : previewImageList.length - 1;
-                  setPreviewImageIndex(newIdx);
-                  setPreviewUrl(previewImageList[newIdx]);
-                }}
-                  className="absolute -left-12 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/10">
-                  <ChevronRight size={20} className="rotate-180 text-white" />
-                </button>
-                <button onClick={() => {
-                  const newIdx = previewImageIndex < previewImageList.length - 1 ? previewImageIndex + 1 : 0;
-                  setPreviewImageIndex(newIdx);
-                  setPreviewUrl(previewImageList[newIdx]);
-                }}
-                  className="absolute -right-12 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/10">
-                  <ChevronRight size={20} className="text-white" />
-                </button>
-                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-white/60 text-xs">
-                  {previewImageIndex + 1} / {previewImageList.length}
-                </div>
-              </>
-            )}
-            <img src={previewUrl} alt="预览" className="max-w-full max-h-[92vh] rounded-xl object-contain shadow-2xl" />
-          </div>
-        </div>,
-        document.body
+      {previewUrl && (
+        <ImagePreviewModal
+          images={previewImageList.length > 0 ? previewImageList : [previewUrl]}
+          index={previewImageIndex}
+          onIndexChange={(newIdx) => {
+            setPreviewImageIndex(newIdx);
+            setPreviewUrl((previewImageList.length > 0 ? previewImageList : [previewUrl])[newIdx] || null);
+          }}
+          onClose={() => {
+            setPreviewUrl(null);
+            setPreviewImageList([]);
+          }}
+          layerClassName="z-[60]"
+        />
       )}
 
       {showCelebration && createPortal(

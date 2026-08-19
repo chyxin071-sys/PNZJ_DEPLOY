@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   images: string[];
@@ -12,6 +12,9 @@ interface Props {
 
 export default function ImagePreviewModal({ images, index, onIndexChange, onClose, layerClassName = 'z-[80]' }: Props) {
   const historyPushedRef = useRef(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (images.length === 0 || typeof window === 'undefined') return;
@@ -32,8 +35,14 @@ export default function ImagePreviewModal({ images, index, onIndexChange, onClos
   if (images.length === 0) return null;
 
   const safeIndex = Math.max(0, Math.min(index, images.length - 1));
-  const previous = () => onIndexChange(safeIndex > 0 ? safeIndex - 1 : images.length - 1);
-  const next = () => onIndexChange(safeIndex < images.length - 1 ? safeIndex + 1 : 0);
+  const previous = () => {
+    setDragX(0);
+    onIndexChange(safeIndex > 0 ? safeIndex - 1 : images.length - 1);
+  };
+  const next = () => {
+    setDragX(0);
+    onIndexChange(safeIndex < images.length - 1 ? safeIndex + 1 : 0);
+  };
   const closePreview = () => {
     if (historyPushedRef.current && typeof window !== 'undefined' && window.location.hash === '#image-preview') {
       historyPushedRef.current = false;
@@ -64,8 +73,56 @@ export default function ImagePreviewModal({ images, index, onIndexChange, onClos
         </button>
       )}
 
-      <div className="flex max-h-[90vh] max-w-[92vw] items-center justify-center">
-        <img src={images[safeIndex]} alt="图片预览" className="max-h-[90vh] max-w-full rounded-lg object-contain shadow-2xl" />
+      <div
+        className="h-[90vh] w-[92vw] overflow-hidden"
+        onClick={(event) => event.stopPropagation()}
+        onTouchStart={(event) => {
+          if (images.length <= 1) return;
+          const touch = event.touches[0];
+          touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+          setIsDragging(true);
+        }}
+        onTouchMove={(event) => {
+          if (!touchStartRef.current || images.length <= 1) return;
+          const touch = event.touches[0];
+          const dx = touch.clientX - touchStartRef.current.x;
+          const dy = touch.clientY - touchStartRef.current.y;
+          if (Math.abs(dx) > Math.abs(dy)) {
+            event.preventDefault();
+            setDragX(dx);
+          }
+        }}
+        onTouchEnd={(event) => {
+          if (!touchStartRef.current || images.length <= 1) {
+            setIsDragging(false);
+            return;
+          }
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - touchStartRef.current.x;
+          const dy = touch.clientY - touchStartRef.current.y;
+          touchStartRef.current = null;
+          setIsDragging(false);
+          setDragX(0);
+          if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+            if (dx < 0) next();
+            else previous();
+          }
+        }}
+      >
+        <div
+          className="flex h-full"
+          style={{
+            width: `${images.length * 100}%`,
+            transform: `translate3d(calc(${-safeIndex * (100 / images.length)}% + ${dragX}px), 0, 0)`,
+            transition: isDragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+        >
+          {images.map((src, idx) => (
+            <div key={`${src}-${idx}`} className="flex h-full items-center justify-center" style={{ width: `${100 / images.length}%` }}>
+              <img src={src} alt="图片预览" className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl" draggable={false} />
+            </div>
+          ))}
+        </div>
       </div>
 
       {images.length > 1 && (
