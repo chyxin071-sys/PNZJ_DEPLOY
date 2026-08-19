@@ -14,7 +14,6 @@ import type { ProjectLog, ProjectInspection } from '@/types';
 import { cloudDB, cloudApp } from '@/db/cloudbase';
 import { uploadFile as uploadToCloud, getFileDataURL, getTempFileURL } from '@/utils/cloudStorage';
 import { formatDate, generateId } from '@/utils/format';
-import { openNativeMediaPreview, isMiniProgramWebView } from '@/utils/miniProgramPreview';
 import { openAttachment } from '@/utils/financeAttachments';
 import { openCustomerShare } from '@/utils/customerShare';
 import ContractDrawer from '@/components/ContractDrawer';
@@ -78,6 +77,22 @@ const toPreviewMedia = (item: any) => ({
   fileID: mediaSourceOf(item),
   type: isVideoMedia(item) ? 'video' : 'image',
 });
+
+type PreviewDeleteContext = {
+  nodeId: string;
+  secIdx: number;
+  subIdx: number;
+  photoIdx: number;
+};
+
+type PreviewMediaItem = {
+  url: string;
+  isVideo: boolean;
+  poster?: string;
+  source?: string;
+  deleteContext?: PreviewDeleteContext;
+};
+
 
 function MediaThumb({ src, className }: { src: string; className?: string }) {
   if (!isVideoMedia(src)) return <CloudImage src={src} className={className} />;
@@ -440,7 +455,7 @@ export default function ProjectBizDetail() {
   const [targetSubNodeId, setTargetSubNodeId] = useState<string | null>(null);
 
   // Gallery Preview State
-  const [previewImages, setPreviewImages] = useState<{url: string, isVideo: boolean, poster?: string, source?: string}[]>([]);
+  const [previewImages, setPreviewImages] = useState<PreviewMediaItem[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -448,23 +463,9 @@ export default function ProjectBizDetail() {
   const previewRequestRef = useRef<{
     photo: any;
     allPhotos: any[];
-    deleteContext: { nodeId: string; secIdx: number; subIdx: number; photoIdx: number } | null;
+    deleteContext: PreviewDeleteContext | null;
   } | null>(null);
-  const [nodePhotoAction, setNodePhotoAction] = useState<{
-    photo: any;
-    photos: any[];
-    nodeId: string;
-    secIdx: number;
-    subIdx: number;
-    photoIdx: number;
-    canDelete: boolean;
-  } | null>(null);
-  const [currentPhotoDeleteContext, setCurrentPhotoDeleteContext] = useState<{
-    nodeId: string;
-    secIdx: number;
-    subIdx: number;
-    photoIdx: number;
-  } | null>(null);
+  const currentPhotoDeleteContext = previewImages[previewIndex]?.deleteContext || null;
 
   const [editingSubNode, setEditingSubNode] = useState<{ nodeId: string; sectionIdx: number; subIdx: number } | null>(null);
   const [editSubNodeForm, setEditSubNodeForm] = useState({ name: '', type: DEFAULT_NODE_TYPE, standard: '', checklist: '' });
@@ -547,6 +548,15 @@ export default function ProjectBizDetail() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showPreviewModal, previewImages.length]);
+
+  useEffect(() => {
+    if (!showPreviewModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showPreviewModal]);
 
   const getProjectDocId = useCallback((source?: any) => {
     const rawId = source?._docId || source?._id || source?.id || id;
@@ -1623,49 +1633,32 @@ export default function ProjectBizDetail() {
     setTargetSubNodeId(null);
   };
 
-  const openPreview = async (photo: any, allPhotos: any[] = [photo], deleteContext: { nodeId: string; secIdx: number; subIdx: number; photoIdx: number } | null = null) => {
+  const openPreview = async (
+    photo: any,
+    allPhotos: any[] = [photo],
+    deleteContext: PreviewDeleteContext | null = null,
+  ) => {
     if (isPreviewLoading) return;
     setIsPreviewLoading(true);
     setPreviewError('');
     previewRequestRef.current = { photo, allPhotos, deleteContext };
-    
-    const isMiniProgram = isMiniProgramWebView();
-    
-    // 非小程序环境：立即显示web弹窗（加载中状态）
-    if (!isMiniProgram) {
-      setPreviewImages([{ url: '', isVideo: false }]);
-      setPreviewIndex(0);
-      setCurrentPhotoDeleteContext(deleteContext);
-      setShowPreviewModal(true);
-    }
+    setPreviewImages([{
+      url: '',
+      isVideo: isVideoMedia(photo),
+      ...(deleteContext ? { deleteContext } : {}),
+    }]);
+    setPreviewIndex(0);
+    setShowPreviewModal(true);
     
     try {
-      const previewSources = allPhotos.map((p: any) => {
+      const previewSources = allPhotos.map((p: any, originalIndex: number) => {
         const rawUrl = p.url || p.fileID;
         if (!rawUrl) return null;
         const source = normalizeCloudMediaSource(rawUrl);
-        return { photo: p, rawUrl, source };
-      }).filter(Boolean) as { photo: any; rawUrl: string; source: string }[];
+        return { photo: p, rawUrl, source, originalIndex };
+      }).filter(Boolean) as { photo: any; rawUrl: string; source: string; originalIndex: number }[];
 
       const targetSource = mediaSourceOf(photo);
-
-      if (isMiniProgram && previewSources.length > 0) {
-        let targetIndex = previewSources.findIndex(item => (
-          item.photo === photo || (!!targetSource && mediaSourceOf(item.photo) === targetSource)
-        ));
-        if (targetIndex < 0) targetIndex = 0;
-
-        const nativeOpened = openNativeMediaPreview(previewSources.map(item => ({
-          url: item.source,
-          type: item.photo.type === 'video' || VIDEO_MEDIA_PATTERN.test(item.rawUrl) ? 'video' : 'image',
-        })), targetIndex);
-
-        if (nativeOpened) {
-          setShowPreviewModal(false);
-          setIsPreviewLoading(false);
-          return;
-        }
-      }
 
       const cloudSources = Array.from(new Set(previewSources.filter(item => item.source.startsWith('cloud://')).map(item => item.source)));
       const tempUrlMap = cloudSources.length > 0 ? await Promise.race([
@@ -1690,6 +1683,9 @@ export default function ProjectBizDetail() {
           url: finalUrl,
           isVideo,
           source: item.source,
+          ...(deleteContext ? {
+            deleteContext: { ...deleteContext, photoIdx: item.originalIndex },
+          } : {}),
           ...(isVideo ? { poster: normalizeVideoPoster(p.poster || p.thumbUrl || p.thumbTempFilePath) } : {}),
         });
 
@@ -1699,24 +1695,14 @@ export default function ProjectBizDetail() {
       }
 
       if (images.length > 0) {
-        if (isMiniProgram) {
-          console.warn('[ProjectBizDetail] 原生预览不可用，跳过');
-          setIsPreviewLoading(false);
-          return;
-        }
         setPreviewImages(images);
         setPreviewIndex(targetIndex);
       }
       setIsPreviewLoading(false);
     } catch (e) {
       console.error(e);
-      if (isMiniProgram) {
-        // 小程序环境：静默失败，不弹alert
-        setIsPreviewLoading(false);
-      } else {
-        setPreviewError(e instanceof Error ? e.message : '获取预览链接失败');
-        setIsPreviewLoading(false);
-      }
+      setPreviewError(e instanceof Error ? e.message : '获取预览链接失败');
+      setIsPreviewLoading(false);
     }
   };
 
@@ -2498,6 +2484,7 @@ export default function ProjectBizDetail() {
       }
     }
   };
+
   const openWorkerScheduleModal = () => {
     const fallbackDate = todayDateValue();
     setWorkerScheduleForm({
@@ -3724,13 +3711,11 @@ export default function ProjectBizDetail() {
                                                   <div key={pi} className="relative aspect-square min-w-0">
                                                   <button onClick={() => {
                                                     if (p.isUploading) return;
-                                                    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-                                                    const isSecCompleted = section.status === 'completed' || section.submitted;
-                                                    if (canEditRecord && isMobile && !isSecCompleted) {
-                                                      setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
-                                                    } else {
-                                                      openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null);
-                                                    }
+                                                    openPreview(
+                                                      p,
+                                                      photos,
+                                                      canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null,
+                                                    );
                                                   }} className="relative h-full w-full overflow-hidden rounded-[5px] border border-gray-200 bg-gray-100 flex items-center justify-center">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
@@ -4349,13 +4334,11 @@ export default function ProjectBizDetail() {
                                                 <div key={pi} className="relative group aspect-square">
                                                   <button onClick={() => {
                                                     if (p.isUploading) return;
-                                                    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-                                                    const isSecCompleted = section.status === 'completed' || section.submitted;
-                                                    if (canEditRecord && isMobile && !isSecCompleted) {
-                                                      setNodePhotoAction({ photo: p, photos, nodeId: node._id, secIdx, subIdx, photoIdx: pi, canDelete: canEditRecord });
-                                                    } else {
-                                                      openPreview(p, photos, canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null);
-                                                    }
+                                                    openPreview(
+                                                      p,
+                                                      photos,
+                                                      canEditRecord ? { nodeId: node._id, secIdx, subIdx, photoIdx: pi } : null,
+                                                    );
                                                   }} className="relative w-full h-full rounded-[5px] bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
                                                     {p.isUploading ? (
                                                       <ImageIcon className="h-5 w-5 text-gray-300" />
@@ -5126,54 +5109,28 @@ export default function ProjectBizDetail() {
         document.body
       )}
 
-      {nodePhotoAction && createPortal(
-        <div className="fixed inset-0 z-[75] flex items-end bg-black/30 md:items-center md:p-6" onClick={() => setNodePhotoAction(null)}>
-          <div className="w-full overflow-hidden rounded-t-2xl bg-white shadow-xl md:rounded-2xl md:max-w-sm" onClick={e => e.stopPropagation()}>
-            {/* 拖拽条 */}
-            <div className="mx-auto mt-3 h-1 w-16 rounded-full bg-gray-300 md:hidden"></div>
-            
-            <button
-              type="button"
-              onClick={() => {
-                openPreview(nodePhotoAction.photo, nodePhotoAction.photos, { nodeId: nodePhotoAction.nodeId, secIdx: nodePhotoAction.secIdx, subIdx: nodePhotoAction.subIdx, photoIdx: nodePhotoAction.photoIdx });
-                setNodePhotoAction(null);
-              }}
-              className="w-full px-4 py-4 text-center text-base font-medium text-gray-800 hover:bg-gray-50 border-b border-gray-100"
-            >
-              预览大图
-            </button>
-            {nodePhotoAction.canDelete && (
-              <button
-                type="button"
-                onClick={() => {
-                  deletePhoto(nodePhotoAction.nodeId, nodePhotoAction.secIdx, nodePhotoAction.subIdx, nodePhotoAction.photoIdx);
-                  setNodePhotoAction(null);
-                }}
-                className="w-full px-4 py-4 text-center text-base font-medium text-red-600 hover:bg-red-50"
-              >
-                删除图片
-              </button>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* 画廊预览弹窗 */}
       {showPreviewModal && previewImages.length > 0 && createPortal(
-        <div className="fixed inset-0 bg-black/90 z-[300] isolate flex items-center justify-center p-4">
-          <div className="absolute top-4 right-4 z-[310] flex items-center gap-3 md:top-5 md:right-5">
+        <div
+          className="fixed inset-0 bg-black/90 z-[300] isolate flex items-center justify-center p-4"
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <div
+            className="absolute top-3 right-3 z-[310] flex items-center gap-2 sm:top-5 sm:right-5"
+            onClick={(event) => event.stopPropagation()}
+          >
             {currentPhotoDeleteContext && (
               <button 
                 onClick={() => {
                   if (!currentPhotoDeleteContext) return;
                   deletePhoto(currentPhotoDeleteContext.nodeId, currentPhotoDeleteContext.secIdx, currentPhotoDeleteContext.subIdx, currentPhotoDeleteContext.photoIdx);
                   setShowPreviewModal(false);
-                  setCurrentPhotoDeleteContext(null);
                 }}
-                className="px-4 py-2 bg-red-500/80 text-white rounded-lg hover:bg-red-600/80 backdrop-blur-sm transition-colors text-sm font-medium flex items-center gap-2"
+                className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-red-500/80 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-red-600/80 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+                title="删除当前媒体"
+                aria-label="删除当前媒体"
               >
-                <Trash2 size={16} /> 删除
+                <Trash2 size={16} /> <span className="hidden sm:inline">删除</span>
               </button>
             )}
             <button 
@@ -5189,13 +5146,20 @@ export default function ProjectBizDetail() {
                 a.click();
                 document.body.removeChild(a);
               }}
-              className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 backdrop-blur-sm transition-colors text-sm font-medium flex items-center gap-2"
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/20 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+              title="下载当前媒体"
+              aria-label="下载当前媒体"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              下载
+              <span className="hidden sm:inline">下载</span>
             </button>
-            <button onClick={() => { setShowPreviewModal(false); setCurrentPhotoDeleteContext(null); }} className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 backdrop-blur-sm transition-colors text-sm font-medium flex items-center gap-2">
-              <X size={16} /> 关闭
+            <button
+              onClick={() => setShowPreviewModal(false)}
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+              title="关闭预览"
+              aria-label="关闭预览"
+            >
+              <X size={16} /> <span className="hidden sm:inline">关闭</span>
             </button>
           </div>
           
@@ -5244,12 +5208,21 @@ export default function ProjectBizDetail() {
                 <p className="text-sm">加载中...</p>
               </div>
             ) : previewImages[previewIndex].isVideo ? (
-              <video src={previewImages[previewIndex].url} poster={previewImages[previewIndex].poster} controls autoPlay className="max-w-full max-h-[85vh] rounded-lg" />
+              <video
+                key={previewImages[previewIndex].url}
+                src={previewImages[previewIndex].url}
+                poster={previewImages[previewIndex].poster}
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                className="max-w-full max-h-[85vh]"
+              />
             ) : (
               <img
                 src={previewImages[previewIndex].url}
                 alt="预览"
-                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                className="max-w-full max-h-[85vh] object-contain shadow-2xl"
                 onError={async () => {
                   const current = previewImages[previewIndex];
                   if (!current?.source || current.url.startsWith('data:')) {
