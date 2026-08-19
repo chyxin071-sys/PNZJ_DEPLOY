@@ -149,6 +149,7 @@ export default function ContractDetail() {
     updateContract,
     deleteContract,
     updateReceipt,
+    deleteReceipt,
     updateExpense,
     addInvoice,
     updateInvoice,
@@ -408,16 +409,46 @@ export default function ContractDetail() {
   const handleStageSave = async () => {
     if (!contract) return;
     const amount = contract.contractAmount || 0;
+    const previousStageNames = new Set(effectivePaymentStages.map((stage) => stage.name.trim()).filter(Boolean));
     const stages = stageForm
       .filter((stage) => stage.name.trim())
       .map((stage) => {
         const stageAmount = parseMoneyInput(stage.amount);
         return { ...stage, name: stage.name.trim(), amount: stageAmount, ratio: amount > 0 ? stageAmount / amount : 0 };
       });
+    const nextStageNames = new Set(stages.map((stage) => stage.name));
+    const removedStageNames = Array.from(previousStageNames).filter((stageName) => !nextStageNames.has(stageName));
+    const receiptsToDelete = removedStageNames.length > 0
+      ? contractReceipts.filter((receipt) => removedStageNames.includes(String(receipt.stage || '').trim()) && receipt.stageType !== 'custom')
+      : [];
+
+    if (receiptsToDelete.length > 0) {
+      const totalDeleteAmount = receiptsToDelete.reduce((sum, receipt) => sum + (receipt.amount || 0), 0);
+      const confirmed = await showConfirm(
+        `删除这些收款阶段后，将同时删除对应的 ${receiptsToDelete.length} 条收款记录，合计 ${formatMoney(totalDeleteAmount)}。确认继续吗？`,
+        {
+          title: '确认删除收款记录',
+          confirmText: '确认删除',
+          cancelText: '取消',
+          confirmStyle: 'danger',
+        },
+      );
+      if (!confirmed) return;
+    }
+
     await saveContractChanges({
       ...contract,
       paymentStages: stages.length > 0 ? stages : (contract.bizType === '工装' ? defaultCommercialStages() : defaultHomeStages()),
     });
+    for (const receipt of receiptsToDelete) {
+      if (canViewFinance) {
+        await deleteReceipt(String((receipt as any)._id || receipt.id));
+      } else {
+        const receiptDocId = String((receipt as any)._id || receipt.id);
+        await receiptsAPI.delete(receiptDocId);
+        setDirectReceipts((prev) => prev.filter((item) => item.id !== receipt.id && (item as any)._id !== (receipt as any)._id));
+      }
+    }
     setShowStageModal(false);
   };
 
