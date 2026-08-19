@@ -8,7 +8,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatDate } from '@/utils/format';
-import type { Receipt, Expense, AttachmentValue } from '@/types';
+import type { Receipt, Expense, AttachmentValue, Contract } from '@/types';
 import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
@@ -24,6 +24,12 @@ const palette = ['#d4a843', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'];
 const CAT_TABS = ['全部', '材料费', '人工费', '外包费', '管理费', '其他'] as const;
 
 import AttachmentViewerModal from '@/components/AttachmentViewerModal';
+
+function isSameContractDoc(a: Contract, b: Contract) {
+  const aDocId = a._id || a.id;
+  const bDocId = b._id || b.id;
+  return aDocId === bDocId || a.id === b.id || (!!a._id && a._id === b.id) || (!!b._id && b._id === a.id);
+}
 
 function AttachmentCell({ attachments, onDelete }: { attachments?: AttachmentValue[]; onDelete?: (idx: number) => void }) {
   const [showModal, setShowModal] = useState(false);
@@ -62,22 +68,33 @@ export default function ProjectDetail() {
   const { contracts, receipts, expenses } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const [catTab, setCatTab] = useState<string>('全部');
-  const [directContract, setDirectContract] = useState<any>(null);
+  const [directContract, setDirectContract] = useState<Contract | null>(null);
 
   const contract = contracts.find((c) => c.id === id || c._id === id) || directContract;
   const contractIds = useMemo(() => [contract?.id, contract?._id, id].filter(Boolean), [contract, id]);
   const contractId = contract?.id || contract?._id || id;
   useEffect(() => {
-    if (contract || !id) return;
+    if (!id) return;
     let cancelled = false;
     Promise.all([contractsAPI.doc(id).get(), contractsAPI.where({ id }).toArray()])
       .then(([direct, byLegacyId]) => {
         const found = direct || byLegacyId[0];
-        if (!cancelled) setDirectContract(found || null);
+        if (!cancelled) {
+          const latestContract = (found || null) as Contract | null;
+          setDirectContract(latestContract);
+          if (latestContract) {
+            useFinanceStore.setState((state) => ({
+              contracts: state.contracts.some((item) => isSameContractDoc(item, latestContract))
+                ? state.contracts.map((item) => (isSameContractDoc(item, latestContract) ? latestContract : item))
+                : [latestContract, ...state.contracts],
+              loadedDatasets: Array.from(new Set([...state.loadedDatasets, 'contracts'])),
+            }));
+          }
+        }
       })
       .catch(() => { if (!cancelled) setDirectContract(null); });
     return () => { cancelled = true; };
-  }, [contract, id]);
+  }, [id]);
   const projectReceipts = useMemo(() => {
     if (contractIds.length === 0) return [];
     return receipts.filter((r) => contractIds.includes(r.contractId) && r.bizType === currentBizType && isActiveFinanceRecord(r));
