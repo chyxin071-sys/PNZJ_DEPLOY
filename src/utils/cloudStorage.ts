@@ -103,6 +103,10 @@ export async function uploadFile(
     }
   }
 
+  if (isMiniProgramWebView() && file.size > 4.5 * 1024 * 1024) {
+    throw new Error('文件过大，请重新点击上传入口，使用微信原生选择器上传原图');
+  }
+
   try {
     // 将文件转换为 Base64，绕过 CORS
     const base64Data = await new Promise<string>((resolve, reject) => {

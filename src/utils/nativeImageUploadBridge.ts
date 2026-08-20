@@ -39,6 +39,24 @@ function acceptedMediaType(input: HTMLInputElement) {
   return input.accept.toLowerCase().includes('video/') ? 'mixed' : 'image';
 }
 
+function findUploadInput(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return null;
+  if (target instanceof HTMLInputElement && target.type === 'file') return target;
+
+  const label = target.closest('label');
+  if (!label) return null;
+
+  const input = label.querySelector('input[type="file"]');
+  if (input instanceof HTMLInputElement) return input;
+
+  const htmlFor = label.getAttribute('for');
+  if (!htmlFor) return null;
+  const linkedInput = document.getElementById(htmlFor);
+  return linkedInput instanceof HTMLInputElement && linkedInput.type === 'file'
+    ? linkedInput
+    : null;
+}
+
 async function callUploadBridge(data: Record<string, unknown>) {
   await initCloudBase();
   const response = await cloudApp.callFunction({
@@ -159,7 +177,7 @@ export function installNativeImageUploadBridge() {
   if (!ENABLE_NATIVE_IMAGE_UPLOAD_BRIDGE || !isMiniProgramWebView() || typeof DataTransfer === 'undefined') return () => {};
 
   const handleClick = async (event: MouseEvent) => {
-    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    const input = findUploadInput(event.target);
     if (!input || input.type !== 'file' || input.disabled || !acceptsImages(input)) return;
     event.preventDefault();
     event.stopPropagation();
