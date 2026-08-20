@@ -20,14 +20,13 @@ import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { cloudDB } from '@/db/cloudbase';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
 import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
-import type { ExpenseCategory } from '@/services/expenseCategories';
 import {
-  DEFAULT_REIMBURSEMENT_PAYMENT_TYPES,
-  loadReimbursementPaymentTypes,
-  paymentTypeDisplay,
-  resolveReimbursementPaymentType,
-  saveReimbursementPaymentTypes,
-} from '@/services/reimbursementPaymentTypes';
+  DEFAULT_EXPENSE_CATEGORIES,
+  loadExpenseCategories,
+  saveExpenseCategories,
+  type ExpenseCategory,
+  type ExpenseCategoryPath,
+} from '@/services/expenseCategories';
 
 const FLOW_CONFIG_DOC_ID = 'reimbursement_approval_flow';
 const TABS = ['全部', '待审批', '待打款', '已打款', '已驳回', '已作废', '已冲销'];
@@ -39,14 +38,10 @@ function todayDate() {
 
 function createInitialForm(applicant = '', contractId = '') {
   const date = todayDate();
-  const defaultType = paymentTypeDisplay({
-    primaryName: DEFAULT_REIMBURSEMENT_PAYMENT_TYPES[0]?.name || '',
-    secondaryName: DEFAULT_REIMBURSEMENT_PAYMENT_TYPES[0]?.children[0]?.name || '',
-  });
   return {
     contractId,
     applicant,
-    type: defaultType,
+    type: '',
     amount: '',
     expenseDate: date,
     applicationDate: date,
@@ -110,6 +105,40 @@ function safeFormatDate(value?: string) {
   const time = new Date(value).getTime();
   if (Number.isNaN(time)) return '-';
   return formatDate(value);
+}
+
+function paymentTypeDisplay(path: Pick<ExpenseCategoryPath, 'primaryName' | 'secondaryName'>) {
+  return [path.primaryName, path.secondaryName].map((item) => String(item || '').trim()).filter(Boolean).join('-');
+}
+
+function resolvePaymentTypeValue(value: string | undefined, categories: ExpenseCategory[]): ExpenseCategoryPath {
+  const text = String(value || '').trim();
+  const [primaryText, secondaryText] = text.includes('-')
+    ? text.split('-', 2).map((item) => item.trim())
+    : ['', text];
+  const primaryByName = primaryText ? categories.find((category) => category.name === primaryText) : null;
+  const candidateCategories = primaryByName ? [primaryByName] : categories;
+
+  for (const category of candidateCategories) {
+    const child = category.children.find((item) => item.name === secondaryText);
+    if (child) {
+      return {
+        primaryId: category.id,
+        primaryName: category.name,
+        secondaryId: child.id,
+        secondaryName: child.name,
+      };
+    }
+  }
+
+  const fallback = categories[0];
+  const fallbackChild = fallback?.children[0];
+  return {
+    primaryId: primaryByName?.id || fallback?.id || '',
+    primaryName: primaryText || primaryByName?.name || fallback?.name || '',
+    secondaryId: fallbackChild?.id || '',
+    secondaryName: secondaryText || fallbackChild?.name || '',
+  };
 }
 
 function UserMultiSelect({
@@ -193,7 +222,7 @@ function PaymentTypePicker({
   onSelect,
 }: {
   categories: ExpenseCategory[];
-  selected: ReturnType<typeof resolveReimbursementPaymentType>;
+  selected: ExpenseCategoryPath;
   onSelect: (primary: ExpenseCategory, secondary: ExpenseCategory['children'][number]) => void;
 }) {
   const [activePrimaryId, setActivePrimaryId] = useState(selected.primaryId || categories[0]?.id || '');
@@ -294,8 +323,8 @@ export default function ReimbursementPage() {
   const [form, setForm] = useState(INIT_FORM);
   const [approvalConfig, setApprovalConfig] = useState(EMPTY_FLOW_CONFIG);
   const [flowDraft, setFlowDraft] = useState(EMPTY_FLOW_CONFIG);
-  const [reimbursementTypeCategories, setReimbursementTypeCategories] = useState<ExpenseCategory[]>(DEFAULT_REIMBURSEMENT_PAYMENT_TYPES);
-  const [typeDraft, setTypeDraft] = useState<ExpenseCategory[]>(DEFAULT_REIMBURSEMENT_PAYMENT_TYPES);
+  const [reimbursementTypeCategories, setReimbursementTypeCategories] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [typeDraft, setTypeDraft] = useState<ExpenseCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
   const [newPrimaryName, setNewPrimaryName] = useState('');
   const [newSecondaryName, setNewSecondaryName] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -456,11 +485,11 @@ export default function ReimbursementPage() {
 
   const loadReimbursementTypes = useCallback(async () => {
     try {
-      setReimbursementTypeCategories(await loadReimbursementPaymentTypes());
+      setReimbursementTypeCategories(await loadExpenseCategories(currentBizType));
     } catch {
-      setReimbursementTypeCategories(DEFAULT_REIMBURSEMENT_PAYMENT_TYPES);
+      setReimbursementTypeCategories(DEFAULT_EXPENSE_CATEGORIES);
     }
-  }, []);
+  }, [currentBizType]);
 
   useEffect(() => {
     void loadReimbursementTypes();
@@ -475,7 +504,7 @@ export default function ReimbursementPage() {
   );
 
   const selectedPaymentType = useMemo(
-    () => resolveReimbursementPaymentType(form.type, reimbursementTypeCategories),
+    () => resolvePaymentTypeValue(form.type, reimbursementTypeCategories),
     [form.type, reimbursementTypeCategories]
   );
 
@@ -546,7 +575,7 @@ export default function ReimbursementPage() {
   const saveTypeConfig = async () => {
     if (!canManageApprovalFlow) return;
     try {
-      const nextTypes = await saveReimbursementPaymentTypes(typeDraft, myName);
+      const nextTypes = await saveExpenseCategories(typeDraft, currentBizType);
       setReimbursementTypeCategories(nextTypes);
       setShowTypeModal(false);
     } catch (e: any) {
