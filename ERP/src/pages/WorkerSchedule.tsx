@@ -5,15 +5,18 @@ import {
   Camera, HardHat, ImagePlus, Pencil, Plus, Search, Trash2, UserRoundCog, UsersRound, X,
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
+import ImagePreviewModal from '@/components/ImagePreviewModal';
+import { OverlayHistoryBridge } from '@/hooks/useOverlayHistory';
 import Select from '@/components/Select';
 import WorkerAvatar from '@/components/WorkerAvatar';
 import { projectsAPI } from '@/db/api';
 import { findScheduleConflicts, workersAPI, workerSchedulesAPI } from '@/db/workerScheduleApi';
 import { useAuthStore } from '@/store/authStore';
+import { useDialogStore } from '@/store/dialogStore';
 import type { Worker, WorkerSchedule, WorkerScheduleStatus, WorkerStatus } from '@/types/workerSchedule';
 import { scheduleIdOf, stageTradeLabel, tradeForStage, workerIdOf, workerMatchesStage, WORKER_TRADES } from '@/types/workerSchedule';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
-import { uploadFile } from '@/utils/cloudStorage';
+import { getFileDataURL, getTempFileURL, uploadFile } from '@/utils/cloudStorage';
 
 const DAY_MS = 86_400_000;
 const STATUS_LABEL: Record<WorkerScheduleStatus, string> = {
@@ -44,6 +47,12 @@ const startOfWeek = (date: Date) => {
 const daysBetween = (start: string, end: string) => Math.max(1, Math.round((parseDate(end).getTime() - parseDate(start).getTime()) / DAY_MS) + 1);
 const formatShortDate = (value: string) => value ? `${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日` : '-';
 const recordId = (value: { _id?: string; id?: string }) => String(value._id || value.id || '');
+const readImagePreview = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+  reader.readAsDataURL(file);
+});
 
 type ScheduleFilter = 'all' | 'upcoming' | 'in_progress';
 type BacklogFilter = 'ready' | 'overdue' | 'all';
@@ -75,6 +84,7 @@ const emptyWorker = (): Omit<Worker, '_id' | 'id'> => ({
 
 export default function WorkerSchedulePage() {
   const user = useAuthStore((state) => state.user);
+  const { showConfirm } = useDialogStore();
   const isAdmin = user?.role === 'admin' || user?.roles?.includes('admin');
   const canEdit = isAdmin || user?.role === 'manager' || user?.roles?.includes('manager');
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -91,7 +101,6 @@ export default function WorkerSchedulePage() {
   const [preserveScheduleDates, setPreserveScheduleDates] = useState(false);
   const [workerEditorOpen, setWorkerEditorOpen] = useState(false);
   const [workerEditorMode, setWorkerEditorMode] = useState<WorkerEditorMode>('list');
-  const [workerManagerTradeFilter, setWorkerManagerTradeFilter] = useState('');
   const [workerManagerSearch, setWorkerManagerSearch] = useState('');
   const [profileWorker, setProfileWorker] = useState<Worker | null>(null);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
@@ -99,6 +108,7 @@ export default function WorkerSchedulePage() {
   const [workerForm, setWorkerForm] = useState(emptyWorker());
   const [workerPhotoFile, setWorkerPhotoFile] = useState<File | null>(null);
   const [workerPhotoPreview, setWorkerPhotoPreview] = useState('');
+  const [workerPhotoViewer, setWorkerPhotoViewer] = useState<string[]>([]);
   const [editingSchedule, setEditingSchedule] = useState<WorkerSchedule | null>(null);
   const [scheduleForm, setScheduleForm] = useState({ workerId: '', projectId: '', stageId: '', startDate: toDateKey(new Date()), endDate: toDateKey(new Date()), status: 'confirmed' as WorkerScheduleStatus, note: '' });
   const [saving, setSaving] = useState(false);
@@ -182,8 +192,6 @@ export default function WorkerSchedulePage() {
   const selectedWorker = workers.find((item) => workerIdOf(item) === scheduleForm.workerId);
   const conflicts = selectedWorker ? findScheduleConflicts(selectedWorker, scheduleForm, schedules, scheduleIdOf(editingSchedule || {} as WorkerSchedule)) : [];
   const tradeOptions = [{ value: '', label: '全部工种' }, ...WORKER_TRADES.map((trade) => ({ value: trade, label: trade }))];
-  const workerStatusOptions = Object.entries(WORKER_STATUS_LABEL).map(([value, label]) => ({ value, label }));
-  const scheduleStatusOptions = Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }));
   const eligibleWorkers = workers.filter((worker) => worker.status !== 'inactive' && (!selectedStage || workerMatchesStage(worker, selectedStage.name || '')));
   const workerOptions = eligibleWorkers.map((worker) => ({ value: workerIdOf(worker), label: worker.name, description: worker.trades.join('/') }));
   const projectOptions = projects.filter((item) => !['已完工', '已暂停'].includes(item.status)).map((project) => ({ value: recordId(project), label: project.address || project.customer || '未命名工地' }));
@@ -192,7 +200,6 @@ export default function WorkerSchedulePage() {
   const workerById = (id: string) => workers.find((worker) => workerIdOf(worker) === id);
   const workerNameForSchedule = (schedule: WorkerSchedule) => workerById(schedule.workerId)?.name || schedule.workerName;
   const managedWorkers = workers
-    .filter((worker) => !workerManagerTradeFilter || worker.trades.includes(workerManagerTradeFilter))
     .filter((worker) => !workerManagerSearch || [worker.name, worker.phone, worker.trades.join(' ')].join(' ').toLowerCase().includes(workerManagerSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
   const groupedManagedWorkers = [...WORKER_TRADES, '未分类'].map((trade) => ({
@@ -239,7 +246,6 @@ export default function WorkerSchedulePage() {
   };
 
   const openWorkerManager = () => {
-    setWorkerManagerTradeFilter('');
     setWorkerManagerSearch('');
     setEditingWorker(null);
     setWorkerForm(emptyWorker());
@@ -250,7 +256,6 @@ export default function WorkerSchedulePage() {
 
   const openWorkerManagerFor = (worker: Worker) => {
     setProfileWorker(null);
-    setWorkerManagerTradeFilter('');
     setWorkerManagerSearch('');
     setWorkerEditorOpen(true);
     selectWorkerForPreview(worker);
@@ -265,8 +270,38 @@ export default function WorkerSchedulePage() {
     setError('');
   };
 
-  const filterManagedWorkers = (trade: string) => {
-    setWorkerManagerTradeFilter(trade);
+  const openWorkerPhoto = async (source: string) => {
+    if (!source) return;
+    setError('');
+    try {
+      if (!source.startsWith('cloud://')) {
+        setWorkerPhotoViewer([source]);
+        return;
+      }
+      const urls = await getTempFileURL([source]);
+      const resolved = urls[source] || await getFileDataURL(source);
+      setWorkerPhotoViewer([resolved]);
+    } catch (previewError) {
+      console.error('[worker-schedule] worker photo preview failed', previewError);
+      try {
+        setWorkerPhotoViewer([await getFileDataURL(source)]);
+      } catch (fallbackError) {
+        console.error('[worker-schedule] worker photo fallback failed', fallbackError);
+        setError('工人照片加载失败，请稍后重试');
+      }
+    }
+  };
+
+  const chooseWorkerPhoto = async (file: File) => {
+    try {
+      const preview = await readImagePreview(file);
+      setWorkerPhotoFile(file);
+      setWorkerPhotoPreview(preview);
+      setError('');
+    } catch (previewError) {
+      console.error('[worker-schedule] local worker photo preview failed', previewError);
+      setError('所选照片无法读取，请重新选择');
+    }
   };
 
   const openEditSchedule = (schedule: WorkerSchedule) => {
@@ -351,7 +386,7 @@ export default function WorkerSchedulePage() {
       workerId: workerIdOf(selectedWorker), workerName: selectedWorker.name,
       projectId: recordId(selectedProject), projectAddress: selectedProject.address || '未填写地址', customerName: selectedProject.customerName || selectedProject.customer || '',
       stageId: String(selectedStage._id || selectedStage.id), stageName: selectedStage.name || '施工阶段', trade: tradeForStage(selectedStage.name || ''),
-      startDate: scheduleForm.startDate, endDate: scheduleForm.endDate, status: scheduleForm.status, note: scheduleForm.note,
+      startDate: scheduleForm.startDate, endDate: scheduleForm.endDate, status: editingSchedule?.status || 'confirmed', note: scheduleForm.note,
       createdBy: user?.name || '', createdAt: editingSchedule?.createdAt || now, updatedAt: now,
     };
     try {
@@ -398,7 +433,12 @@ export default function WorkerSchedulePage() {
     if (schedules.some((item) => item.workerId === workerIdOf(worker) && !['completed', 'cancelled'].includes(item.status))) {
       alert('该工人仍有未结束排期，请先处理排期'); return;
     }
-    if (!window.confirm(`确定删除“${worker.name}”吗？历史排期仍会保留。`)) return;
+    const confirmed = await showConfirm('删除后该工人档案无法恢复，历史排期仍会保留。', {
+      title: `确认删除“${worker.name}”？`,
+      confirmStyle: 'danger',
+      confirmText: '删除',
+    });
+    if (!confirmed) return;
     await workersAPI.delete(workerIdOf(worker));
     await loadData();
     setEditingWorker(null);
@@ -407,6 +447,10 @@ export default function WorkerSchedulePage() {
 
   return (
     <div className="erp-page pb-24 md:pb-6">
+      <OverlayHistoryBridge open={backlogOpen} onClose={() => setBacklogOpen(false)} stateKey="pnzjWorkerBacklogId" />
+      <OverlayHistoryBridge open={scheduleEditorOpen} onClose={() => setScheduleEditorOpen(false)} stateKey="pnzjWorkerScheduleEditorId" />
+      <OverlayHistoryBridge open={Boolean(profileWorker)} onClose={() => setProfileWorker(null)} stateKey="pnzjWorkerProfileId" />
+      <OverlayHistoryBridge open={workerEditorOpen} onClose={() => setWorkerEditorOpen(false)} stateKey="pnzjWorkerEditorId" />
       <div className="erp-page-header items-start">
         <div><h1 className="erp-page-title">工人排期</h1><p className="erp-page-subtitle">统筹工人档期与工地施工安排</p></div>
         {canEdit && <div className="flex gap-2"><button onClick={openWorkerManager} className="erp-btn-secondary h-10 w-10 justify-center px-0 sm:w-auto sm:px-3" title="工人管理"><UserRoundCog size={16} /><span className="hidden sm:inline">工人管理</span></button><button onClick={openNewSchedule} className="erp-btn-primary h-10 w-10 justify-center px-0 sm:w-auto sm:px-3" title="新增排期"><Plus size={16} /><span className="hidden sm:inline">新增排期</span></button></div>}
@@ -425,11 +469,11 @@ export default function WorkerSchedulePage() {
       </div>
 
       <div className="mt-4 erp-surface overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 p-3">
-          <div className="relative min-w-[180px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-gold-400" /></div>
-          <Select value={tradeFilter} onChange={setTradeFilter} options={tradeOptions} className="w-[118px]" sheetTitle="选择工种" />
-          <div className="flex h-9 items-center rounded-lg border border-gray-200 bg-white"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full px-2 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-[92px] border-x border-gray-200 px-3 text-xs font-medium" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full px-2 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
-          <div className="hidden rounded-lg bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 py-1.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
+        <div className="sticky top-0 z-40 grid grid-cols-[minmax(0,1fr)_7.25rem] items-center gap-2 border-b border-gray-100 bg-white/95 p-2 backdrop-blur md:flex md:flex-wrap md:p-2.5">
+          <div className="relative h-9 min-w-0 md:h-10 md:flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 md:size-[15px]" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-full w-full rounded border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3 md:text-sm" /></div>
+          <Select value={tradeFilter} onChange={setTradeFilter} options={tradeOptions} className="h-9 w-full min-w-0 [&>.erp-select]:h-full [&>.erp-select]:px-2.5 [&>.erp-select]:text-xs md:h-10 md:w-[132px] md:[&>.erp-select]:px-3 md:[&>.erp-select]:text-sm" sheetTitle="选择工种" />
+          <div className="col-span-2 flex h-9 w-full items-center rounded border border-gray-200 bg-white md:col-span-1 md:h-10 md:w-auto"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-0 flex-1 border-x border-gray-200 px-3 text-xs font-medium md:min-w-[92px] md:flex-none" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
+          <div className="hidden h-10 rounded bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
         </div>
 
         {error && !workerEditorOpen && !scheduleEditorOpen && <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-xs leading-5 text-red-600">{error}</div>}
@@ -457,7 +501,7 @@ export default function WorkerSchedulePage() {
                 { value: 'ready', label: '可安排', count: unassignedStages.filter((item) => item.readiness === 'ready').length },
                 { value: 'overdue', label: '已逾期', count: unassignedStages.filter((item) => item.readiness === 'overdue').length },
                 { value: 'all', label: '全部', count: unassignedStages.length },
-              ] as const).map((item) => <button key={item.value} onClick={() => setBacklogFilter(item.value)} className={`rounded-lg px-3 py-1.5 text-xs ${backlogFilter === item.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label} {item.count}</button>)}
+              ] as const).map((item) => <button key={item.value} onClick={() => setBacklogFilter(item.value)} className={`rounded px-3 py-1.5 text-xs ${backlogFilter === item.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label} {item.count}</button>)}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {visibleBacklog.length === 0 ? <div className="py-20 text-center text-sm text-gray-400">当前没有符合条件的待排阶段</div> : visibleBacklog.map((task) => {
@@ -470,7 +514,7 @@ export default function WorkerSchedulePage() {
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${task.readiness === 'overdue' ? 'bg-red-50 text-red-600' : task.readiness === 'ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{readinessLabel}</span>
                     </div>
                     <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500"><Clock3 size={13} />{task.hasPlanDate ? '计划' : '建议'} {formatShortDate(task.startDate)} 至 {formatShortDate(task.endDate)}</div>
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2.5">
                       <div className="min-w-0"><div className="text-[10px] text-gray-400">推荐工人</div><div className={`mt-0.5 truncate text-xs font-medium ${recommended ? 'text-gray-800' : 'text-amber-600'}`}>{recommended ? `${recommended.name} · 当前档期可安排` : `暂无无冲突的${task.trade}工人`}</div></div>
                       {canEdit && <button onClick={() => openBacklogSchedule(task)} className="erp-btn-primary h-8 shrink-0 px-3 text-xs">安排</button>}
                     </div>
@@ -485,17 +529,16 @@ export default function WorkerSchedulePage() {
 
       {scheduleEditorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onClick={() => setScheduleEditorOpen(false)}>
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded bg-white" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3"><h2 className="font-semibold">{editingSchedule ? '编辑排期' : '新增排期'}</h2><button onClick={() => setScheduleEditorOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button></div>
             <div className="space-y-4 p-4">
               <label className="block text-xs text-gray-500">工地 *<Select value={scheduleForm.projectId} onChange={chooseProject} options={projectOptions} placeholder="请选择工地" searchable className="mt-1" sheetTitle="选择工地" /></label>
               <label className="block text-xs text-gray-500">施工阶段 *<Select value={scheduleForm.stageId} onChange={chooseStage} options={stageOptions} placeholder="请选择施工阶段" className="mt-1" sheetTitle="选择施工阶段" /></label>
-              <label className="block text-xs text-gray-500">工人 *{selectedStageTrade && <span className="ml-1 text-gold-600">仅显示{selectedStageTrade}工人</span>}<Select value={scheduleForm.workerId} onChange={(value) => setScheduleForm({ ...scheduleForm, workerId: value })} options={workerOptions} placeholder={selectedStage ? `请选择${selectedStageTrade}工人` : '请先选择工地和施工阶段'} searchable className="mt-1" sheetTitle="选择匹配工种的工人" /></label>
-              {selectedStage && eligibleWorkers.length === 0 && <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无可用的{selectedStageTrade}工人，请先在工人管理中为师傅添加对应工种。</div>}
+              <label className="block text-xs text-gray-500">工人 *<Select value={scheduleForm.workerId} onChange={(value) => setScheduleForm({ ...scheduleForm, workerId: value })} options={workerOptions} placeholder={selectedStage ? `请选择${selectedStageTrade}工人` : '请先选择工地和施工阶段'} searchable className="mt-1" sheetTitle="选择匹配工种的工人" /></label>
+              {selectedStage && eligibleWorkers.length === 0 && <div className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无可用的{selectedStageTrade}工人，请先在工人管理中为师傅添加对应工种。</div>}
               <div className="grid grid-cols-2 gap-3"><label className="text-xs text-gray-500">开始日期<DatePicker value={scheduleForm.startDate} onChange={(value) => setScheduleForm({ ...scheduleForm, startDate: value })} className="mt-1" /></label><label className="text-xs text-gray-500">结束日期<DatePicker value={scheduleForm.endDate} onChange={(value) => setScheduleForm({ ...scheduleForm, endDate: value })} className="mt-1" /></label></div>
-              <label className="block text-xs text-gray-500">排期状态<Select value={scheduleForm.status} onChange={(value) => setScheduleForm({ ...scheduleForm, status: value as WorkerScheduleStatus })} options={scheduleStatusOptions} className="mt-1" sheetTitle="选择排期状态" /></label>
-              <label className="block text-xs text-gray-500">备注<textarea value={scheduleForm.note} onChange={(event) => setScheduleForm({ ...scheduleForm, note: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none" /></label>
-              {conflicts.length > 0 && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{conflicts[0].schedule.projectAddress}，{formatShortDate(conflicts[0].schedule.startDate)}至{formatShortDate(conflicts[0].schedule.endDate)}</p></div>}
+              <label className="block text-xs text-gray-500">备注<textarea value={scheduleForm.note} onChange={(event) => setScheduleForm({ ...scheduleForm, note: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded border border-gray-200 p-3 text-sm outline-none" /></label>
+              {conflicts.length > 0 && <div className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{conflicts[0].schedule.projectAddress}，{formatShortDate(conflicts[0].schedule.startDate)}至{formatShortDate(conflicts[0].schedule.endDate)}</p></div>}
               {error && <p className="text-xs leading-5 text-red-500">{error}</p>}
               <div className="flex items-center justify-between border-t border-gray-100 pt-4"><div>{editingSchedule && <button onClick={() => void deleteSchedule(editingSchedule)} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={14} />删除排期</button>}</div><div className="flex gap-2"><button onClick={() => setScheduleEditorOpen(false)} className="erp-btn-secondary">取消</button><button disabled={saving || conflicts.length > 0} onClick={() => void saveSchedule()} className="erp-btn-primary">保存排期</button></div></div>
             </div>
@@ -505,14 +548,16 @@ export default function WorkerSchedulePage() {
 
       {profileWorker && (
         <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4" onClick={() => setProfileWorker(null)}>
-          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md overflow-hidden rounded bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="font-semibold text-gray-900">工人档案</h2>
               <button onClick={() => setProfileWorker(null)} className="p-1.5 text-gray-400" title="关闭"><X size={18} /></button>
             </div>
             <div className="p-5">
               <div className="flex items-center gap-4">
-                <WorkerAvatar name={profileWorker.name} fileID={profileWorker.photoFileID} className="h-20 w-20" />
+                <button type="button" disabled={!profileWorker.photoFileID} onClick={() => void openWorkerPhoto(profileWorker.photoFileID || '')} className={profileWorker.photoFileID ? 'shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400' : 'shrink-0'} title={profileWorker.photoFileID ? '查看大图' : undefined}>
+                  <WorkerAvatar name={profileWorker.name} fileID={profileWorker.photoFileID} className="h-20 w-20" />
+                </button>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-xl font-semibold text-gray-900">{profileWorker.name}</h3>
                   <p className="mt-1 text-sm text-gray-500">{profileWorker.phone || '未填写联系电话'}</p>
@@ -522,7 +567,7 @@ export default function WorkerSchedulePage() {
               <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4">
                 <div><div className="text-xs text-gray-400">工龄</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.experienceYears ? `${profileWorker.experienceYears} 年` : '未填写'}</div></div>
                 <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.maxConcurrent || 1} 个</div></div>
-                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-2 flex flex-wrap gap-2">{profileWorker.trades.map((trade) => <span key={trade} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">{trade}</span>)}</div></div>
+                <div className="col-span-2"><div className="text-xs text-gray-400">工种</div><div className="mt-1 text-sm font-medium text-gray-800">{profileWorker.trades.join('、') || '未填写'}</div></div>
               </div>
               {profileWorker.note && <div className="pt-4"><div className="text-xs text-gray-400">备注</div><div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{profileWorker.note}</div></div>}
               <div className="mt-5 flex justify-end gap-2">
@@ -535,24 +580,25 @@ export default function WorkerSchedulePage() {
       )}
 
       {workerEditorOpen && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/40 p-3" onClick={() => setWorkerEditorOpen(false)}>
-          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-black/40 p-3" onClick={() => setWorkerEditorOpen(false)}>
+          <div className="flex h-[min(90vh,760px)] max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded bg-white" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div><h2 className="font-semibold text-gray-900">工人管理</h2><p className="text-xs text-gray-400">按工种查找并维护工人档案</p></div>
               <button onClick={() => setWorkerEditorOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button>
             </div>
             <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-              <div className={`${workerEditorMode !== 'list' ? 'hidden md:flex' : 'flex'} max-h-[72vh] shrink-0 flex-col border-b border-gray-100 md:max-h-none md:w-[320px] md:border-b-0 md:border-r`}>
-                  <div className="space-y-2 border-b border-gray-100 p-3">
-                    <button onClick={startCreatingWorker} className="flex w-full items-center justify-center gap-2 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-sm font-medium text-gold-700"><Plus size={15} />新增工人</button>
-                    <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-xs outline-none focus:border-gold-400" /></div>
-                    <Select value={workerManagerTradeFilter} onChange={filterManagedWorkers} options={tradeOptions} sheetTitle="按工种筛选工人" />
+              <div className={`${workerEditorMode !== 'list' ? 'hidden md:flex' : 'flex'} min-h-0 flex-1 flex-col overflow-hidden border-b border-gray-100 md:w-[320px] md:flex-none md:border-b-0 md:border-r`}>
+                  <div className="border-b border-gray-100 p-3">
+                    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2 md:grid-cols-[7rem_minmax(0,1fr)]">
+                      <button onClick={startCreatingWorker} className="flex h-9 w-full items-center justify-center gap-1.5 rounded border border-gold-200 bg-gold-50 px-2.5 text-xs font-medium text-gold-700 md:h-10 md:px-3 md:text-sm"><Plus size={14} className="md:size-[15px]" />新增工人</button>
+                      <div className="relative h-9 min-w-0 md:h-10"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-full w-full rounded border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3" /></div>
+                    </div>
                   </div>
-                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
                   {groupedManagedWorkers.map((group) => (
                     <section key={group.trade}>
                       <div className="mb-1.5 flex items-center justify-between px-1"><h3 className="text-xs font-medium text-gray-500">{group.trade}</h3><span className="text-[10px] text-gray-400">{group.workers.length} 人</span></div>
-                      <div className="overflow-hidden rounded-lg border border-gray-100">
+                      <div className="overflow-hidden rounded border border-gray-100">
                         {group.workers.map((worker) => (
                           <button key={`${group.trade}-${workerIdOf(worker)}`} onClick={() => selectWorkerForPreview(worker)} className={`flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-gray-50 ${editingWorker && workerIdOf(editingWorker) === workerIdOf(worker) ? 'bg-gold-50' : ''}`}>
                             <WorkerAvatar name={worker.name} fileID={worker.photoFileID} className="h-9 w-9" />
@@ -566,7 +612,7 @@ export default function WorkerSchedulePage() {
                   {managedWorkers.length === 0 && <div className="py-10 text-center text-xs text-gray-400">该工种暂无工人</div>}
                   </div>
                 </div>
-              <div className={`${workerEditorMode === 'list' ? 'hidden md:block' : 'block'} min-h-0 flex-1 overflow-y-auto p-4`}>
+              <div className={`${workerEditorMode === 'list' ? 'hidden md:block' : 'block'} min-h-0 flex-1 overflow-y-auto overscroll-contain p-4`}>
                 {workerEditorMode === 'list' ? (
                   <div className="flex h-full min-h-[360px] flex-col items-center justify-center text-center"><UsersRound size={32} className="text-gray-200" /><p className="mt-3 text-sm font-medium text-gray-500">从左侧选择一位师傅</p><p className="mt-1 text-xs text-gray-400">点击后查看完整档案，再进入编辑</p></div>
                 ) : workerEditorMode === 'preview' && editingWorker ? (
@@ -574,13 +620,15 @@ export default function WorkerSchedulePage() {
                     <button onClick={() => { setEditingWorker(null); setWorkerEditorMode('list'); }} className="mb-4 inline-flex items-center gap-1 text-xs text-gray-500 md:hidden"><ChevronLeft size={15} />返回工人列表</button>
                     <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
                       <div className="flex min-w-0 items-center gap-4">
-                        <WorkerAvatar name={editingWorker.name} fileID={editingWorker.photoFileID} className="h-20 w-20" />
+                        <button type="button" disabled={!editingWorker.photoFileID} onClick={() => void openWorkerPhoto(editingWorker.photoFileID || '')} className={editingWorker.photoFileID ? 'shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400' : 'shrink-0'} title={editingWorker.photoFileID ? '查看大图' : undefined}>
+                          <WorkerAvatar name={editingWorker.name} fileID={editingWorker.photoFileID} className="h-20 w-20" />
+                        </button>
                         <div className="min-w-0"><h3 className="truncate text-xl font-semibold text-gray-900">{editingWorker.name}</h3><p className="mt-1 text-sm text-gray-500">{editingWorker.phone || '未填写联系电话'}</p><span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">{WORKER_STATUS_LABEL[editingWorker.status]}</span></div>
                       </div>
                       <button onClick={() => setWorkerEditorMode('edit')} className="erp-btn-secondary h-9 shrink-0 px-3 text-xs"><Pencil size={14} />编辑</button>
                     </div>
                     <div className="grid gap-5 py-5 sm:grid-cols-2">
-                      <div><div className="text-xs text-gray-400">工种身份</div><div className="mt-2 flex flex-wrap gap-2">{editingWorker.trades.map((trade) => <span key={trade} className="rounded-full bg-gold-50 px-2.5 py-1 text-xs text-gold-700">{trade}</span>)}</div></div>
+                      <div><div className="text-xs text-gray-400">工种身份</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.trades.join('、') || '未填写'}</div></div>
                       <div><div className="text-xs text-gray-400">工龄</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.experienceYears ? `${editingWorker.experienceYears} 年` : '未填写'}</div></div>
                       <div><div className="text-xs text-gray-400">最大并行任务</div><div className="mt-2 text-sm font-medium text-gray-800">{editingWorker.maxConcurrent || 1} 个</div></div>
                       <div className="sm:col-span-2"><div className="text-xs text-gray-400">备注</div><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{editingWorker.note || '暂无备注'}</div></div>
@@ -590,30 +638,33 @@ export default function WorkerSchedulePage() {
                 ) : (
                 <>
                 <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setWorkerEditorMode('list'), setEditingWorker(null))} className="inline-flex items-center text-gray-400 md:hidden" title="返回"><ChevronLeft size={17} /></button><div className="text-sm font-medium text-gray-900">{workerEditorMode === 'create' ? '新增工人' : `编辑 ${editingWorker?.name || ''}`}</div></div>{workerEditorMode === 'edit' && editingWorker && <button onClick={() => selectWorkerForPreview(editingWorker)} className="text-xs text-gray-500">取消编辑</button>}</div>
-                <div className="mb-4 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  {workerPhotoPreview ? <img src={workerPhotoPreview} alt="工人照片预览" className="h-16 w-16 shrink-0 rounded-full object-cover" /> : <WorkerAvatar name={workerForm.name || '工'} fileID={workerForm.photoFileID} className="h-16 w-16" />}
+                <div className="mb-4 flex items-center gap-3 rounded border border-gray-100 bg-gray-50 p-3">
+                  {(workerPhotoPreview || workerForm.photoFileID) ? (
+                    <button type="button" onClick={() => void openWorkerPhoto(workerPhotoPreview || workerForm.photoFileID || '')} className="shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400" title="查看大图">
+                      {workerPhotoPreview ? <img src={workerPhotoPreview} alt="工人照片预览" className="h-16 w-16 rounded-full object-cover" /> : <WorkerAvatar name={workerForm.name || '工'} fileID={workerForm.photoFileID} className="h-16 w-16" />}
+                    </button>
+                  ) : <WorkerAvatar name={workerForm.name || '工'} className="h-16 w-16" />}
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-gray-800">工人照片</div>
                     <div className="mt-1 text-[11px] text-gray-400">用于排期、工地节点及后续客户查看</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:border-gold-300 hover:text-gold-700">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:border-gold-300 hover:text-gold-700">
                         <ImagePlus size={14} />{workerForm.photoFileID || workerPhotoFile ? '更换照片' : '上传照片'}
-                        <input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (workerPhotoPreview) URL.revokeObjectURL(workerPhotoPreview); setWorkerPhotoFile(file); setWorkerPhotoPreview(URL.createObjectURL(file)); event.target.value = ''; }} />
+                        <input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void chooseWorkerPhoto(file); }} />
                       </label>
-                      {(workerForm.photoFileID || workerPhotoFile) && <button type="button" onClick={() => { if (workerPhotoPreview) URL.revokeObjectURL(workerPhotoPreview); setWorkerPhotoFile(null); setWorkerPhotoPreview(''); setWorkerForm((current) => ({ ...current, photoFileID: '' })); }} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={13} />移除</button>}
+                      {(workerForm.photoFileID || workerPhotoFile) && <button type="button" onClick={() => { setWorkerPhotoFile(null); setWorkerPhotoPreview(''); setWorkerForm((current) => ({ ...current, photoFileID: '' })); }} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={13} />移除</button>}
                     </div>
                   </div>
                   <Camera size={18} className="shrink-0 text-gray-300" />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-xs text-gray-500">姓名 *<input value={workerForm.name} onChange={(event) => setWorkerForm({ ...workerForm, name: event.target.value })} placeholder="例如：王师傅" className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
-                  <label className="text-xs text-gray-500">联系电话<input value={workerForm.phone} onChange={(event) => setWorkerForm({ ...workerForm, phone: event.target.value })} className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
-                  <label className="text-xs text-gray-500">工龄（年）<input type="number" min={0} max={60} value={workerForm.experienceYears || ''} onChange={(event) => setWorkerForm({ ...workerForm, experienceYears: Math.max(0, Number(event.target.value) || 0) })} placeholder="例如：8" className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
-                  <label className="text-xs text-gray-500">最大并行任务<input type="number" min={1} value={workerForm.maxConcurrent} onChange={(event) => setWorkerForm({ ...workerForm, maxConcurrent: Math.max(1, Number(event.target.value)) })} className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none" /></label>
-                  <label className="text-xs text-gray-500">状态<Select value={workerForm.status} onChange={(value) => setWorkerForm({ ...workerForm, status: value as WorkerStatus })} options={workerStatusOptions} className="mt-1" sheetTitle="选择工人状态" /></label>
+                  <label className="text-xs text-gray-500">姓名 *<input value={workerForm.name} onChange={(event) => setWorkerForm({ ...workerForm, name: event.target.value })} placeholder="例如：王师傅" className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">联系电话<input value={workerForm.phone} onChange={(event) => setWorkerForm({ ...workerForm, phone: event.target.value })} className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">工龄（年）<input type="number" min={0} max={60} value={workerForm.experienceYears || ''} onChange={(event) => setWorkerForm({ ...workerForm, experienceYears: Math.max(0, Number(event.target.value) || 0) })} placeholder="例如：8" className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">最大并行任务<input type="number" min={1} value={workerForm.maxConcurrent} onChange={(event) => setWorkerForm({ ...workerForm, maxConcurrent: Math.max(1, Number(event.target.value)) })} className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none" /></label>
                 </div>
                 <div className="mt-4"><p className="text-xs text-gray-500">工种 * <span className="text-gray-400">（可多选）</span></p><div className="mt-2 flex flex-wrap gap-2">{WORKER_TRADES.map((trade) => <button type="button" key={trade} onClick={() => setWorkerForm((current) => ({ ...current, trades: current.trades.includes(trade) ? current.trades.filter((item) => item !== trade) : [...current.trades, trade] }))} className={`rounded-full border px-3 py-1 text-xs ${workerForm.trades.includes(trade) ? 'border-gold-400 bg-gold-50 text-gold-700' : 'border-gray-200 text-gray-500'}`}>{trade}</button>)}</div></div>
-                <label className="mt-4 block text-xs text-gray-500">备注<textarea value={workerForm.note} onChange={(event) => setWorkerForm({ ...workerForm, note: event.target.value })} rows={3} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
+                <label className="mt-4 block text-xs text-gray-500">备注<textarea value={workerForm.note} onChange={(event) => setWorkerForm({ ...workerForm, note: event.target.value })} rows={3} className="mt-1 w-full resize-none rounded border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
                 {error && <p className="mt-3 text-xs leading-5 text-red-500">{error}</p>}
                 <div className="mt-4 flex justify-end gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setEditingWorker(null), setWorkerEditorMode('list'))} className="erp-btn-secondary">取消</button><button disabled={saving} onClick={() => void saveWorker()} className="erp-btn-primary">{workerEditorMode === 'edit' ? '保存修改' : '新增工人'}</button></div>
                 </>
@@ -622,6 +673,10 @@ export default function WorkerSchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {workerPhotoViewer.length > 0 && (
+        <ImagePreviewModal images={workerPhotoViewer} index={0} onIndexChange={() => undefined} onClose={() => setWorkerPhotoViewer([])} layerClassName="z-[220]" />
       )}
 
     </div>

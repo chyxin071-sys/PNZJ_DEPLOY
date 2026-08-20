@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ImagePlus, Trash2, Upload, X } from 'lucide-react';
 import MaterialImage from '@/components/MaterialImage';
 import Select from '@/components/Select';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 import type { InventoryCategory, MaterialRecord } from '@/services/inventoryCategories';
 import { getMaterialImageID, resolveMaterialCategory } from '@/services/inventoryCategories';
 
@@ -43,6 +44,9 @@ export default function MaterialEditorModal({
   const [error, setError] = useState('');
   const [customPrimary, setCustomPrimary] = useState(false);
   const [customSecondary, setCustomSecondary] = useState(false);
+  const requestClose = useOverlayHistory(open, () => {
+    if (!saving) onClose();
+  }, 'pnzjMaterialEditorId');
 
   useEffect(() => {
     if (!open) return;
@@ -114,11 +118,11 @@ export default function MaterialEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end bg-black/45 md:items-center md:justify-center md:p-5" onClick={onClose}>
-      <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-2xl md:rounded-lg" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-end bg-black/45 md:items-center md:justify-center md:p-5" onClick={requestClose}>
+      <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-2xl md:rounded" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-base font-bold text-gray-900">{material ? '编辑材料' : '新增材料'}</h2>
-          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭"><X size={18} /></button>
+          <button type="button" onClick={requestClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭"><X size={18} /></button>
         </div>
         <form onSubmit={submit} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <section className="mb-5">
@@ -203,7 +207,7 @@ export default function MaterialEditorModal({
           </section>
           {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <div className="sticky bottom-0 -mx-5 mt-5 flex justify-end gap-2 border-t border-gray-100 bg-white px-5 py-4">
-            <button type="button" onClick={onClose} className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-600">取消</button>
+            <button type="button" onClick={requestClose} className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-600">取消</button>
             <button type="submit" disabled={saving} className="rounded-md bg-gray-900 px-5 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? '保存中...' : '确认保存'}</button>
           </div>
         </form>

@@ -13,6 +13,7 @@ import { formatDate, formatDateTime, generateId } from '@/utils/format';
 import BottomDrawer from '@/components/BottomDrawer';
 import DataTable from '@/components/DataTable';
 import FormAttachmentList from '@/components/FormAttachmentList';
+import { OverlayHistoryBridge, useOverlayHistory } from '@/hooks/useOverlayHistory';
 import {
   downloadAttachment,
   normalizeAttachments,
@@ -107,12 +108,12 @@ function SearchableSelect({
   return (
     <div ref={ref} className={`relative ${className}`}>
       <button type="button" onClick={() => setOpen(!open)}
-        className={`w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
+        className={`w-full flex items-center justify-between border border-gray-200 rounded bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
         <span className={`truncate ${selected ? 'text-gray-700' : 'text-gray-400'}`}>{selected?.label || placeholder}</span>
         <ChevronDown size={compact ? 12 : 12} className={`shrink-0 ml-1 text-gray-400 transition-transform ${open ? (direction === 'up' ? '' : 'rotate-180') : (direction === 'up' ? 'rotate-180' : '')}`} />
       </button>
       {open && (
-        <div className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden ${direction === 'up' ? 'bottom-full mb-1' : 'mt-1'}`} style={{ minWidth: 180 }}>
+        <div className={`absolute z-50 w-full bg-white border border-gray-200 rounded shadow-xl overflow-hidden ${direction === 'up' ? 'bottom-full mb-1' : 'mt-1'}`} style={{ minWidth: 180 }}>
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
               <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -181,7 +182,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
 
   const calendarView = (inDrawer = false) => (
-    <div className={inDrawer ? '' : 'bg-white border border-gray-200 rounded-lg shadow-xl p-3'} style={inDrawer ? {} : { width: 280 }}>
+    <div className={inDrawer ? '' : 'bg-white border border-gray-200 rounded shadow-xl p-3'} style={inDrawer ? {} : { width: 280 }}>
       <div className="flex items-center justify-between mb-3">
         <button type="button" onClick={prevMonth} className="p-1.5 hover:bg-gray-100 rounded"><ChevronLeft size={18} /></button>
         <span className="text-sm font-medium text-gray-800">{year}年 {month + 1}月</span>
@@ -221,7 +222,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
         if (window.matchMedia('(max-width: 767px)').matches) setMobileOpen(true);
         else setOpen(!open);
       }}
-        className={`w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
+        className={`w-full flex items-center justify-between border border-gray-200 rounded bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
         <span className={value ? 'text-gray-700' : 'text-gray-400'}>{value || placeholder}</span>
         <Calendar size={compact ? 10 : 12} className="shrink-0 ml-1 text-gray-400" />
       </button>
@@ -326,12 +327,12 @@ function AssigneePicker({ employees, value, onChange, myName, myId, direction = 
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={handleOpen}
-        className="w-full flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400">
+        className="w-full flex items-center justify-between border border-gray-200 rounded px-3 py-2 bg-white text-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400">
         <span className="text-gray-400">{value.length > 0 ? `已选 ${value.length} 人` : '选择执行人'}</span>
         <ChevronDown size={14} className={`shrink-0 text-gray-400 transition-transform ${open ? (direction === 'up' ? '' : 'rotate-180') : (direction === 'up' ? 'rotate-180' : '')}`} />
       </button>
       {open && (
-        <div className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden ${direction === 'up' ? 'bottom-full mb-1' : 'mt-1'}`} style={{ minWidth: 260 }}>
+        <div className={`absolute z-50 w-full bg-white border border-gray-200 rounded shadow-xl overflow-hidden ${direction === 'up' ? 'bottom-full mb-1' : 'mt-1'}`} style={{ minWidth: 260 }}>
           {assigneeList}
         </div>
       )}
@@ -350,6 +351,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
   employees: any[]; leads: any[]; projects: any[]; myName: string; myId: string; isAdmin: boolean;
 }) {
   const navigate = useNavigate();
+  const requestClose = useOverlayHistory(true, onClose, 'pnzjTodoDetailId');
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [form, setForm] = useState({
     title: todo.title || '',
@@ -411,9 +413,9 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto" onClick={requestClose}>
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="bg-white rounded-xl w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
           <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10 rounded-t-xl">
           <div className="flex items-center gap-2">
             {mode === 'view' ? (
@@ -427,7 +429,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
               <span className="text-sm font-medium text-gray-500">编辑待办</span>
             )}
           </div>
-          <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
+          <button type="button" onClick={requestClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -469,7 +471,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
                   <span className="text-xs text-gray-400 block mb-2">附件 ({todo.attachments.length})</span>
                   <div className="space-y-2">
                     {normalizeAttachments(todo.attachments).map((att, i) => (
-                      <div key={`${att.fileID}-${i}`} className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                      <div key={`${att.fileID}-${i}`} className="flex items-center gap-2 text-xs px-3 py-2 rounded bg-gray-50 border border-gray-100">
                         <Paperclip size={13} className="text-gray-400 shrink-0" />
                         <button
                           type="button"
@@ -496,12 +498,12 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">标题 *</label>
                 <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                  className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">描述</label>
                 <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
+                  className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -555,7 +557,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">附件</label>
-                <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-500 cursor-pointer hover:border-gold-300 hover:text-gold-600">
+                <label className="flex items-center justify-center gap-2 rounded border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-500 cursor-pointer hover:border-gold-300 hover:text-gold-600">
                   {uploadingAttachments ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                   {uploadingAttachments ? '上传中…' : '上传图片或文件'}
                   <input
@@ -587,7 +589,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
               {mode === 'view' ? (
                 <>
                   <button type="button" onClick={() => onToggle(todo)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition-colors ${
                       todo.status === 'completed'
                         ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
                         : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -595,21 +597,21 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
                     {todo.status === 'completed' ? <><RotateCcw size={14} /> 重新打开</> : <><CheckCircle size={14} /> 完成待办</>}
                   </button>
                   <button type="button" onClick={() => setMode('edit')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                    className="flex items-center gap-1.5 px-3 py-2 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors">
                     <Edit3 size={14} /> 编辑
                   </button>
                 </>
               ) : (
                 <>
                   <button type="button" onClick={() => setMode('view')}
-                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
+                    className="px-3 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
                   <button type="button" onClick={handleSave}
-                    className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500">保存</button>
+                    className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500">保存</button>
                 </>
               )}
             </div>
             <button type="button" onClick={() => { if (confirm('确定删除该待办吗？')) onDelete(todo._id); }}
-              className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+              className="p-2 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors">
               <Trash2 size={16} />
             </button>
           </div>
@@ -995,6 +997,8 @@ export default function Todos() {
 
   return (
     <div className="erp-page">
+      <OverlayHistoryBridge open={Boolean(mobileFilterDrawer)} onClose={() => setMobileFilterDrawer(null)} stateKey="pnzjTodoMobileFilterId" />
+      <OverlayHistoryBridge open={showCreate} onClose={() => setShowCreate(false)} stateKey="pnzjTodoCreateId" />
       <div className="erp-page-header">
         <div>
           <h1 className="erp-page-title">待办看板</h1>
@@ -1012,7 +1016,7 @@ export default function Todos() {
           const active = statFilter === card.key;
           return (
             <button key={card.key} type="button" onClick={() => setStatFilter(active && statFilter !== 'all' ? 'all' : card.key)}
-              className={`flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
+              className={`flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] md:text-xs text-gray-400">{card.label}</span>
                 <Icon size={14} className={active ? card.color : 'text-gray-300'} />
@@ -1034,7 +1038,7 @@ export default function Todos() {
             {!isAdmin && (
               <>
                 {/* 桌面端：双按钮 */}
-                <div className="hidden md:flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                <div className="hidden md:flex rounded border border-gray-200 overflow-hidden shrink-0">
                   <button type="button" onClick={() => setFilterScope('related')}
                     className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${filterScope === 'related' ? 'bg-gold-400 text-black' : 'text-gray-500 hover:bg-gray-50'}`}>
                     与我相关
@@ -1048,7 +1052,7 @@ export default function Todos() {
                 <button
                   type="button"
                   onClick={() => setFilterScope(s => s === 'related' ? 'all' : 'related')}
-                  className={`md:hidden shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${filterScope === 'related' ? 'border-gold-400 text-gold-600 bg-gold-50/60' : 'border-gray-200 text-gray-600 bg-white'}`}
+                  className={`md:hidden shrink-0 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${filterScope === 'related' ? 'border-gold-400 text-gold-600 bg-gold-50/60' : 'border-gray-200 text-gray-600 bg-white'}`}
                 >
                   {filterScope === 'related' ? '我的' : '全部'}
                 </button>
@@ -1104,7 +1108,7 @@ export default function Todos() {
                     { key: 'group' as const, label: groupBy === 'none' ? '不分组' : groupBy === 'priority' ? '按优先级' : '按执行人' },
                   ].map(item => (
                     <button key={item.key} type="button" onClick={() => setMobileFilterDrawer(item.key)}
-                      className="h-9 px-3 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-gold-300 hover:text-gold-600 truncate">
+                      className="h-9 px-3 text-xs rounded border border-gray-200 bg-white text-gray-600 hover:border-gold-300 hover:text-gold-600 truncate">
                       {item.label}
                     </button>
                   ))}
@@ -1152,7 +1156,7 @@ export default function Todos() {
                   <div className="grid gap-2">
                     {[{ value: '', label: '全部执行人', description: '' }, ...assigneeOptions].map(item => (
                       <button key={item.value || 'all'} type="button" onClick={() => { setAssigneeFilter(item.value); setMobileFilterDrawer(null); }}
-                        className={`h-11 px-3 rounded-lg border text-sm text-left flex items-center gap-2 ${assigneeFilter === item.value ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
+                        className={`h-11 px-3 rounded border text-sm text-left flex items-center gap-2 ${assigneeFilter === item.value ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
                         <span className="flex-1 truncate">{item.label}</span>
                         {item.description && <span className="text-xs text-gray-400 shrink-0">{item.description}</span>}
                       </button>
@@ -1163,7 +1167,7 @@ export default function Todos() {
                   <div className="grid gap-2">
                     {[{ _id: '', name: '全部客户' }, ...leads].map(item => (
                       <button key={item._id || 'all'} type="button" onClick={() => { setLeadFilter(item._id); setMobileFilterDrawer(null); }}
-                        className={`h-11 px-3 rounded-lg border text-sm text-left truncate ${leadFilter === item._id ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
+                        className={`h-11 px-3 rounded border text-sm text-left truncate ${leadFilter === item._id ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
                         {item.name}
                       </button>
                     ))}
@@ -1173,7 +1177,7 @@ export default function Todos() {
                   <div className="grid gap-2">
                     {[{ _id: '', customer: '全部工地', address: '' }, ...projects].map(item => (
                       <button key={item._id || 'all'} type="button" onClick={() => { setProjectFilter(item._id); setMobileFilterDrawer(null); }}
-                        className={`h-11 px-3 rounded-lg border text-sm text-left truncate ${projectFilter === item._id ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
+                        className={`h-11 px-3 rounded border text-sm text-left truncate ${projectFilter === item._id ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
                         {item.customer}{item.address ? ` - ${item.address}` : ''}
                       </button>
                     ))}
@@ -1183,7 +1187,7 @@ export default function Todos() {
                   <div className="grid gap-2">
                     {[{ value: 'none', label: '不分组' }, { value: 'priority', label: '按优先级' }, { value: 'assignee', label: '按执行人' }].map(item => (
                       <button key={item.value} type="button" onClick={() => { setGroupBy(item.value as any); setMobileFilterDrawer(null); }}
-                        className={`h-11 px-3 rounded-lg border text-sm text-left ${groupBy === item.value ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
+                        className={`h-11 px-3 rounded border text-sm text-left ${groupBy === item.value ? 'bg-gold-50 border-gold-400 text-gold-700 font-medium' : 'border-gray-200 text-gray-700'}`}>
                         {item.label}
                       </button>
                     ))}
@@ -1315,7 +1319,7 @@ export default function Todos() {
       {showCreate && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto" onClick={() => setShowCreate(false)}>
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
               <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold">新建待办</h2>
                 <button type="button" onClick={() => setShowCreate(false)} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
@@ -1324,12 +1328,12 @@ export default function Todos() {
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">标题 *</label>
                 <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="输入待办标题"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                  className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">描述</label>
                 <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} placeholder="详细描述..."
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
+                  className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1394,7 +1398,7 @@ export default function Todos() {
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">附件</label>
-                <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-500 cursor-pointer hover:border-gold-300 hover:text-gold-600">
+                <label className="flex items-center justify-center gap-2 rounded border border-dashed border-gray-200 px-3 py-3 text-xs text-gray-500 cursor-pointer hover:border-gold-300 hover:text-gold-600">
                   {uploadingCreateAttachments ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                   {uploadingCreateAttachments ? '上传中…' : '上传图片或文件'}
                   <input
@@ -1418,9 +1422,9 @@ export default function Todos() {
               </div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
+              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
               <button onClick={handleCreate} disabled={submitting || !form.title.trim() || form.assignees.length === 0}
-                className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:opacity-50 disabled:cursor-not-allowed">
                 {submitting ? '创建中...' : '创建'}
               </button>
             </div>
