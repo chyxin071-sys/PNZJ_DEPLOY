@@ -626,7 +626,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
 // ============ Main Component ============
 export default function Todos() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const myName = user?.name || '';
   const myId = user?.id || '';
@@ -655,8 +655,12 @@ export default function Todos() {
   const projectPrefillAppliedRef = useRef(false);
 
   useEffect(() => {
-    if (searchParams.get('action') === 'new') setShowCreate(true);
-  }, [searchParams]);
+    if (searchParams.get('action') !== 'new') return;
+    setShowCreate(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('action');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [form, setForm] = useState(INIT_FORM);
   const [detailTodo, setDetailTodo] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);

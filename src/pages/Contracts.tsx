@@ -83,7 +83,7 @@ export default function Contracts() {
     if (action !== 'new') return;
     if (currentBizType === '家装') {
       setHomeDrawerOpen(true);
-      setSearchParams(new URLSearchParams());
+      setSearchParams(new URLSearchParams(), { replace: true });
       return;
     }
     setEditingId(null);
@@ -93,7 +93,7 @@ export default function Contracts() {
       houseAddress: searchParams.get('address') || '',
     });
     setModalOpen(true);
-    setSearchParams(new URLSearchParams());
+    setSearchParams(new URLSearchParams(), { replace: true });
   }, [currentBizType, searchParams, setSearchParams]);
 
   useEffect(() => {

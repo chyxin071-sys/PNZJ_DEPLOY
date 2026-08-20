@@ -310,7 +310,7 @@ export default function ProjectsBiz() {
   const navigate = useNavigate();
   const location = useLocation();
   const returnPath = getCurrentReturnPath(location.pathname, location.search);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const notifications = useNotificationStore((state) => state.notifications);
   const projectUnreadCountById = useMemo(() => {
@@ -615,8 +615,12 @@ export default function ProjectsBiz() {
   };
 
   useEffect(() => {
-    if (searchParams.get('action') === 'new') handleOpenCreate();
-  }, [searchParams]);
+    if (searchParams.get('action') !== 'new') return;
+    handleOpenCreate();
+    const next = new URLSearchParams(searchParams);
+    next.delete('action');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const employee = searchParams.get('employee');
