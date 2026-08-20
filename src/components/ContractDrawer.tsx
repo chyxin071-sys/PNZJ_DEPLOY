@@ -7,6 +7,7 @@ import { createNotificationEventSafely, stableOperationId } from '@/services/not
 import { generateId, normalizeAddress } from '@/utils/format';
 import { leadsAPI } from '@/db/api';
 import DatePicker from '@/components/DatePicker';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 import type { Contract } from '@/types';
 import { addLeadAuditFollowUp } from '@/utils/leadAudit';
 
@@ -93,6 +94,9 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
   const [leadSearch, setLeadSearch] = useState('');
   const [showLeadPicker, setShowLeadPicker] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState(prefill?.customerId || '');
+  const requestClose = useOverlayHistory(open, () => {
+    if (!saving) onClose();
+  }, 'pnzjContractDrawerId');
 
   const getNextContractNo = () => {
     const yearPrefix = String(new Date().getFullYear()).slice(2);
@@ -287,7 +291,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-start md:justify-end">
       {/* 遮罩 */}
-      <div className="absolute inset-0 bg-black/30" onClick={() => { if (!saving) onClose(); }} />
+      <div className="absolute inset-0 bg-black/30" onClick={requestClose} />
 
       {/* 面板：移动端底部上滑，桌面端右侧滑入 */}
       <div className={`
@@ -301,7 +305,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         {/* 头部 */}
         <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b border-gray-100 px-5 md:px-6 py-3.5 md:py-4">
           <h2 className="text-sm md:text-base font-semibold text-gray-900">新建合同</h2>
-          <button onClick={onClose} disabled={saving} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={20} /></button>
+          <button onClick={requestClose} disabled={saving} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={20} /></button>
         </div>
 
         <div className="px-5 md:px-6 py-5 space-y-5">

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
+import { OverlayHistoryBridge } from '@/hooks/useOverlayHistory';
 import Select from '@/components/Select';
 import WorkerAvatar from '@/components/WorkerAvatar';
 import { projectsAPI } from '@/db/api';
@@ -446,6 +447,10 @@ export default function WorkerSchedulePage() {
 
   return (
     <div className="erp-page pb-24 md:pb-6">
+      <OverlayHistoryBridge open={backlogOpen} onClose={() => setBacklogOpen(false)} stateKey="pnzjWorkerBacklogId" />
+      <OverlayHistoryBridge open={scheduleEditorOpen} onClose={() => setScheduleEditorOpen(false)} stateKey="pnzjWorkerScheduleEditorId" />
+      <OverlayHistoryBridge open={Boolean(profileWorker)} onClose={() => setProfileWorker(null)} stateKey="pnzjWorkerProfileId" />
+      <OverlayHistoryBridge open={workerEditorOpen} onClose={() => setWorkerEditorOpen(false)} stateKey="pnzjWorkerEditorId" />
       <div className="erp-page-header items-start">
         <div><h1 className="erp-page-title">工人排期</h1><p className="erp-page-subtitle">统筹工人档期与工地施工安排</p></div>
         {canEdit && <div className="flex gap-2"><button onClick={openWorkerManager} className="erp-btn-secondary h-10 w-10 justify-center px-0 sm:w-auto sm:px-3" title="工人管理"><UserRoundCog size={16} /><span className="hidden sm:inline">工人管理</span></button><button onClick={openNewSchedule} className="erp-btn-primary h-10 w-10 justify-center px-0 sm:w-auto sm:px-3" title="新增排期"><Plus size={16} /><span className="hidden sm:inline">新增排期</span></button></div>}

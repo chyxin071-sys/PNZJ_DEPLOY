@@ -113,6 +113,7 @@ function MobileTabBar() {
             <NavLink
               key={item.path}
               to={item.path}
+              replace
               className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
                 isActive ? 'text-gold-600' : 'text-gray-400'
               }`}

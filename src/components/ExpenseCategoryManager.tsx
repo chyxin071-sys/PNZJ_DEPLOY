@@ -4,6 +4,7 @@ import type { ExpenseCategory, ExpenseCategorySource, FinanceCategoryKind } from
 import { resolveExpenseCategory } from '@/services/expenseCategories';
 import { useDialogStore } from '@/store/dialogStore';
 import { generateId } from '@/utils/format';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 
 type Props = {
   open: boolean;
@@ -26,6 +27,7 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
   const [newPrimary, setNewPrimary] = useState('');
   const [newSecondary, setNewSecondary] = useState('');
   const [error, setError] = useState('');
+  const requestClose = useOverlayHistory(open, onClose, 'pnzjExpenseCategoryManagerId');
 
   useEffect(() => {
     if (!open) return;
@@ -180,14 +182,14 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end bg-black/45 md:items-center md:justify-center md:p-5" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-end bg-black/45 md:items-center md:justify-center md:p-5" onClick={requestClose}>
       <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-3xl md:rounded" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-base font-bold text-gray-900">收支类别管理</h2>
             <p className="mt-0.5 text-xs text-gray-400">收入和支出分开维护，一级用于归集，二级用于录入和明细分析</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭收支类别管理"><X size={18} /></button>
+          <button type="button" onClick={requestClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭收支类别管理"><X size={18} /></button>
         </div>
 
         <div className="flex gap-2 border-b border-gray-100 px-5 py-3">
@@ -249,7 +251,7 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
 
         {error && <div className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-xs text-red-600">{error}</div>}
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
-          <button type="button" onClick={onClose} className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-600">取消</button>
+          <button type="button" onClick={requestClose} className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-600">取消</button>
           <button type="button" onClick={submit} disabled={saving} className="flex items-center gap-1.5 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
             {saving ? '保存中...' : <><Check size={15} /> 保存分类</>}
           </button>

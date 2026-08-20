@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 
 interface DatePickerProps {
   value: string;
@@ -55,6 +56,7 @@ export default function DatePicker({
   const [desktopPosition, setDesktopPosition] = useState({ top: 0, left: 0, width: 0, placement: 'bottom' as 'top' | 'bottom' });
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const requestClose = useOverlayHistory(open && isMobile, () => setOpen(false), 'pnzjDatePickerSheetId');
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -360,7 +362,7 @@ export default function DatePicker({
           className="fixed inset-0 z-[240] flex items-end"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={requestClose} />
           <div className="relative w-full max-h-[86vh] overflow-auto rounded-t-2xl border border-gray-100 bg-white shadow-2xl">
             {/* Mobile drag handle */}
             <div className="md:hidden flex justify-center pt-3 pb-1">
@@ -371,7 +373,7 @@ export default function DatePicker({
             <div className="md:hidden px-4 pb-4 pt-2">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={requestClose}
                 className="w-full py-2.5 bg-gold-400 text-white text-sm font-medium rounded hover:bg-gold-500 transition-colors"
               >
                 确定

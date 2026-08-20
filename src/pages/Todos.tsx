@@ -13,6 +13,7 @@ import { formatDate, formatDateTime, generateId } from '@/utils/format';
 import BottomDrawer from '@/components/BottomDrawer';
 import DataTable from '@/components/DataTable';
 import FormAttachmentList from '@/components/FormAttachmentList';
+import { OverlayHistoryBridge, useOverlayHistory } from '@/hooks/useOverlayHistory';
 import {
   downloadAttachment,
   normalizeAttachments,
@@ -350,6 +351,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
   employees: any[]; leads: any[]; projects: any[]; myName: string; myId: string; isAdmin: boolean;
 }) {
   const navigate = useNavigate();
+  const requestClose = useOverlayHistory(true, onClose, 'pnzjTodoDetailId');
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [form, setForm] = useState({
     title: todo.title || '',
@@ -411,7 +413,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto" onClick={requestClose}>
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="bg-white rounded w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
           <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10 rounded-t-xl">
@@ -427,7 +429,7 @@ function TodoDetailModal({ todo, onClose, onToggle, onDelete, onUpdate, employee
               <span className="text-sm font-medium text-gray-500">编辑待办</span>
             )}
           </div>
-          <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
+          <button type="button" onClick={requestClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -995,6 +997,8 @@ export default function Todos() {
 
   return (
     <div className="erp-page">
+      <OverlayHistoryBridge open={Boolean(mobileFilterDrawer)} onClose={() => setMobileFilterDrawer(null)} stateKey="pnzjTodoMobileFilterId" />
+      <OverlayHistoryBridge open={showCreate} onClose={() => setShowCreate(false)} stateKey="pnzjTodoCreateId" />
       <div className="erp-page-header">
         <div>
           <h1 className="erp-page-title">待办看板</h1>

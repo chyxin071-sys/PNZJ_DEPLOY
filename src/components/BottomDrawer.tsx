@@ -1,5 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 
 interface BottomDrawerProps {
   open: boolean;
@@ -9,6 +10,8 @@ interface BottomDrawerProps {
 }
 
 export default function BottomDrawer({ open, onClose, children, title }: BottomDrawerProps) {
+  const requestClose = useOverlayHistory(open, onClose, 'pnzjDrawerId');
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -21,7 +24,7 @@ export default function BottomDrawer({ open, onClose, children, title }: BottomD
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] md:hidden" onClick={onClose}>
+    <div className="fixed inset-0 z-[110] md:hidden" onClick={requestClose}>
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-black/30" />
       {/* 抽屉内容 */}

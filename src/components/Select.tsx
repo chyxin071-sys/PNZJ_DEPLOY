@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 
 interface Option {
   value: string;
@@ -24,6 +25,7 @@ export default function Select({ value, onChange, options, placeholder = '请选
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const requestClose = useOverlayHistory(open && isMobile, () => setOpen(false), 'pnzjSelectSheetId');
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -109,7 +111,7 @@ export default function Select({ value, onChange, options, placeholder = '请选
       {/* Mobile: bottom sheet */}
       {open && isMobile && createPortal(
         <div className="fixed inset-0 z-[240] flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={requestClose} />
           <div className="relative bg-white rounded-t-2xl w-full max-h-[50vh] flex flex-col shadow-2xl border border-gray-100">
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-gray-300" />
@@ -117,7 +119,7 @@ export default function Select({ value, onChange, options, placeholder = '请选
             {sheetTitle && (
               <div className="flex items-center justify-between px-5 pb-3 pt-1 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-900">{sheetTitle}</h3>
-                <button type="button" onClick={() => setOpen(false)} className="text-xs text-gray-400">取消</button>
+                <button type="button" onClick={requestClose} className="text-xs text-gray-400">取消</button>
               </div>
             )}
             {searchable && (

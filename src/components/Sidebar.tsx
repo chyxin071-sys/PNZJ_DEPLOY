@@ -7,6 +7,7 @@ import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { getErpVisibleNavGroups, getErpVisibleBottomItems, ERP_NAV_TOP_ITEM } from './navConfig';
+import { useOverlayHistory } from '@/hooks/useOverlayHistory';
 import logoUrl from '@/assets/logo.png';
 
 interface SidebarProps {
@@ -27,6 +28,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const groups = getErpVisibleNavGroups(role, currentBizType, userBizTypes as any, roles);
   const bottomItems = getErpVisibleBottomItems(role, roles, currentBizType);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const requestClose = useOverlayHistory(open, onClose, 'pnzjMobileSidebarId');
 
   const pendingReimbursements = reimbursements.filter(r => r.status === '待审核').length;
 
@@ -51,7 +53,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <img src={logoUrl} alt="品诺筑家" className="w-5 h-5 rounded" />
           <span className="text-white text-[13px] font-semibold">{userName}</span>
         </div>
-        <button onClick={onClose} className="text-white/40 hover:text-white/80">
+        <button onClick={requestClose} className="text-white/40 hover:text-white/80">
           <X size={18} />
         </button>
       </div>
@@ -169,7 +171,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={requestClose} />
       )}
 
       <aside className="w-[160px] hidden lg:flex flex-col bg-[#0f0f0f] h-full shrink-0 sticky top-0">
