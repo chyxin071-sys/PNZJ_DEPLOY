@@ -3,6 +3,7 @@ import { Plus, Search, Upload, FileText, User, Building, Calendar, FileImage, Se
 import { useLocation, useNavigate } from 'react-router-dom';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
+import BottomDrawer from '@/components/BottomDrawer';
 import DatePicker from '@/components/DatePicker';
 import Select from '@/components/Select';
 import FormAttachmentList from '@/components/FormAttachmentList';
@@ -19,11 +20,17 @@ import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { cloudDB } from '@/db/cloudbase';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
 import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
+import type { ExpenseCategory } from '@/services/expenseCategories';
+import {
+  DEFAULT_REIMBURSEMENT_PAYMENT_TYPES,
+  loadReimbursementPaymentTypes,
+  paymentTypeDisplay,
+  resolveReimbursementPaymentType,
+  saveReimbursementPaymentTypes,
+} from '@/services/reimbursementPaymentTypes';
 
 const FLOW_CONFIG_DOC_ID = 'reimbursement_approval_flow';
-const TYPE_CONFIG_DOC_ID = 'reimbursement_types_v1';
 const TABS = ['全部', '待审批', '待打款', '已打款', '已驳回', '已作废', '已冲销'];
-const DEFAULT_REIMBURSEMENT_TYPES = ['差旅费', '采购费', '交通费', '业务招待费', '其他'];
 const EMPTY_FLOW_CONFIG = { approver1Ids: [] as string[], approver2Ids: [] as string[], ccUserIds: [] as string[], payerIds: [] as string[] };
 
 function todayDate() {
@@ -32,10 +39,14 @@ function todayDate() {
 
 function createInitialForm(applicant = '', contractId = '') {
   const date = todayDate();
+  const defaultType = paymentTypeDisplay({
+    primaryName: DEFAULT_REIMBURSEMENT_PAYMENT_TYPES[0]?.name || '',
+    secondaryName: DEFAULT_REIMBURSEMENT_PAYMENT_TYPES[0]?.children[0]?.name || '',
+  });
   return {
     contractId,
     applicant,
-    type: DEFAULT_REIMBURSEMENT_TYPES[0],
+    type: defaultType,
     amount: '',
     expenseDate: date,
     applicationDate: date,
@@ -99,12 +110,6 @@ function safeFormatDate(value?: string) {
   const time = new Date(value).getTime();
   if (Number.isNaN(time)) return '-';
   return formatDate(value);
-}
-
-function normalizeReimbursementTypes(value: any) {
-  const source = Array.isArray(value) ? value : DEFAULT_REIMBURSEMENT_TYPES;
-  const types = [...new Set(source.map((item: any) => String(item || '').trim()).filter(Boolean))];
-  return types.length ? types : DEFAULT_REIMBURSEMENT_TYPES;
 }
 
 function UserMultiSelect({
@@ -182,6 +187,81 @@ function UserMultiSelect({
   );
 }
 
+function PaymentTypePicker({
+  categories,
+  selected,
+  onSelect,
+}: {
+  categories: ExpenseCategory[];
+  selected: ReturnType<typeof resolveReimbursementPaymentType>;
+  onSelect: (primary: ExpenseCategory, secondary: ExpenseCategory['children'][number]) => void;
+}) {
+  const [activePrimaryId, setActivePrimaryId] = useState(selected.primaryId || categories[0]?.id || '');
+
+  useEffect(() => {
+    setActivePrimaryId(selected.primaryId || categories[0]?.id || '');
+  }, [selected.primaryId, categories]);
+
+  const activePrimary = categories.find((category) => category.id === activePrimaryId) || categories[0];
+  const secondaryOptions = activePrimary?.children || [];
+
+  return (
+    <div className="grid min-h-[280px] grid-cols-[minmax(112px,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded border border-gray-200 bg-white">
+      <div className="min-w-0 border-r border-gray-200 bg-gray-50/60">
+        <div className="border-b border-gray-100 px-3 py-2.5">
+          <div className="text-xs font-medium text-gray-600">一级分类</div>
+          <div className="mt-0.5 text-[11px] text-gray-400">付款大类</div>
+        </div>
+        <div className="max-h-[320px] space-y-1 overflow-y-auto p-2">
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              onClick={() => setActivePrimaryId(category.id)}
+              className={`w-full rounded px-3 py-2 text-left text-xs font-medium leading-5 transition-colors ${
+                category.id === activePrimary?.id
+                  ? 'bg-gold-100 text-gold-700 ring-1 ring-inset ring-gold-300'
+                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
+              }`}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="border-b border-gray-100 px-3 py-2.5">
+          <div className="text-xs font-medium text-gray-600">二级分类</div>
+          <div className="mt-0.5 truncate text-[11px] text-gray-400" title={activePrimary?.name}>
+            {activePrimary?.name ? `${activePrimary.name}下的明细` : '选择具体用途'}
+          </div>
+        </div>
+        <div className="max-h-[320px] space-y-1 overflow-y-auto p-2">
+          {secondaryOptions.length > 0 ? (
+            secondaryOptions.map((child) => (
+              <button
+                key={child.id}
+                type="button"
+                onClick={() => activePrimary && onSelect(activePrimary, child)}
+                className={`w-full rounded px-3 py-2 text-left text-xs font-medium leading-5 transition-colors ${
+                  child.id === selected.secondaryId
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                {child.name}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-8 text-center text-xs leading-5 text-gray-400">请先在类型管理中添加二级分类</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ReimbursementPage() {
   const location = useLocation();
   const [localPreviewIndex, setLocalPreviewIndex] = useState<number | null>(null);
@@ -207,18 +287,33 @@ export default function ReimbursementPage() {
   const [controlAction, setControlAction] = useState<{ type: 'delete' | 'void' | 'reverse'; item: Reimbursement } | null>(null);
   const [showFlowModal, setShowFlowModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showTypePicker, setShowTypePicker] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [controlReason, setControlReason] = useState('');
   const [showDetail, setShowDetail] = useState<Reimbursement | null>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [approvalConfig, setApprovalConfig] = useState(EMPTY_FLOW_CONFIG);
   const [flowDraft, setFlowDraft] = useState(EMPTY_FLOW_CONFIG);
-  const [reimbursementTypes, setReimbursementTypes] = useState(DEFAULT_REIMBURSEMENT_TYPES);
-  const [typeDraft, setTypeDraft] = useState(DEFAULT_REIMBURSEMENT_TYPES);
-  const [newTypeName, setNewTypeName] = useState('');
+  const [reimbursementTypeCategories, setReimbursementTypeCategories] = useState<ExpenseCategory[]>(DEFAULT_REIMBURSEMENT_PAYMENT_TYPES);
+  const [typeDraft, setTypeDraft] = useState<ExpenseCategory[]>(DEFAULT_REIMBURSEMENT_PAYMENT_TYPES);
+  const [newPrimaryName, setNewPrimaryName] = useState('');
+  const [newSecondaryName, setNewSecondaryName] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [dashboardFilter, setDashboardFilter] = useState<'month-all' | 'month-review' | 'month-pay' | 'month-paid' | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => (
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  ));
   const [returnToUrl, setReturnToUrl] = useState<string | null>(null);
   const localPreviewUrls = useMemo(() => files.map(file => URL.createObjectURL(file)), [files]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const query = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobileViewport(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => () => {
     localPreviewUrls.forEach(url => URL.revokeObjectURL(url));
@@ -361,11 +456,9 @@ export default function ReimbursementPage() {
 
   const loadReimbursementTypes = useCallback(async () => {
     try {
-      const res: any = await cloudDB.collection('system_configs').doc(TYPE_CONFIG_DOC_ID).get();
-      const data = Array.isArray(res?.data) ? res.data[0] : res?.data;
-      setReimbursementTypes(normalizeReimbursementTypes(data?.types));
+      setReimbursementTypeCategories(await loadReimbursementPaymentTypes());
     } catch {
-      setReimbursementTypes(DEFAULT_REIMBURSEMENT_TYPES);
+      setReimbursementTypeCategories(DEFAULT_REIMBURSEMENT_PAYMENT_TYPES);
     }
   }, []);
 
@@ -373,10 +466,28 @@ export default function ReimbursementPage() {
     void loadReimbursementTypes();
   }, [loadReimbursementTypes]);
 
+  const reimbursementTypeOptions = useMemo(
+    () => reimbursementTypeCategories.flatMap((category) => category.children.map((child) => paymentTypeDisplay({
+      primaryName: category.name,
+      secondaryName: child.name,
+    }))),
+    [reimbursementTypeCategories]
+  );
+
+  const selectedPaymentType = useMemo(
+    () => resolveReimbursementPaymentType(form.type, reimbursementTypeCategories),
+    [form.type, reimbursementTypeCategories]
+  );
+
+  const handleSelectPaymentType = (primary: ExpenseCategory, secondary: ExpenseCategory['children'][number]) => {
+    setForm((prev) => ({ ...prev, type: paymentTypeDisplay({ primaryName: primary.name, secondaryName: secondary.name }) }));
+    setShowTypePicker(false);
+  };
+
   useEffect(() => {
-    if (reimbursementTypes.includes(form.type)) return;
-    setForm((prev) => ({ ...prev, type: reimbursementTypes[0] || DEFAULT_REIMBURSEMENT_TYPES[0] }));
-  }, [form.type, reimbursementTypes]);
+    if (form.type) return;
+    setForm((prev) => ({ ...prev, type: reimbursementTypeOptions[0] || '' }));
+  }, [form.type, reimbursementTypeOptions]);
 
   const openFlowSettings = () => {
     if (!canManageApprovalFlow) return;
@@ -386,8 +497,12 @@ export default function ReimbursementPage() {
 
   const openTypeSettings = () => {
     if (!canManageApprovalFlow) return;
-    setTypeDraft(reimbursementTypes);
-    setNewTypeName('');
+    setTypeDraft(reimbursementTypeCategories.map((category) => ({
+      ...category,
+      children: category.children.map((child) => ({ ...child })),
+    })));
+    setNewPrimaryName('');
+    setNewSecondaryName('');
     setShowTypeModal(true);
   };
 
@@ -410,23 +525,29 @@ export default function ReimbursementPage() {
     }
   };
 
-  const addTypeDraft = () => {
-    const name = newTypeName.trim();
+  const addPrimaryDraft = () => {
+    const name = newPrimaryName.trim();
     if (!name) return;
-    setTypeDraft((prev) => normalizeReimbursementTypes([...prev, name]));
-    setNewTypeName('');
+    setTypeDraft((prev) => [...prev, { id: generateId(), name, children: [] }]);
+    setNewPrimaryName('');
+  };
+
+  const addSecondaryDraft = (categoryId: string) => {
+    const name = newSecondaryName.trim();
+    if (!name) return;
+    setTypeDraft((prev) => prev.map((category) => (
+      category.id === categoryId
+        ? { ...category, children: [...category.children, { id: generateId(), name }] }
+        : category
+    )));
+    setNewSecondaryName('');
   };
 
   const saveTypeConfig = async () => {
     if (!canManageApprovalFlow) return;
-    const nextTypes = normalizeReimbursementTypes(typeDraft);
     try {
-      await cloudDB.collection('system_configs').doc(TYPE_CONFIG_DOC_ID).set({
-        types: nextTypes,
-        updatedAt: new Date().toISOString(),
-        updatedBy: myName,
-      });
-      setReimbursementTypes(nextTypes);
+      const nextTypes = await saveReimbursementPaymentTypes(typeDraft, myName);
+      setReimbursementTypeCategories(nextTypes);
       setShowTypeModal(false);
     } catch (e: any) {
       await showAlert(e?.message || '保存付款类型失败');
@@ -526,9 +647,24 @@ export default function ReimbursementPage() {
     ? reimbursements.filter((r) => r.applicant === user?.name || '')
     : reimbursements).filter(isVisibleReimbursement);
 
+  const currentMonthKey = formatDate(new Date().toISOString()).slice(0, 7);
+  const isCurrentMonthRecord = (r: Reimbursement) => safeFormatDate((r as any).applicationDate || r.expenseDate || r.createdAt).slice(0, 7) === currentMonthKey;
+  const dashboardRecords = dataSource.filter(isCurrentMonthRecord);
+  const sumAmount = (items: Reimbursement[]) => items.reduce((total, item) => total + Number(item.amount || 0), 0);
+  const dashboardCards = [
+    { key: 'month-all' as const, label: '本月申请', amount: sumAmount(dashboardRecords), count: dashboardRecords.length, tab: '全部' },
+    { key: 'month-review' as const, label: '本月待审批', amount: sumAmount(dashboardRecords.filter((r) => ['待一级审批', '待二级审批', '待审核'].includes(getReimbursementStatus(r)))), count: dashboardRecords.filter((r) => ['待一级审批', '待二级审批', '待审核'].includes(getReimbursementStatus(r))).length, tab: '待审批' },
+    { key: 'month-pay' as const, label: '本月待打款', amount: sumAmount(dashboardRecords.filter((r) => getReimbursementStatus(r) === '待打款')), count: dashboardRecords.filter((r) => getReimbursementStatus(r) === '待打款').length, tab: '待打款' },
+    { key: 'month-paid' as const, label: '本月已打款', amount: sumAmount(dashboardRecords.filter((r) => getReimbursementStatus(r) === '已打款')), count: dashboardRecords.filter((r) => getReimbursementStatus(r) === '已打款').length, tab: '已打款' },
+  ];
+
   const filtered = dataSource
     .filter((r) => {
       const status = getReimbursementStatus(r);
+      if (dashboardFilter && !isCurrentMonthRecord(r)) return false;
+      if (dashboardFilter === 'month-review' && !['待一级审批', '待二级审批', '待审核'].includes(status)) return false;
+      if (dashboardFilter === 'month-pay' && status !== '待打款') return false;
+      if (dashboardFilter === 'month-paid' && status !== '已打款') return false;
       if (tab === '待审批' && !['待一级审批', '待二级审批', '待审核'].includes(status)) return false;
       if (!['全部', '待审批'].includes(tab) && status !== tab) return false;
       if (search) {
@@ -965,7 +1101,7 @@ export default function ReimbursementPage() {
         payeeName: form.payeeName.trim(),
         payeeBank: form.payeeBank.trim(),
         payeeAccount: form.payeeAccount.trim(),
-        remark: form.remark.trim(),
+        remark: '',
         attachments: uploadedAttachments,
         status: '待一级审批',
         approvalFlow: flow,
@@ -1046,7 +1182,7 @@ export default function ReimbursementPage() {
         payeeName: form.payeeName.trim(),
         payeeBank: form.payeeBank.trim(),
         payeeAccount: form.payeeAccount.trim(),
-        remark: form.remark.trim(),
+        remark: '',
         attachments: uploadedAttachments,
         status: '待审核', 
         reviewComment: '', 
@@ -1088,6 +1224,7 @@ export default function ReimbursementPage() {
     const ct = contracts.find((c) => c.id === r.contractId);
     const flow = getFlow(r);
     const approverNames = getNamesByIds(flow.approver1Ids);
+    const imageAttachments = normalizeAttachments(r.attachments).filter((attachment) => attachment.type === 'image');
     return {
       applicant: r.applicant,
       applicationDate: (r as any).applicationDate || r.expenseDate || r.createdAt,
@@ -1100,10 +1237,11 @@ export default function ReimbursementPage() {
       paymentPurpose: getPaymentPurpose(r),
       amount: Number(r.amount || 0),
       amountUppercase: Object.prototype.hasOwnProperty.call(r, 'amountUppercase') ? (r as any).amountUppercase : undefined,
-      projectManager: ct?.projectManager || '',
-      approverNames: approverNames === '-' ? '' : approverNames,
+      projectManager: approverNames === '-' ? '' : approverNames,
+      approverNames: '',
       payerNames: getNamesByIds(flow.payerIds) === '-' ? '' : getNamesByIds(flow.payerIds),
-      remark: (r as any).remark || '',
+      remark: '',
+      attachments: imageAttachments,
     };
   };
 
@@ -1130,7 +1268,7 @@ export default function ReimbursementPage() {
       contractId: contract?.id || '',
       applicant: item.applicant || user?.name || '',
       department: '未知',
-      type: item.paymentType || reimbursementTypes[0] || DEFAULT_REIMBURSEMENT_TYPES[0],
+      type: item.paymentType || reimbursementTypeOptions[0] || '',
       amount: Number(item.amount || 0),
       amountUppercase: item.amountUppercase,
       amountUppercaseImported: true,
@@ -1301,7 +1439,10 @@ export default function ReimbursementPage() {
           {TABS.map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t);
+                setDashboardFilter(null);
+              }}
               className={`px-2.5 py-1.5 text-xs font-medium rounded transition-colors shrink-0 whitespace-nowrap ${
                 tab === t ? 'bg-gold-50 text-gold-700' : 'text-gray-500 hover:bg-gray-50'
               }`}
@@ -1357,6 +1498,28 @@ export default function ReimbursementPage() {
           }} className="erp-btn-primary shrink-0">
             <Plus size={16} /> 新建报销
           </button>
+        </div>
+      )}
+
+      {!isEmbedded && (
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {dashboardCards.map((card) => (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => {
+                setDashboardFilter(dashboardFilter === card.key ? null : card.key);
+                setTab(card.tab);
+              }}
+              className={`rounded border bg-white px-3 py-3 text-left transition-colors md:px-4 ${
+                dashboardFilter === card.key ? 'border-gold-300 bg-gold-50/60' : 'border-gray-100 hover:border-gold-200'
+              }`}
+            >
+              <div className="text-[11px] font-medium text-gray-400">{card.label}</div>
+              <div className="mt-1 text-base font-semibold text-gray-900">{formatMoney(card.amount)}</div>
+              <div className="mt-1 text-[11px] text-gray-400">{card.count} 笔</div>
+            </button>
+          ))}
         </div>
       )}
 
@@ -1423,7 +1586,17 @@ export default function ReimbursementPage() {
                 <option key={bank} value={bank} />
               ))}
             </datalist>
-            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款类型</label><Select value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={reimbursementTypes.map((t) => ({ value: t, label: t }))} /></div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">付款类型</label>
+              <button
+                type="button"
+                onClick={() => setShowTypePicker(true)}
+                className="erp-input flex items-center justify-between text-left"
+              >
+                <span className={form.type ? 'text-gray-800' : 'text-gray-400'}>{form.type || '请选择付款类型'}</span>
+                <span className="text-gray-400">⌄</span>
+              </button>
+            </div>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款用途 *</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款金额（小写）</label><input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="erp-input" /></div>
             <div>
@@ -1432,13 +1605,12 @@ export default function ReimbursementPage() {
             </div>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">申请日期</label><DatePicker mode="single" value={form.applicationDate} onChange={(v) => setForm({ ...form, applicationDate: v, expenseDate: v })} placeholder="选择日期" /></div>
           </div>
-          <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">备注</label><textarea value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} rows={2} className="erp-input resize-none" /></div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
             <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
               <Upload size={20} className="mx-auto text-gray-400 mb-2" />
               <p className="text-xs text-gray-400">点击上传图片附件（支持多选，可多次追加）</p>
-              <input ref={fileRef} type="file" multiple onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" />
+              <input ref={fileRef} type="file" multiple accept="image/*" onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files || []).filter((file) => file.type.startsWith('image/'))])} className="hidden" />
             </div>
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -1496,45 +1668,96 @@ export default function ReimbursementPage() {
           <div className="space-y-4">
             <div className="flex gap-2">
               <input
-                value={newTypeName}
-                onChange={(e) => setNewTypeName(e.target.value)}
+                value={newPrimaryName}
+                onChange={(e) => setNewPrimaryName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    addTypeDraft();
+                    addPrimaryDraft();
                   }
                 }}
-                placeholder="新增付款类型"
+                placeholder="新增一级分类"
                 className="erp-input"
               />
-              <button type="button" onClick={addTypeDraft} className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-900 text-white">
+              <button type="button" onClick={addPrimaryDraft} className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-900 text-white">
                 <Plus size={16} />
               </button>
             </div>
             <div className="space-y-2">
-              {typeDraft.map((type, index) => (
-                <div key={`${type}-${index}`} className="flex items-center gap-2 rounded border border-gray-100 bg-gray-50 px-3 py-2">
-                  <input
-                    value={type}
-                    onChange={(e) => {
-                      const next = [...typeDraft];
-                      next[index] = e.target.value;
-                      setTypeDraft(next);
-                    }}
-                    className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (typeDraft.length <= 1) return;
-                      setTypeDraft(typeDraft.filter((_, i) => i !== index));
-                    }}
-                    className="p-1.5 text-gray-300 hover:text-red-500 disabled:opacity-40"
-                    disabled={typeDraft.length <= 1}
-                    aria-label="删除付款类型"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+              {typeDraft.map((category, index) => (
+                <div key={category.id} className="rounded border border-gray-100 bg-gray-50 p-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={category.name}
+                      onChange={(e) => {
+                        const next = [...typeDraft];
+                        next[index] = { ...category, name: e.target.value };
+                        setTypeDraft(next);
+                      }}
+                      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-800 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeDraft.length <= 1) return;
+                        setTypeDraft(typeDraft.filter((item) => item.id !== category.id));
+                      }}
+                      className="p-1.5 text-gray-300 hover:text-red-500 disabled:opacity-40"
+                      disabled={typeDraft.length <= 1}
+                      aria-label="删除一级分类"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {category.children.map((child, childIndex) => (
+                      <div key={child.id} className="flex items-center gap-2 rounded bg-white px-2 py-1.5">
+                        <input
+                          value={child.name}
+                          onChange={(e) => {
+                            setTypeDraft((prev) => prev.map((item) => (
+                              item.id === category.id
+                                ? {
+                                  ...item,
+                                  children: item.children.map((nextChild, nextIndex) => (
+                                    nextIndex === childIndex ? { ...nextChild, name: e.target.value } : nextChild
+                                  )),
+                                }
+                                : item
+                            )));
+                          }}
+                          className="min-w-0 flex-1 bg-transparent text-xs text-gray-700 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setTypeDraft((prev) => prev.map((item) => (
+                            item.id === category.id
+                              ? { ...item, children: item.children.filter((nextChild) => nextChild.id !== child.id) }
+                              : item
+                          )))}
+                          className="p-1 text-gray-300 hover:text-red-500"
+                          aria-label="删除二级分类"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={newSecondaryName}
+                      onChange={(e) => setNewSecondaryName(e.target.value)}
+                      placeholder={`给“${category.name || '该分类'}”添加二级分类`}
+                      className="erp-input !h-8 text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addSecondaryDraft(category.id)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-white text-gray-700 ring-1 ring-gray-200"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1668,6 +1891,22 @@ export default function ReimbursementPage() {
         />
       )}
 
+      <Modal open={showTypePicker && !isMobileViewport} onClose={() => setShowTypePicker(false)} title="选择付款类型" size="md">
+        <PaymentTypePicker
+          categories={reimbursementTypeCategories}
+          selected={selectedPaymentType}
+          onSelect={handleSelectPaymentType}
+        />
+      </Modal>
+
+      <BottomDrawer open={showTypePicker && isMobileViewport} onClose={() => setShowTypePicker(false)} title="选择付款类型">
+        <PaymentTypePicker
+          categories={reimbursementTypeCategories}
+          selected={selectedPaymentType}
+          onSelect={handleSelectPaymentType}
+        />
+      </BottomDrawer>
+
       {/* 驳回 Modal - hidden for employee */}
       {!isEmployee && (
         <Modal open={!!showRejectModal} onClose={() => { if (!submitting) { setShowRejectModal(null); setRejectReason(''); } }} title="确认驳回">
@@ -1774,11 +2013,16 @@ export default function ReimbursementPage() {
                   }}
                 />
                 <div className="mt-2">
-                  <input type="file" multiple className="text-xs w-full" onChange={async (e) => {
+                  <input type="file" multiple accept="image/*" className="text-xs w-full" onChange={async (e) => {
                     const files = e.target.files;
                     if (!files || files.length === 0) return;
                     try {
-                      const uploaded = await uploadFinanceAttachments(Array.from(files), `finance/reimbursements/append/${showDetail.id}`, myName || 'ERP');
+                      const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+                      if (!imageFiles.length) {
+                        await showAlert('只能上传图片附件。');
+                        return;
+                      }
+                      const uploaded = await uploadFinanceAttachments(imageFiles, `finance/reimbursements/append/${showDetail.id}`, myName || 'ERP');
                       const newAttachments = mergeAttachments(showDetail.attachments, uploaded);
                       await updateReimbursement({ ...showDetail, attachments: newAttachments });
                       setShowDetail({ ...showDetail, attachments: newAttachments });

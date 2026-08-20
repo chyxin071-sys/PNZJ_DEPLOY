@@ -2,6 +2,8 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { getTempFileURL, uploadFile } from './cloudStorage';
 import { formatDate } from './format';
 import { isMiniProgramWebView, openNativeFile } from './miniProgramPreview';
+import { normalizeAttachments, resolveAttachmentUrl } from './financeAttachments';
+import type { AttachmentValue } from '@/types';
 
 export interface PaymentApplicationExportItem {
   applicant: string;
@@ -19,6 +21,7 @@ export interface PaymentApplicationExportItem {
   approverNames?: string;
   payerNames?: string;
   remark?: string;
+  attachments?: AttachmentValue[];
 }
 
 export interface ImportedPaymentApplication {
@@ -111,6 +114,61 @@ function replaceCell(sheetXml: string, address: string, value: string | number |
     : buildTextCell(address, value, style);
 
   return sheetXml.replace(existing, next);
+}
+
+const EMU_PER_PIXEL = 9525;
+const DEFAULT_COL_WIDTH = 8.43;
+const DEFAULT_ROW_HEIGHT = 15;
+
+function colWidthToPixels(width = DEFAULT_COL_WIDTH) {
+  return Math.floor(width * 7 + 5);
+}
+
+function rowHeightToPixels(height = DEFAULT_ROW_HEIGHT) {
+  return height * 96 / 72;
+}
+
+function getColumnWidths(sheetXml: string) {
+  const widths = new Map<number, number>();
+  Array.from(sheetXml.matchAll(/<col\b[^>]*>/g)).forEach((match) => {
+    const tag = match[0];
+    const min = Number(tag.match(/\bmin="(\d+)"/)?.[1] || 0);
+    const max = Number(tag.match(/\bmax="(\d+)"/)?.[1] || min);
+    const width = Number(tag.match(/\bwidth="([^"]+)"/)?.[1] || DEFAULT_COL_WIDTH);
+    for (let col = min; col <= max; col += 1) widths.set(col - 1, colWidthToPixels(width));
+  });
+  return widths;
+}
+
+function getRowHeights(sheetXml: string) {
+  const heights = new Map<number, number>();
+  Array.from(sheetXml.matchAll(/<row\b[^>]*>/g)).forEach((match) => {
+    const tag = match[0];
+    const row = Number(tag.match(/\br="(\d+)"/)?.[1] || 0);
+    const height = Number(tag.match(/\bht="([^"]+)"/)?.[1] || DEFAULT_ROW_HEIGHT);
+    if (row) heights.set(row - 1, rowHeightToPixels(height));
+  });
+  return heights;
+}
+
+function sumRange(map: Map<number, number>, start: number, endExclusive: number, fallback: number) {
+  let total = 0;
+  for (let index = start; index < endExclusive; index += 1) total += map.get(index) || fallback;
+  return total;
+}
+
+function buildOneCellAnchor(
+  id: number,
+  name: string,
+  relationshipId: string,
+  col: number,
+  row: number,
+  offsetX: number,
+  offsetY: number,
+  width: number,
+  height: number,
+) {
+  return `<xdr:oneCellAnchor><xdr:from><xdr:col>${col}</xdr:col><xdr:colOff>${Math.round(offsetX * EMU_PER_PIXEL)}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${Math.round(offsetY * EMU_PER_PIXEL)}</xdr:rowOff></xdr:from><xdr:ext cx="${Math.round(width * EMU_PER_PIXEL)}" cy="${Math.round(height * EMU_PER_PIXEL)}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${id}" name="${xmlEscape(name)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(width * EMU_PER_PIXEL)}" cy="${Math.round(height * EMU_PER_PIXEL)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
 }
 
 export function rmbUppercase(amount: number | undefined) {
@@ -219,6 +277,157 @@ async function deliverFile(blob: Blob, filename: string) {
   }
 }
 
+type ExportImage = {
+  name: string;
+  extension: 'png' | 'jpeg';
+  contentType: 'image/png' | 'image/jpeg';
+  data: Uint8Array;
+  width: number;
+  height: number;
+};
+
+async function getImageSize(blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    const loaded = new Promise<{ width: number; height: number }>((resolve, reject) => {
+      image.onload = () => resolve({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height });
+      image.onerror = reject;
+    });
+    image.src = url;
+    return await loaded;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function loadExportImages(item: PaymentApplicationExportItem): Promise<ExportImage[]> {
+  const attachments = normalizeAttachments(item.attachments).filter((attachment) => attachment.type === 'image');
+  const images: ExportImage[] = [];
+  for (const [index, attachment] of attachments.entries()) {
+    try {
+      const url = await resolveAttachmentUrl(attachment);
+      if (!url) continue;
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      const size = await getImageSize(blob);
+      const mime = blob.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      const extension = mime === 'image/png' ? 'png' : 'jpeg';
+      images.push({
+        name: attachment.name || `附件${index + 1}.${extension}`,
+        extension,
+        contentType: mime,
+        data: new Uint8Array(await blob.arrayBuffer()),
+        width: size.width,
+        height: size.height,
+      });
+    } catch (error) {
+      console.warn('付款申请单附件图片读取失败', error);
+    }
+  }
+  return images;
+}
+
+function ensureContentTypesXml(xml: string, images: ExportImage[]) {
+  let next = xml;
+  if (images.some((image) => image.extension === 'png') && !next.includes('Extension="png"')) {
+    next = next.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
+  }
+  if (images.some((image) => image.extension === 'jpeg') && !next.includes('Extension="jpeg"')) {
+    next = next.replace('</Types>', '<Default Extension="jpeg" ContentType="image/jpeg"/></Types>');
+  }
+  if (!next.includes('PartName="/xl/drawings/drawing1.xml"')) {
+    next = next.replace('</Types>', '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+  }
+  return next;
+}
+
+function ensureWorksheetDrawing(sheetXml: string, relationshipId: string) {
+  let next = sheetXml.includes('xmlns:r=')
+    ? sheetXml
+    : sheetXml.replace('<worksheet ', '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ');
+  if (!next.includes('<drawing ')) {
+    next = next.replace('</worksheet>', `<drawing r:id="${relationshipId}"/></worksheet>`);
+  }
+  return next;
+}
+
+function buildSheetRelsXml(drawingRelationshipId: string) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="${drawingRelationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`;
+}
+
+function buildDrawingXml(sheetXml: string, images: ExportImage[]) {
+  const columnWidths = getColumnWidths(sheetXml);
+  const rowHeights = getRowHeights(sheetXml);
+  const areaCol = 1;
+  const areaEndCol = 8;
+  const areaRows = [9, 19];
+  const areaWidth = sumRange(columnWidths, areaCol, areaEndCol, colWidthToPixels());
+  const anchors: string[] = [];
+  let imageId = 1;
+
+  areaRows.forEach((areaRow, copyIndex) => {
+    const areaHeight = rowHeights.get(areaRow) || rowHeightToPixels(150);
+    const columns = Math.max(1, Math.ceil(Math.sqrt(images.length)));
+    const rows = Math.max(1, Math.ceil(images.length / columns));
+    const cellWidth = areaWidth / columns;
+    const cellHeight = areaHeight / rows;
+    images.forEach((image, index) => {
+      const gridCol = index % columns;
+      const gridRow = Math.floor(index / columns);
+      const maxWidth = Math.max(1, cellWidth - 8);
+      const maxHeight = Math.max(1, cellHeight - 8);
+      const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      const offsetX = gridCol * cellWidth + (cellWidth - width) / 2;
+      const offsetY = gridRow * cellHeight + (cellHeight - height) / 2;
+      anchors.push(buildOneCellAnchor(
+        imageId,
+        `${copyIndex + 1}-${image.name}`,
+        `rId${imageId}`,
+        areaCol,
+        areaRow,
+        offsetX,
+        offsetY,
+        width,
+        height,
+      ));
+      imageId += 1;
+    });
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anchors.join('')}</xdr:wsDr>`;
+}
+
+function buildDrawingRelsXml(images: ExportImage[]) {
+  const relationships: string[] = [];
+  let imageId = 1;
+  for (let copy = 0; copy < 2; copy += 1) {
+    images.forEach((image, index) => {
+      relationships.push(`<Relationship Id="rId${imageId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/payment-remark-${copy + 1}-${index + 1}.${image.extension}"/>`);
+      imageId += 1;
+    });
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationships.join('')}</Relationships>`;
+}
+
+function addRemarkImagesToTemplate(zip: Record<string, Uint8Array>, sheetXml: string, images: ExportImage[]) {
+  if (!images.length) return sheetXml;
+  const drawingRelationshipId = 'rIdPaymentRemarkImages';
+  zip['[Content_Types].xml'] = strToU8(ensureContentTypesXml(strFromU8(zip['[Content_Types].xml']), images));
+  zip['xl/worksheets/_rels/sheet1.xml.rels'] = strToU8(buildSheetRelsXml(drawingRelationshipId));
+  zip['xl/drawings/drawing1.xml'] = strToU8(buildDrawingXml(sheetXml, images));
+  zip['xl/drawings/_rels/drawing1.xml.rels'] = strToU8(buildDrawingRelsXml(images));
+  for (let copy = 0; copy < 2; copy += 1) {
+    images.forEach((image, index) => {
+      zip[`xl/media/payment-remark-${copy + 1}-${index + 1}.${image.extension}`] = image.data;
+    });
+  }
+  return ensureWorksheetDrawing(sheetXml, drawingRelationshipId);
+}
+
 async function buildExactTemplateFile(item: PaymentApplicationExportItem) {
   const response = await fetch(TEMPLATE_URL);
   if (!response.ok) throw new Error('付款申请单模板读取失败');
@@ -230,6 +439,7 @@ async function buildExactTemplateFile(item: PaymentApplicationExportItem) {
   let sheetXml = strFromU8(sheet);
   sheetXml = fillFormXml(sheetXml, item, 0);
   sheetXml = fillFormXml(sheetXml, item, 10);
+  sheetXml = addRemarkImagesToTemplate(zip, sheetXml, await loadExportImages(item));
   zip[sheetPath] = strToU8(sheetXml);
   delete zip['xl/calcChain.xml'];
   return zipSync(zip, { level: 6 });
