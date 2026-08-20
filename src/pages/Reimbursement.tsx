@@ -22,6 +22,7 @@ import { createNotificationEventSafely, stableOperationId } from '@/services/not
 import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
+  expenseCategoryPayload,
   loadExpenseCategories,
   saveExpenseCategories,
   type ExpenseCategory,
@@ -295,7 +296,7 @@ export default function ReimbursementPage() {
   const location = useLocation();
   const [localPreviewIndex, setLocalPreviewIndex] = useState<number | null>(null);
   const navigate = useNavigate();
-  const { reimbursements, contracts, addReimbursement, updateReimbursement } = useFinanceStore();
+  const { reimbursements, expenses, contracts, addReimbursement, updateReimbursement, addExpense, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user, users, loadUsers } = useAuthStore();
   const { addNotification } = useNotificationStore();
@@ -646,6 +647,67 @@ export default function ReimbursementPage() {
     return getReimbursementStatus(r) === '待打款' && isUserInList(currentUserId, getFlow(r).payerIds);
   };
   const getPaymentPurpose = (r: Reimbursement) => (r as any).paymentPurpose || r.description || '';
+  const getLinkedExpenseId = (r: Reimbursement) => String((r as any).linkedExpenseId || `reimbursement-expense-${getDocId(r) || r.id}`);
+  const findLinkedExpense = (r: Reimbursement) => {
+    const linkedExpenseId = getLinkedExpenseId(r);
+    const reimbursementId = getDocId(r) || r.id;
+    return expenses.find((expense: any) => (
+      expense.id === linkedExpenseId
+      || expense._id === linkedExpenseId
+      || expense.sourceReimbursementId === reimbursementId
+      || expense.sourceReimbursementId === r.id
+    ));
+  };
+  const syncPaidReimbursementToExpense = async (r: Reimbursement, paymentDate: string, attachments: AttachmentValue[]) => {
+    const linkedExpenseId = getLinkedExpenseId(r);
+    const linkedExpense = findLinkedExpense(r);
+    const contract = contracts.find((item) => item.id === r.contractId);
+    const categoryPath = resolvePaymentTypeValue(r.type, reimbursementTypeCategories);
+    const payload: any = {
+      ...(linkedExpense || {}),
+      id: linkedExpense?.id || linkedExpenseId,
+      contractId: r.contractId || '',
+      contractNo: contract?.contractNo || '',
+      bizType: contract?.bizType || currentBizType,
+      ...expenseCategoryPayload(categoryPath),
+      amount: Number(r.amount || 0),
+      supplier: r.payeeName || r.applicant || '',
+      payMethod: '银行转账',
+      expenseDate: formatDate(paymentDate),
+      status: '已付',
+      remark: getPaymentPurpose(r),
+      attachments,
+      lifecycleStatus: 'active',
+      sourceType: 'reimbursement',
+      sourceReimbursementId: getDocId(r) || r.id,
+      createdAt: linkedExpense?.createdAt || paymentDate,
+      createdBy: linkedExpense?.createdBy || r.applicant || myName,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (linkedExpense) {
+      await updateExpense(payload);
+    } else {
+      try {
+        await addExpense(payload);
+      } catch {
+        await updateExpense(payload);
+      }
+    }
+
+    return linkedExpenseId;
+  };
+  const reverseLinkedExpenseForReimbursement = async (r: Reimbursement, reason: string, reversedAt: string) => {
+    const linkedExpense = findLinkedExpense(r);
+    if (!linkedExpense) return;
+    await updateExpense({
+      ...linkedExpense,
+      lifecycleStatus: 'reversed',
+      reversedAt,
+      reversedBy: myName,
+      reverseReason: reason,
+    } as any);
+  };
 
   const notifyReimbursementUsers = async (
     r: Reimbursement,
@@ -799,6 +861,9 @@ export default function ReimbursementPage() {
         : type === 'void'
           ? { ...r, status: '已作废' as any, lifecycleStatus: 'voided', voidedAt: now, voidedBy: myName, voidReason: reason, approvalRecords: [...(((r as any).approvalRecords || [])), record] } as any
           : { ...r, status: '已冲销' as any, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: myName, reverseReason: reason, approvalRecords: [...(((r as any).approvalRecords || [])), record] } as any;
+      if (type === 'reverse') {
+        await reverseLinkedExpenseForReimbursement(r, reason, now);
+      }
       await updateReimbursement(next);
       await recordFinanceAuditAction({
         module: 'reimbursement',
@@ -906,11 +971,15 @@ export default function ReimbursementPage() {
         }
       }
       
+      const paymentDate = new Date().toISOString();
+      const nextAttachments = mergeAttachments(showPayModal.item.attachments, uploadedAttachments);
+      const linkedExpenseId = await syncPaidReimbursementToExpense(showPayModal.item, paymentDate, nextAttachments);
       await updateReimbursement({ 
         ...showPayModal.item, 
         status: '已打款', 
-        paymentDate: new Date().toISOString(),
-        attachments: mergeAttachments(showPayModal.item.attachments, uploadedAttachments)
+        paymentDate,
+        linkedExpenseId,
+        attachments: nextAttachments
       });
       
       const applicantUser = users.find((u) => u.name === showPayModal.item.applicant);
@@ -1053,13 +1122,17 @@ export default function ReimbursementPage() {
           myName || 'ERP'
         );
       }
+      const paymentDate = new Date().toISOString();
+      const nextAttachments = mergeAttachments(r.attachments, uploadedAttachments);
+      const linkedExpenseId = await syncPaidReimbursementToExpense(r, paymentDate, nextAttachments);
       const next: any = {
         ...r,
         status: '已打款',
         payerId: currentUserId,
         payerName: myName,
-        paymentDate: new Date().toISOString(),
-        attachments: mergeAttachments(r.attachments, uploadedAttachments),
+        paymentDate,
+        linkedExpenseId,
+        attachments: nextAttachments,
         approvalRecords: [
           ...(((r as any).approvalRecords || [])),
           {

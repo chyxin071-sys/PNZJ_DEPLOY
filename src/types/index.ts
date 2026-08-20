@@ -117,6 +117,8 @@ export interface Expense {
   reversedBy?: string;
   reverseReason?: string;
   reversalOf?: string;
+  sourceType?: 'reimbursement' | string;
+  sourceReimbursementId?: string;
   createdAt: string;
   createdBy?: string;   // 录入人姓名，用于权限过滤（可选，兼容存量数据）
 }
@@ -185,6 +187,7 @@ export interface Reimbursement {
   reviewDate: string;
   paymentVoucher: string;
   paymentDate: string;
+  linkedExpenseId?: string;
   lifecycleStatus?: 'active' | 'deleted' | 'voided' | 'reversed';
   deletedAt?: string;
   deletedBy?: string;
