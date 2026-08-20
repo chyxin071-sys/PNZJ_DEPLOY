@@ -341,7 +341,7 @@ export default function DatePicker({
       {open && !isMobile && createPortal(
         <div
           ref={panelRef}
-          className="fixed z-[140]"
+          className="fixed z-[240]"
           style={{
             left: desktopPosition.left,
             top: desktopPosition.top,
@@ -357,7 +357,7 @@ export default function DatePicker({
       {/* Mobile: bottom drawer */}
       {open && isMobile && createPortal(
         <div
-          className="fixed inset-0 z-[140] flex items-end"
+          className="fixed inset-0 z-[240] flex items-end"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />

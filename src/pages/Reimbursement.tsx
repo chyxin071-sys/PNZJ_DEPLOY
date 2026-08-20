@@ -14,7 +14,7 @@ import { useDialogStore } from '@/store/dialogStore';
 import { formatMoney, formatDate, generateId } from '@/utils/format';
 import type { Reimbursement, AttachmentValue } from '@/types';
 import { normalizeAttachments, openAttachment, uploadFinanceAttachments, mergeAttachments, downloadAttachment } from '@/utils/financeAttachments';
-import { exportSheetsToExcel } from '@/utils/export';
+import { exportPaymentApplications, parsePaymentApplicationsFromFile, rmbUppercase, type ImportedPaymentApplication, type PaymentApplicationExportItem } from '@/utils/paymentApplicationExport';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { cloudDB } from '@/db/cloudbase';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
@@ -22,10 +22,32 @@ import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/f
 
 const FLOW_CONFIG_DOC_ID = 'reimbursement_approval_flow';
 const TYPE_CONFIG_DOC_ID = 'reimbursement_types_v1';
-const TABS = ['全部', '待一级审批', '待二级审批', '待打款', '已打款', '已驳回', '已作废', '已冲销'];
+const TABS = ['全部', '待审批', '待打款', '已打款', '已驳回', '已作废', '已冲销'];
 const DEFAULT_REIMBURSEMENT_TYPES = ['差旅费', '采购费', '交通费', '业务招待费', '其他'];
-const INIT_FORM = { contractId: '', applicant: '', type: DEFAULT_REIMBURSEMENT_TYPES[0], amount: '', expenseDate: '', description: '' };
 const EMPTY_FLOW_CONFIG = { approver1Ids: [] as string[], approver2Ids: [] as string[], ccUserIds: [] as string[], payerIds: [] as string[] };
+
+function todayDate() {
+  return formatDate(new Date().toISOString());
+}
+
+function createInitialForm(applicant = '', contractId = '') {
+  const date = todayDate();
+  return {
+    contractId,
+    applicant,
+    type: DEFAULT_REIMBURSEMENT_TYPES[0],
+    amount: '',
+    expenseDate: date,
+    applicationDate: date,
+    description: '',
+    payeeName: '',
+    payeeBank: '',
+    payeeAccount: '',
+    remark: '',
+  };
+}
+
+const INIT_FORM = createInitialForm();
 
 const statusBadge: Record<string, string> = {
   '待一级审批': 'bg-amber-50 text-amber-600',
@@ -96,6 +118,22 @@ function UserMultiSelect({
   return (
     <div>
       <label className="mb-1.5 block text-xs font-medium text-gray-500">{label}</label>
+      <div className="mb-2 flex min-h-[34px] flex-wrap gap-2">
+        {selectedIds.length === 0 ? (
+          <span className="flex items-center text-xs text-gray-400">暂未设置</span>
+        ) : selectedIds.map((id) => (
+          <span key={id} className="inline-flex items-center gap-1 rounded border border-gold-100 bg-gold-50 px-2.5 py-1.5 text-xs font-medium text-gold-700">
+            {userNameById.get(id) || id}
+            <button
+              type="button"
+              onClick={() => onChange(selectedIds.filter((item) => item !== id))}
+              className="text-gold-400 hover:text-red-500"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
       <Select
         value=""
         onChange={(id) => id && onChange(normalizeUserIds([...selectedIds, id]))}
@@ -103,22 +141,6 @@ function UserMultiSelect({
         searchable
         placeholder="添加人员"
       />
-      <div className="mt-2 flex min-h-[28px] flex-wrap gap-2">
-        {selectedIds.length === 0 ? (
-          <span className="text-xs text-gray-400">暂未设置</span>
-        ) : selectedIds.map((id) => (
-          <span key={id} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700">
-            {userNameById.get(id) || id}
-            <button
-              type="button"
-              onClick={() => onChange(selectedIds.filter((item) => item !== id))}
-              className="text-gray-400 hover:text-red-500"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
@@ -174,6 +196,7 @@ export default function ReimbursementPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const payFileRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
@@ -207,6 +230,68 @@ export default function ReimbursementPage() {
     () => contracts.filter((c) => c.bizType === currentBizType && (canSeeAllFinancial || c.createdBy === myName)),
     [contracts, currentBizType, canSeeAllFinancial, myName]
   );
+  const payeeHistory = useMemo(() => {
+    const map = new Map<string, { value: string; label: string; description: string; payeeName: string; payeeBank: string; payeeAccount: string }>();
+    [...reimbursements]
+      .sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+      .forEach((r: any) => {
+      const payeeName = String(r.payeeName || '').trim();
+      const payeeBank = String(r.payeeBank || '').trim();
+      const payeeAccount = String(r.payeeAccount || '').trim();
+      if (!payeeName && !payeeBank && !payeeAccount) return;
+      const key = `${payeeName}|${payeeBank}|${payeeAccount}`;
+      if (map.has(key)) return;
+      map.set(key, {
+        value: key,
+        label: payeeName || payeeBank || payeeAccount,
+        description: [payeeBank, payeeAccount ? `尾号${payeeAccount.slice(-4)}` : ''].filter(Boolean).join(' · '),
+        payeeName,
+        payeeBank,
+        payeeAccount,
+      });
+    });
+    return Array.from(map.values());
+  }, [reimbursements]);
+  const bankHistory = useMemo(() => {
+    const map = new Map<string, { value: string; payeeName: string; payeeBank: string; payeeAccount: string }>();
+    payeeHistory.forEach((item) => {
+      if (!item.payeeBank) return;
+      const key = `${item.payeeName}|${item.payeeBank}|${item.payeeAccount}`;
+      map.set(key, {
+        value: item.payeeBank,
+        payeeName: item.payeeName,
+        payeeBank: item.payeeBank,
+        payeeAccount: item.payeeAccount,
+      });
+    });
+    return Array.from(map.values());
+  }, [payeeHistory]);
+
+  const handlePayeeNameChange = (payeeName: string) => {
+    const selected = payeeHistory.find((item) => item.payeeName === payeeName);
+    setForm((prev) => ({
+      ...prev,
+      payeeName,
+      ...(selected ? {
+        payeeBank: selected.payeeBank,
+        payeeAccount: selected.payeeAccount,
+      } : {}),
+    }));
+  };
+
+  const handlePayeeBankChange = (payeeBank: string) => {
+    const selected = bankHistory.find((item) => (
+      item.payeeBank === payeeBank && (!form.payeeName || item.payeeName === form.payeeName)
+    )) || bankHistory.find((item) => item.payeeBank === payeeBank);
+    setForm((prev) => ({
+      ...prev,
+      payeeBank,
+      ...(selected ? {
+        payeeName: prev.payeeName || selected.payeeName,
+        payeeAccount: selected.payeeAccount,
+      } : {}),
+    }));
+  };
 
   useEffect(() => {
     if (!form.contractId) return;
@@ -255,11 +340,13 @@ export default function ReimbursementPage() {
   }, [form.type, reimbursementTypes]);
 
   const openFlowSettings = () => {
+    if (!canManageApprovalFlow) return;
     setFlowDraft(approvalConfig);
     setShowFlowModal(true);
   };
 
   const openTypeSettings = () => {
+    if (!canManageApprovalFlow) return;
     setTypeDraft(reimbursementTypes);
     setNewTypeName('');
     setShowTypeModal(true);
@@ -303,7 +390,7 @@ export default function ReimbursementPage() {
       setReimbursementTypes(nextTypes);
       setShowTypeModal(false);
     } catch (e: any) {
-      await showAlert(e?.message || '保存报销类型失败');
+      await showAlert(e?.message || '保存付款类型失败');
     }
   };
 
@@ -311,11 +398,7 @@ export default function ReimbursementPage() {
     const params = new URLSearchParams(location.search);
     if (params.get('action') !== 'create') return;
 
-    setForm({
-      ...INIT_FORM,
-      applicant: user?.name || '',
-      contractId: params.get('contractId') || '',
-    });
+    setForm(createInitialForm(user?.name || '', params.get('contractId') || ''));
     setFiles([]);
     setShowSubmit(true);
 
@@ -373,6 +456,8 @@ export default function ReimbursementPage() {
     if (canManageApprovalFlow && getReimbursementStatus(r) === '待打款') return true;
     return getReimbursementStatus(r) === '待打款' && isUserInList(currentUserId, getFlow(r).payerIds);
   };
+  const getPaymentPurpose = (r: Reimbursement) => (r as any).paymentPurpose || r.description || '';
+
   const notifyReimbursementUsers = async (
     r: Reimbursement,
     recipientUserIds: string[],
@@ -392,7 +477,7 @@ export default function ReimbursementPage() {
       content,
       link: '/reimbursement',
       miniProgramPage: '/pages/index/index?erpPath=%2Freimbursement',
-      relatedTo: { type: 'reimbursement', id: getDocId(r), name: r.description || r.applicant },
+      relatedTo: { type: 'reimbursement', id: getDocId(r), name: getPaymentPurpose(r) || r.applicant },
       channels: ['station', 'wechat'],
     });
   };
@@ -404,17 +489,35 @@ export default function ReimbursementPage() {
 
   const filtered = dataSource
     .filter((r) => {
-      if (tab !== '全部' && getReimbursementStatus(r) !== tab) return false;
-      if (search && !r.applicant.includes(search) && !r.description.includes(search)) return false;
+      const status = getReimbursementStatus(r);
+      if (tab === '待审批' && !['待一级审批', '待二级审批', '待审核'].includes(status)) return false;
+      if (!['全部', '待审批'].includes(tab) && status !== tab) return false;
+      if (search) {
+        const haystack = [
+          r.applicant,
+          getPaymentPurpose(r),
+          (r as any).payeeName,
+          (r as any).payeeBank,
+          (r as any).payeeAccount,
+          (r as any).remark,
+        ].map((item) => String(item || '')).join(' ');
+        if (!haystack.includes(search)) return false;
+      }
       return true;
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
+  const tableTextClass = 'block truncate text-[13px] font-normal leading-5 text-gray-800';
+  const renderTableText = (value?: string, width = 'max-w-[140px]') => (
+    <span className={`${tableTextClass} ${width}`} title={value || ''}>{value || '-'}</span>
+  );
+
   const columns = [
-    { key: 'applicant', title: '申请人' },
-    { key: 'type', title: '报销类型' },
-    { key: 'amount', title: '金额', render: (r: Reimbursement) => <span className="text-emerald-600 font-medium">{formatMoney(r.amount)}</span> },
-    { key: 'description', title: '事由', render: (r: Reimbursement) => <span className="max-w-[160px] truncate block" title={r.description}>{r.description}</span> },
+    { key: 'applicant', title: '申请人', render: (r: Reimbursement) => renderTableText(r.applicant, 'max-w-[120px]') },
+    { key: 'type', title: '付款类型', render: (r: Reimbursement) => renderTableText(r.type, 'max-w-[100px]') },
+    { key: 'payeeName', title: '收款人', render: (r: Reimbursement) => renderTableText((r as any).payeeName, 'max-w-[120px]') },
+    { key: 'amount', title: '金额', render: (r: Reimbursement) => <span className="text-[13px] leading-5 text-emerald-600 font-medium">{formatMoney(r.amount)}</span> },
+    { key: 'description', title: '付款用途', render: (r: Reimbursement) => renderTableText(getPaymentPurpose(r), 'max-w-[180px]') },
     { key: 'contractId', title: '关联项目', render: (r: Reimbursement) => {
       const ct = contracts.find((c) => c.id === r.contractId);
       return <span className="text-xs text-gray-500">{ct?.houseAddress || '-'}</span>;
@@ -431,7 +534,7 @@ export default function ReimbursementPage() {
         : status;
       return <span className="text-xs text-gray-500">{text}</span>;
     }},
-    { key: 'expenseDate', title: '费用日期', render: (r: Reimbursement) => safeFormatDate(r.expenseDate) },
+    { key: 'expenseDate', title: '申请日期', render: (r: Reimbursement) => safeFormatDate((r as any).applicationDate || r.expenseDate) },
     { key: 'actions', title: '操作', render: (r: Reimbursement) => (
         <div className="flex min-w-[96px] items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {canApproveLevel1(r) && <>
@@ -540,7 +643,7 @@ export default function ReimbursementPage() {
       if (applicantUser) {
         addNotification({
           title: '报销申请已通过',
-          content: `您的报销申请（${r.description}，¥${r.amount}）已审核通过，等待打款`,
+          content: `您的报销申请（${getPaymentPurpose(r)}，¥${r.amount}）已审核通过，等待打款`,
           type: '报销',
           isRead: false,
           targetUserId: applicantUser.id,
@@ -562,7 +665,7 @@ export default function ReimbursementPage() {
       if (applicantUser) {
         addNotification({
           title: '报销申请已驳回',
-          content: `您的报销申请（${r.description}，¥${r.amount}）已被驳回。${rejectReason ? `原因：${rejectReason}` : ''}`,
+          content: `您的报销申请（${getPaymentPurpose(r)}，¥${r.amount}）已被驳回。${rejectReason ? `原因：${rejectReason}` : ''}`,
           type: '报销',
           isRead: false,
           targetUserId: applicantUser.id,
@@ -607,7 +710,7 @@ export default function ReimbursementPage() {
       if (applicantUser) {
         addNotification({
           title: '报销款已打款',
-          content: `您的报销申请（${showPayModal.item.description}，¥${showPayModal.item.amount}）已打款`,
+          content: `您的报销申请（${getPaymentPurpose(showPayModal.item)}，¥${showPayModal.item.amount}）已打款`,
           type: '报销',
           isRead: false,
           targetUserId: applicantUser.id,
@@ -660,8 +763,8 @@ export default function ReimbursementPage() {
         level === 1 ? 'REIMBURSEMENT_LEVEL2_PENDING' : 'REIMBURSEMENT_PAYMENT_PENDING',
         level === 1 ? '报销待二级审批' : '报销待打款',
         level === 1
-          ? `${r.applicant} 的报销已通过一级审批，请进行二级审批：${r.description}（${formatMoney(r.amount)}）`
-          : `${r.applicant} 的报销已完成二级审批，请安排打款：${r.description}（${formatMoney(r.amount)}）`,
+          ? `${r.applicant} 的报销已通过一级审批，请进行二级审批：${getPaymentPurpose(r)}（${formatMoney(r.amount)}）`
+          : `${r.applicant} 的报销已完成二级审批，请安排打款：${getPaymentPurpose(r)}（${formatMoney(r.amount)}）`,
       );
       const applicantUser = users.find((u: any) => u.name === r.applicant);
       if (applicantUser) {
@@ -671,8 +774,8 @@ export default function ReimbursementPage() {
           level === 1 ? 'REIMBURSEMENT_LEVEL1_APPROVED' : 'REIMBURSEMENT_LEVEL2_APPROVED',
           title,
           level === 1
-            ? `您的报销申请已通过一级审批，等待二级审批：${r.description}`
-            : `您的报销申请已通过二级审批，等待打款：${r.description}`,
+            ? `您的报销申请已通过一级审批，等待二级审批：${getPaymentPurpose(r)}`
+            : `您的报销申请已通过二级审批，等待打款：${getPaymentPurpose(r)}`,
         );
       }
       if (showDetail?.id === r.id) setShowDetail(next);
@@ -712,7 +815,7 @@ export default function ReimbursementPage() {
           [getUserId(applicantUser)],
           'REIMBURSEMENT_REJECTED',
           '报销申请已驳回',
-          `您的报销申请已被驳回：${r.description}${rejectReason ? `，原因：${rejectReason}` : ''}`,
+          `您的报销申请已被驳回：${getPaymentPurpose(r)}${rejectReason ? `，原因：${rejectReason}` : ''}`,
         );
       }
       setShowRejectModal(null);
@@ -763,7 +866,7 @@ export default function ReimbursementPage() {
           [getUserId(applicantUser)],
           'REIMBURSEMENT_PAID',
           '报销款已打款',
-          `您的报销申请已打款：${r.description}（${formatMoney(r.amount)}）`,
+          `您的报销申请已打款：${getPaymentPurpose(r)}（${formatMoney(r.amount)}）`,
         );
       }
       setShowPayModal(null);
@@ -777,7 +880,7 @@ export default function ReimbursementPage() {
   };
 
   const handleSubmitFlow = async () => {
-    if (!form.applicant || !form.amount || submitting) return;
+    if (!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description || submitting) return;
     const flow = {
       approver1Ids: normalizeUserIds(approvalConfig.approver1Ids),
       approver2Ids: normalizeUserIds(approvalConfig.approver2Ids),
@@ -808,8 +911,15 @@ export default function ReimbursementPage() {
         department: (form as any).department || '未知',
         type: form.type as Reimbursement['type'],
         amount: Number(form.amount),
+        amountUppercase: rmbUppercase(Number(form.amount)),
         expenseDate: form.expenseDate,
+        applicationDate: form.applicationDate || form.expenseDate,
         description: form.description,
+        paymentPurpose: form.description,
+        payeeName: form.payeeName.trim(),
+        payeeBank: form.payeeBank.trim(),
+        payeeAccount: form.payeeAccount.trim(),
+        remark: form.remark.trim(),
         attachments: uploadedAttachments,
         status: '待一级审批',
         approvalFlow: flow,
@@ -833,16 +943,16 @@ export default function ReimbursementPage() {
         flow.approver1Ids,
         'REIMBURSEMENT_LEVEL1_PENDING',
         '新的报销待一级审批',
-        `${form.applicant} 提交了一笔报销：${form.description}（${formatMoney(Number(form.amount))}）`,
+        `${form.applicant} 提交了一笔付款申请：${form.description}（${formatMoney(Number(form.amount))}）`,
       );
       await notifyReimbursementUsers(
         newReimbursement,
         flow.ccUserIds,
         'REIMBURSEMENT_CC',
-        '报销申请抄送',
-        `${form.applicant} 提交了一笔报销并抄送给您：${form.description}（${formatMoney(Number(form.amount))}）`,
+        '付款申请抄送',
+        `${form.applicant} 提交了一笔付款申请并抄送给您：${form.description}（${formatMoney(Number(form.amount))}）`,
       );
-      setForm(INIT_FORM);
+      setForm(createInitialForm(user?.name || ''));
       setFiles([]);
       if (returnToUrl) {
         setReturnToUrl(null);
@@ -858,7 +968,7 @@ export default function ReimbursementPage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.applicant || !form.amount || submitting) return;
+    if (!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description || submitting) return;
     setSubmitting(true);
     setShowSubmit(false); // Optimistic close
     
@@ -883,8 +993,15 @@ export default function ReimbursementPage() {
         department: (form as any).department || '未知',
         type: form.type as Reimbursement['type'], 
         amount: Number(form.amount),
+        amountUppercase: rmbUppercase(Number(form.amount)),
         expenseDate: form.expenseDate, 
-        description: form.description, 
+        applicationDate: form.applicationDate || form.expenseDate,
+        description: form.description,
+        paymentPurpose: form.description,
+        payeeName: form.payeeName.trim(),
+        payeeBank: form.payeeBank.trim(),
+        payeeAccount: form.payeeAccount.trim(),
+        remark: form.remark.trim(),
         attachments: uploadedAttachments,
         status: '待审核', 
         reviewComment: '', 
@@ -905,7 +1022,7 @@ export default function ReimbursementPage() {
           targetUserId: adminUser.id,
         });
       }
-      setForm(INIT_FORM); 
+      setForm(createInitialForm(user?.name || '')); 
       setFiles([]);
 
       // 如果有返回URL，则导航回去
@@ -922,28 +1039,203 @@ export default function ReimbursementPage() {
     }
   };
 
-  const handleExport = () => {
-    const rows = filtered.map(r => {
-      const ct = contracts.find((c) => c.id === r.contractId);
-      return {
-        关联项目: ct?.houseAddress || '非项目报销',
-        申请人: r.applicant,
-        报销类型: r.type,
-        金额: r.amount,
-        事由: r.description,
-        状态: r.status,
-        费用日期: safeFormatDate(r.expenseDate),
-        提交时间: formatDate(r.createdAt)
-      };
+  const buildPaymentApplicationItem = (r: Reimbursement): PaymentApplicationExportItem => {
+    const ct = contracts.find((c) => c.id === r.contractId);
+    const flow = getFlow(r);
+    const approverNames = getNamesByIds(flow.approver1Ids);
+    return {
+      applicant: r.applicant,
+      applicationDate: (r as any).applicationDate || r.expenseDate || r.createdAt,
+      payeeName: (r as any).payeeName || '',
+      payeeBank: (r as any).payeeBank || '',
+      payeeAccount: (r as any).payeeAccount || '',
+      projectAddress: ct?.houseAddress || '',
+      ownerName: ct?.customerName || '',
+      paymentType: r.type,
+      paymentPurpose: getPaymentPurpose(r),
+      amount: Number(r.amount || 0),
+      amountUppercase: Object.prototype.hasOwnProperty.call(r, 'amountUppercase') ? (r as any).amountUppercase : undefined,
+      projectManager: ct?.projectManager || '',
+      approverNames: approverNames === '-' ? '' : approverNames,
+      payerNames: getNamesByIds(flow.payerIds) === '-' ? '' : getNamesByIds(flow.payerIds),
+      remark: (r as any).remark || '',
+    };
+  };
+
+  const findContractForImport = (item: ImportedPaymentApplication) => {
+    const projectAddress = item.projectAddress.trim();
+    const ownerName = item.ownerName.trim();
+    return contracts.find((c) => {
+      const addressMatched = projectAddress && c.houseAddress === projectAddress;
+      const ownerMatched = ownerName && c.customerName === ownerName;
+      return addressMatched && (!ownerName || ownerMatched);
+    }) || contracts.find((c) => {
+      const addressMatched = projectAddress && c.houseAddress.includes(projectAddress);
+      const ownerMatched = ownerName && c.customerName.includes(ownerName);
+      return (addressMatched && !ownerName) || (addressMatched && ownerMatched);
     });
-    exportSheetsToExcel([{ name: '报销记录', rows }], '费用报销明细');
+  };
+
+  const createReimbursementFromImport = (item: ImportedPaymentApplication, flow: typeof EMPTY_FLOW_CONFIG): any => {
+    const contract = findContractForImport(item);
+    const reimbursementId = generateId();
+    const purpose = item.paymentPurpose || item.remark || '付款申请';
+    return {
+      id: reimbursementId,
+      contractId: contract?.id || '',
+      applicant: item.applicant || user?.name || '',
+      department: '未知',
+      type: item.paymentType || reimbursementTypes[0] || DEFAULT_REIMBURSEMENT_TYPES[0],
+      amount: Number(item.amount || 0),
+      amountUppercase: item.amountUppercase,
+      amountUppercaseImported: true,
+      expenseDate: item.applicationDate || todayDate(),
+      applicationDate: item.applicationDate || todayDate(),
+      description: purpose,
+      paymentPurpose: purpose,
+      payeeName: item.payeeName,
+      payeeBank: item.payeeBank,
+      payeeAccount: item.payeeAccount,
+      remark: item.remark,
+      attachments: [],
+      status: '待一级审批',
+      approvalFlow: flow,
+      approvalRecords: [{
+        action: '导入',
+        operatorId: currentUserId,
+        operatorName: user?.name || item.applicant || 'ERP',
+        operatedAt: new Date().toISOString(),
+        comment: `从 ${item.sheetName} 导入`,
+      }],
+      reviewComment: '',
+      reviewer: '',
+      reviewDate: '',
+      paymentVoucher: '',
+      paymentDate: '',
+      createdAt: new Date().toISOString(),
+    };
+  };
+
+  const handleImportFile = async (file?: File) => {
+    if (!file || submitting) return;
+    const flow = {
+      approver1Ids: normalizeUserIds(approvalConfig.approver1Ids),
+      approver2Ids: normalizeUserIds(approvalConfig.approver2Ids),
+      ccUserIds: normalizeUserIds(approvalConfig.ccUserIds),
+      payerIds: normalizeUserIds(approvalConfig.payerIds),
+    };
+    if (!flow.approver1Ids.length || !flow.approver2Ids.length || !flow.payerIds.length) {
+      await showAlert('请先让管理员配置一级审核人、复核人和打款人。');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const items = await parsePaymentApplicationsFromFile(file);
+      if (!items.length) {
+        await showAlert('没有识别到付款申请单数据。');
+        return;
+      }
+      const invalid = items.filter((item) => !item.payeeName || !item.payeeBank || !item.payeeAccount || !item.amount || !item.paymentPurpose);
+      if (invalid.length) {
+        await showAlert(`有 ${invalid.length} 个工作表缺少收款人、开户行、账号、金额或付款用途，请补齐后再导入。`);
+        return;
+      }
+
+      const records = items.map((item) => createReimbursementFromImport(item, flow));
+      for (const record of records) {
+        await addReimbursement(record);
+        await notifyReimbursementUsers(
+          record,
+          flow.approver1Ids,
+          'REIMBURSEMENT_LEVEL1_PENDING',
+          '新的报销待一级审批',
+          `${record.applicant} 导入了一笔付款申请：${record.paymentPurpose}（${formatMoney(Number(record.amount))}）`,
+        );
+      }
+      await showAlert(`已导入 ${records.length} 笔付款申请。`);
+    } catch (e: any) {
+      console.error(e);
+      await showAlert(e?.message || '导入付款申请单失败');
+    } finally {
+      setSubmitting(false);
+      if (importFileRef.current) importFileRef.current.value = '';
+    }
+  };
+
+  const handleExport = async () => {
+    if (!filtered.length) {
+      await showAlert('当前没有可导出的付款申请。');
+      return;
+    }
+    try {
+      await exportPaymentApplications(filtered.map(buildPaymentApplicationItem));
+    } catch (e: any) {
+      console.error(e);
+      await showAlert(e?.message || '导出付款申请单失败');
+    }
   };
 
   const pendingCount = reimbursements.filter(r => ['待一级审批', '待二级审批', '待审核'].includes(getReimbursementStatus(r))).length;
 
+  const renderMobileActions = (r: Reimbursement) => (
+    <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3" onClick={(e) => e.stopPropagation()}>
+      {canApproveLevel1(r) && <>
+        <button onClick={() => handleApproveFlow(r, 1)} className="rounded border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">审核通过</button>
+        <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="rounded border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500">驳回</button>
+      </>}
+      {canApproveLevel2(r) && <>
+        <button onClick={() => handleApproveFlow(r, 2)} className="rounded border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">复核通过</button>
+        <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="rounded border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500">驳回</button>
+      </>}
+      {canPayReimbursement(r) && (
+        <button onClick={() => setShowPayModal({ item: r })} className="rounded border border-gold-100 bg-gold-50 px-3 py-1.5 text-xs font-medium text-gold-700">打款</button>
+      )}
+      {!isEmployee && !['已作废', '已冲销'].includes(getReimbursementStatus(r)) && (
+        <button onClick={() => openReimbursementControlAction(r)} className="rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500">
+          {getReimbursementControlLabel(r)}
+        </button>
+      )}
+    </div>
+  );
+
+  const renderMobileRecordCard = (r: Reimbursement) => {
+    const ct = contracts.find((c) => c.id === r.contractId);
+    const status = getReimbursementStatus(r);
+    const projectText = ct?.houseAddress || '非项目报销';
+    const payee = (r as any).payeeName || '';
+    const date = safeFormatDate((r as any).applicationDate || r.expenseDate);
+    return (
+      <button
+        key={r.id}
+        type="button"
+        onClick={() => setShowDetail(r)}
+        className="block w-full border-b border-gray-100 bg-white px-4 py-3 text-left active:bg-gray-50"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-gray-900">{getPaymentPurpose(r) || r.applicant}</div>
+            <div className="mt-1 truncate text-[11px] text-gray-400">{r.applicant} · {r.type}{date !== '-' ? ` · ${date}` : ''}</div>
+          </div>
+          <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${statusBadge[status] || ''}`}>{status}</span>
+        </div>
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-lg font-semibold leading-tight text-emerald-600">{formatMoney(r.amount)}</div>
+            <div className="mt-1 truncate text-xs text-gray-500">{projectText}</div>
+            {payee && <div className="mt-1 truncate text-xs text-gray-400">收款人：{payee}</div>}
+          </div>
+          <div className="max-w-[42%] truncate text-right text-xs text-gray-400">{status === '待一级审批' || status === '待二级审批' || status === '待打款' ? columns.find((col) => col.key === 'currentNode')?.render?.(r) : ''}</div>
+        </div>
+        {(canApproveLevel1(r) || canApproveLevel2(r) || canPayReimbursement(r) || (!isEmployee && !['已作废', '已冲销'].includes(status))) && renderMobileActions(r)}
+      </button>
+    );
+  };
+  const amountUppercasePreview = form.amount ? rmbUppercase(Number(form.amount)) : '';
+
   const toolbar = (
-    <div className="erp-search-row">
-      <div className="flex shrink-0 items-center gap-1 overflow-x-auto">
+    <div className="erp-search-row erp-reimbursement-toolbar">
+      <div className="erp-reimbursement-tabs flex items-center gap-1 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t}
@@ -953,7 +1245,7 @@ export default function ReimbursementPage() {
               }`}
             >
               {t}
-              {t === '待一级审批' && !isEmployee && pendingCount > 0 && (
+              {t === '待审批' && !isEmployee && pendingCount > 0 && (
                 <span className="ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount > 99 ? '99+' : pendingCount}</span>
               )}
             </button>
@@ -961,20 +1253,30 @@ export default function ReimbursementPage() {
       </div>
       <div className="erp-search-field min-w-[220px]">
         <Search size={15} className="erp-search-icon" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索申请人/事由..." className="erp-search-input pl-9" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索申请人/收款人/付款用途..." className="erp-search-input pl-9" />
       </div>
         <button onClick={handleExport} className="erp-btn-secondary !h-8 !py-0 shrink-0 hidden md:inline-flex">
-          导出表格
+          导出付款单
         </button>
+        <button onClick={() => importFileRef.current?.click()} disabled={submitting} className="erp-btn-secondary !h-8 !py-0 shrink-0 hidden md:inline-flex">
+          导入付款单
+        </button>
+        <input
+          ref={importFileRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={(e) => void handleImportFile(e.target.files?.[0])}
+          className="hidden"
+        />
         {canManageApprovalFlow && (
-          <>
+          <div className="erp-reimbursement-settings">
             <button onClick={openTypeSettings} className="erp-btn-secondary !h-8 !py-0 shrink-0">
-              <Tag size={14} /> 报销类型
+              <Tag size={14} /> 付款类型
             </button>
             <button onClick={openFlowSettings} className="erp-btn-secondary !h-8 !py-0 shrink-0">
               <Settings size={14} /> 审批流程
             </button>
-          </>
+          </div>
         )}
     </div>
   );
@@ -988,7 +1290,7 @@ export default function ReimbursementPage() {
             <p className="text-gold-500 text-xs md:text-sm">费用报销申请与打款</p>
           </div>
           <button onClick={() => {
-            setForm({ ...INIT_FORM, applicant: user?.name || '' });
+            setForm(createInitialForm(user?.name || ''));
             setShowSubmit(true);
           }} className="erp-btn-primary shrink-0">
             <Plus size={16} /> 新建报销
@@ -999,9 +1301,14 @@ export default function ReimbursementPage() {
       <div className={isEmbedded ? "flex h-full flex-col" : ""}>
         <div className="erp-surface overflow-visible">
           {toolbar}
-          <div className={isEmbedded ? "flex-1 pb-0" : ""}>
+          <div className={`hidden md:block ${isEmbedded ? "flex-1 pb-0" : ""}`}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <DataTable columns={columns as any} data={filtered as any} onRowClick={(r) => setShowDetail(r as any)} rowKey={(r) => (r as any).id} mobileCardColumns={8} />
+          </div>
+          <div className="md:hidden">
+            {filtered.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-gray-400">暂无报销记录</div>
+            ) : filtered.map(renderMobileRecordCard)}
           </div>
         </div>
       </div>
@@ -1023,11 +1330,47 @@ export default function ReimbursementPage() {
               />
             </div>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">申请人</label><input value={form.applicant} onChange={(e) => setForm({ ...form, applicant: e.target.value })} className="erp-input" /></div>
-            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">报销类型</label><Select value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={reimbursementTypes.map((t) => ({ value: t, label: t }))} /></div>
-            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">金额</label><input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="erp-input" /></div>
-            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">费用发生日期</label><DatePicker mode="single" value={form.expenseDate} onChange={(v) => setForm({ ...form, expenseDate: v })} placeholder="选择日期" /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5 font-medium">收款人（单位）*</label>
+                <input
+                  value={form.payeeName}
+                  onChange={(e) => handlePayeeNameChange(e.target.value)}
+                  list="reimbursement-payee-history"
+                  className="erp-input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5 font-medium">开户银行 *</label>
+                <input
+                  value={form.payeeBank}
+                  onChange={(e) => handlePayeeBankChange(e.target.value)}
+                  list="reimbursement-bank-history"
+                  className="erp-input"
+                />
+              </div>
+              <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">账号 *</label><input value={form.payeeAccount} onChange={(e) => setForm({ ...form, payeeAccount: e.target.value })} className="erp-input" /></div>
+            </div>
+            <datalist id="reimbursement-payee-history">
+              {Array.from(new Set(payeeHistory.map((item) => item.payeeName).filter(Boolean))).map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+            <datalist id="reimbursement-bank-history">
+              {Array.from(new Set(bankHistory.map((item) => item.payeeBank).filter(Boolean))).map((bank) => (
+                <option key={bank} value={bank} />
+              ))}
+            </datalist>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款类型</label><Select value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={reimbursementTypes.map((t) => ({ value: t, label: t }))} /></div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款金额（小写）</label><input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="erp-input" /></div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">付款金额（大写）</label>
+              <input value={amountUppercasePreview} readOnly placeholder="根据小写金额自动生成" className="erp-input bg-gray-50 text-gray-600" />
+            </div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">申请日期</label><DatePicker mode="single" value={form.applicationDate} onChange={(v) => setForm({ ...form, applicationDate: v, expenseDate: v })} placeholder="选择日期" /></div>
           </div>
-          <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">事由说明</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
+          <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款用途 *</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
+          <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">备注</label><textarea value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} rows={2} className="erp-input resize-none" /></div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
             <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
@@ -1079,13 +1422,13 @@ export default function ReimbursementPage() {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setShowSubmit(false)} className="erp-btn-secondary">取消</button>
-            <button onClick={handleSubmitFlow} disabled={!form.applicant || !form.amount} className="erp-btn-primary">提交申请</button>
+            <button onClick={handleSubmitFlow} disabled={!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description} className="erp-btn-primary">提交申请</button>
           </div>
         </div>
       </Modal>
 
       {canManageApprovalFlow && (
-        <Modal open={showTypeModal} onClose={() => setShowTypeModal(false)} title="报销类型管理" size="md">
+        <Modal open={showTypeModal} onClose={() => setShowTypeModal(false)} title="付款类型管理" size="md">
           <div className="space-y-4">
             <div className="flex gap-2">
               <input
@@ -1097,7 +1440,7 @@ export default function ReimbursementPage() {
                     addTypeDraft();
                   }
                 }}
-                placeholder="新增报销类型"
+                placeholder="新增付款类型"
                 className="erp-input"
               />
               <button type="button" onClick={addTypeDraft} className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-900 text-white">
@@ -1124,7 +1467,7 @@ export default function ReimbursementPage() {
                     }}
                     className="p-1.5 text-gray-300 hover:text-red-500 disabled:opacity-40"
                     disabled={typeDraft.length <= 1}
-                    aria-label="删除报销类型"
+                    aria-label="删除付款类型"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -1259,7 +1602,7 @@ export default function ReimbursementPage() {
 
       {/* 驳回 Modal - hidden for employee */}
       {!isEmployee && (
-        <Modal open={!!showRejectModal} onClose={() => { setShowRejectModal(null); setRejectReason(''); }} title="确认驳回">
+        <Modal open={!!showRejectModal} onClose={() => { if (!submitting) { setShowRejectModal(null); setRejectReason(''); } }} title="确认驳回">
           <div className="space-y-4">
             <p className="text-sm text-gray-600">确认驳回 <span className="text-gray-900 font-semibold">{showRejectModal?.item.applicant}</span> 的报销申请？</p>
             <div>
@@ -1273,8 +1616,14 @@ export default function ReimbursementPage() {
               />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => { setShowRejectModal(null); setRejectReason(''); }} className="erp-btn-secondary">取消</button>
-              <button onClick={handleRejectFlow} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors">
+              <button
+                onClick={() => { if (!submitting) { setShowRejectModal(null); setRejectReason(''); } }}
+                disabled={submitting}
+                className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                取消
+              </button>
+              <button onClick={handleRejectFlow} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-70">
                 {submitting ? '处理中...' : '确认驳回'}
               </button>
             </div>
@@ -1286,15 +1635,36 @@ export default function ReimbursementPage() {
       <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title="报销详情" size="lg">
         {showDetail && (
           <div className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2"><User size={14} className="text-gray-400" /><span className="text-gray-500">申请人：</span><span className="text-gray-900 font-medium">{showDetail.applicant}</span></div>
-              <div className="flex items-center gap-2"><Building size={14} className="text-gray-400" /><span className="text-gray-500">关联项目：</span><span className="text-gray-900 font-medium">{contracts.find(c => c.id === showDetail.contractId)?.houseAddress || '非项目报销'}</span></div>
-              <div className="flex items-center gap-2"><Tag size={14} className="text-gray-400" /><span className="text-gray-500">报销类型：</span><span className="text-gray-900 font-medium">{showDetail.type}</span></div>
-              <div className="flex items-center gap-2"><DollarSign size={14} className="text-gray-400" /><span className="text-gray-500">金额：</span><span className="text-emerald-600 font-semibold">{formatMoney(showDetail.amount)}</span></div>
-              <div className="flex items-center gap-2"><Calendar size={14} className="text-gray-400" /><span className="text-gray-500">费用日期：</span><span className="text-gray-900">{safeFormatDate(showDetail.expenseDate)}</span></div>
-              <div className="flex items-center gap-2"><CheckCircle size={14} className="text-gray-400" /><span className="text-gray-500">状态：</span><span className={`text-xs px-2 py-0.5 rounded font-medium ${statusBadge[getReimbursementStatus(showDetail)] || ''}`}>{getReimbursementStatus(showDetail)}</span></div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await exportPaymentApplications([buildPaymentApplicationItem(showDetail)]);
+                  } catch (e: any) {
+                    await showAlert(e?.message || '导出付款申请单失败');
+                  }
+                }}
+                className="erp-btn-secondary !h-8 !py-0"
+              >
+                导出付款单
+              </button>
             </div>
-            <div className="text-sm"><span className="text-gray-500">事由说明：</span><p className="text-gray-700 mt-1">{showDetail.description}</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div><span className="text-gray-500">申请人：</span><span className="text-gray-900 font-medium">{showDetail.applicant}</span></div>
+              <div><span className="text-gray-500">关联项目：</span><span className="text-gray-900 font-medium">{contracts.find(c => c.id === showDetail.contractId)?.houseAddress || '非项目报销'}</span></div>
+              <div><span className="text-gray-500">付款类型：</span><span className="text-gray-900 font-medium">{showDetail.type}</span></div>
+              <div><span className="text-gray-500">金额：</span><span className="text-emerald-600 font-semibold">{formatMoney(showDetail.amount)}</span></div>
+              <div><span className="text-gray-500">申请日期：</span><span className="text-gray-900">{safeFormatDate((showDetail as any).applicationDate || showDetail.expenseDate)}</span></div>
+              <div><span className="text-gray-500">状态：</span><span className={`text-xs px-2 py-0.5 rounded font-medium ${statusBadge[getReimbursementStatus(showDetail)] || ''}`}>{getReimbursementStatus(showDetail)}</span></div>
+              <div><span className="text-gray-500">收款人：</span><span className="text-gray-900 font-medium">{(showDetail as any).payeeName || '-'}</span></div>
+              <div><span className="text-gray-500">开户银行：</span><span className="text-gray-900 font-medium">{(showDetail as any).payeeBank || '-'}</span></div>
+              <div className="sm:col-span-2"><span className="text-gray-500">账号：</span><span className="text-gray-900 font-medium">{(showDetail as any).payeeAccount || '-'}</span></div>
+            </div>
+            <div className="text-sm"><span className="text-gray-500">付款用途：</span><p className="text-gray-700 mt-1">{getPaymentPurpose(showDetail)}</p></div>
+            {(showDetail as any).remark && (
+              <div className="text-sm"><span className="text-gray-500">备注：</span><p className="text-gray-700 mt-1">{(showDetail as any).remark}</p></div>
+            )}
             <div className="rounded bg-gray-50 p-3 text-xs text-gray-600">
               <div className="mb-2 font-medium text-gray-800">审批流程</div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

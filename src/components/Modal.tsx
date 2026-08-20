@@ -25,7 +25,7 @@ export default function Modal({ open, onClose, title, children, size = 'md', mob
     : 'max-sm:max-w-full max-sm:h-full max-sm:max-h-full max-sm:m-0 max-sm:rounded-none';
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className={`relative bg-white rounded-lg shadow-2xl w-full ${w} mx-4 max-h-[85vh] flex flex-col border border-gray-100 md:rounded-lg ${mobileClass}`}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">

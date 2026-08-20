@@ -19,6 +19,7 @@
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "express": "^5.2.1",
+    "fflate": "^0.8.3",
     "lucide-react": "^0.511.0",
     "multer": "^2.2.0",
     "qrcode": "^1.5.4",

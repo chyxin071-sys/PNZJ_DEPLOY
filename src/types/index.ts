@@ -149,8 +149,15 @@ export interface Reimbursement {
   department: string;
   type: string;
   amount: number;
+  amountUppercase?: string;
   expenseDate: string;
+  applicationDate?: string;
   description: string;
+  paymentPurpose?: string;
+  payeeName?: string;
+  payeeBank?: string;
+  payeeAccount?: string;
+  remark?: string;
   attachments: AttachmentValue[];
   status: '待一级审批' | '待二级审批' | '待打款' | '待审核' | '已审核' | '已打款' | '已驳回' | '已作废' | '已冲销';
   approvalFlow?: {

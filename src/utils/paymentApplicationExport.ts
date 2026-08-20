@@ -1,0 +1,317 @@
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { formatDate } from './format';
+
+export interface PaymentApplicationExportItem {
+  applicant: string;
+  applicationDate?: string;
+  payeeName?: string;
+  payeeBank?: string;
+  payeeAccount?: string;
+  projectAddress?: string;
+  ownerName?: string;
+  paymentType?: string;
+  paymentPurpose?: string;
+  amount: number;
+  amountUppercase?: string;
+  projectManager?: string;
+  approverNames?: string;
+  payerNames?: string;
+  remark?: string;
+}
+
+export interface ImportedPaymentApplication {
+  applicant: string;
+  applicationDate: string;
+  payeeName: string;
+  payeeBank: string;
+  payeeAccount: string;
+  projectAddress: string;
+  ownerName: string;
+  paymentType: string;
+  paymentPurpose: string;
+  amount: number;
+  amountUppercase: string;
+  projectManager: string;
+  approverNames: string;
+  payerNames: string;
+  remark: string;
+  sheetName: string;
+}
+
+const TEMPLATE_URL = `${import.meta.env.BASE_URL || '/'}templates/payment-application-template.xlsx`;
+
+function cleanSheetName(value: string, index: number) {
+  const name = (value || `付款申请单${index + 1}`)
+    .replace(/[\\/?*[\]:]/g, '')
+    .trim()
+    .slice(0, 26);
+  return `${name || '付款申请单'}${index + 1}`;
+}
+
+function fileDate() {
+  return formatDate(new Date().toISOString()).replace(/-/g, '');
+}
+
+function displayDate(value?: string) {
+  if (!value) return formatDate(new Date().toISOString());
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return value;
+  const date = new Date(time);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function xmlEscape(value: string | number | undefined) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function getCellStyle(cellXml: string | undefined) {
+  return cellXml?.match(/\ss="([^"]+)"/)?.[1];
+}
+
+function getExistingCellXml(sheetXml: string, address: string) {
+  const escaped = address.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cellPattern = /<c\b[^>]*\/>|<c\b[^>]*>.*?<\/c>/gs;
+  const match = Array.from(sheetXml.matchAll(cellPattern)).find((item) => (
+    new RegExp(`\\br="${escaped}"(?:\\s|/|>)`).test(item[0])
+  ));
+  return match?.[0];
+}
+
+function buildTextCell(address: string, value: string | undefined, style?: string) {
+  const styleAttr = style ? ` s="${style}"` : '';
+  return `<c r="${address}"${styleAttr} t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`;
+}
+
+function buildBlankCell(address: string, style?: string) {
+  const styleAttr = style ? ` s="${style}"` : '';
+  return `<c r="${address}"${styleAttr}/>`;
+}
+
+function buildNumberCell(address: string, value: number | undefined, style?: string) {
+  const styleAttr = style ? ` s="${style}"` : '';
+  const amount = Number.isFinite(value) ? value : 0;
+  return `<c r="${address}"${styleAttr}><v>${amount}</v></c>`;
+}
+
+function replaceCell(sheetXml: string, address: string, value: string | number | undefined) {
+  const existing = getExistingCellXml(sheetXml, address);
+  if (!existing) return sheetXml;
+  const style = getCellStyle(existing);
+  const next = value === undefined || value === ''
+    ? buildBlankCell(address, style)
+    : typeof value === 'number'
+    ? buildNumberCell(address, value, style)
+    : buildTextCell(address, value, style);
+
+  return sheetXml.replace(existing, next);
+}
+
+export function rmbUppercase(amount: number | undefined) {
+  const numeric = Number(amount || 0);
+  if (!Number.isFinite(numeric) || numeric === 0) return '零元整';
+
+  const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+  const sectionUnits = ['', '万', '亿', '兆'];
+  const digitUnits = ['', '拾', '佰', '仟'];
+  const sign = numeric < 0 ? '负' : '';
+  const cents = Math.round(Math.abs(numeric) * 100);
+  const integerPart = Math.floor(cents / 100);
+  const jiao = Math.floor((cents % 100) / 10);
+  const fen = cents % 10;
+
+  const sectionToChinese = (section: number) => {
+    let result = '';
+    let zeroPending = false;
+    for (let i = 3; i >= 0; i -= 1) {
+      const divisor = 10 ** i;
+      const digit = Math.floor(section / divisor) % 10;
+      if (digit === 0) {
+        if (result && section % divisor > 0) zeroPending = true;
+      } else {
+        result += `${zeroPending ? '零' : ''}${digits[digit]}${digitUnits[i]}`;
+        zeroPending = false;
+      }
+    }
+    return result;
+  };
+
+  const sections: number[] = [];
+  let number = integerPart;
+  while (number > 0) {
+    sections.push(number % 10000);
+    number = Math.floor(number / 10000);
+  }
+
+  let integerText = '';
+  let zeroBetweenSections = false;
+  for (let i = sections.length - 1; i >= 0; i -= 1) {
+    const section = sections[i];
+    if (section === 0) {
+      zeroBetweenSections = Boolean(integerText);
+      continue;
+    }
+    if (integerText && (zeroBetweenSections || section < 1000)) integerText += '零';
+    integerText += `${sectionToChinese(section)}${sectionUnits[i]}`;
+    zeroBetweenSections = false;
+  }
+  integerText = integerText || '零';
+
+  let decimalText = '';
+  if (jiao) decimalText += `${digits[jiao]}角`;
+  if (fen) decimalText += `${digits[fen]}分`;
+  if (!decimalText) decimalText = '整';
+  if (integerPart === 0 && decimalText !== '整') return `${sign}${decimalText}`;
+  return `${sign}${integerText}元${decimalText}`;
+}
+
+function fillFormXml(sheetXml: string, item: PaymentApplicationExportItem, offset: number) {
+  const row = (n: number) => n + offset;
+  let nextXml = sheetXml;
+  nextXml = replaceCell(nextXml, `A${row(3)}`, displayDate(item.applicationDate));
+  nextXml = replaceCell(nextXml, `B${row(4)}`, item.payeeName);
+  nextXml = replaceCell(nextXml, `F${row(4)}`, item.projectAddress);
+  nextXml = replaceCell(nextXml, `B${row(5)}`, item.payeeBank);
+  nextXml = replaceCell(nextXml, `F${row(5)}`, item.ownerName);
+  nextXml = replaceCell(nextXml, `B${row(6)}`, item.payeeAccount);
+  nextXml = replaceCell(nextXml, `F${row(6)}`, item.paymentType);
+  nextXml = replaceCell(nextXml, `B${row(7)}`, item.amountUppercase !== undefined ? item.amountUppercase : rmbUppercase(item.amount));
+  nextXml = replaceCell(nextXml, `F${row(7)}`, item.paymentPurpose);
+  nextXml = replaceCell(nextXml, `B${row(8)}`, item.amount);
+  nextXml = replaceCell(nextXml, `B${row(9)}`, item.applicant);
+  nextXml = replaceCell(nextXml, `D${row(9)}`, item.projectManager);
+  nextXml = replaceCell(nextXml, `F${row(9)}`, item.approverNames);
+  nextXml = replaceCell(nextXml, `H${row(9)}`, item.payerNames);
+  nextXml = replaceCell(nextXml, `B${row(10)}`, item.remark);
+  return nextXml;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function buildExactTemplateFile(item: PaymentApplicationExportItem) {
+  const response = await fetch(TEMPLATE_URL);
+  if (!response.ok) throw new Error('付款申请单模板读取失败');
+  const buffer = new Uint8Array(await response.arrayBuffer());
+  const zip = unzipSync(buffer);
+  const sheetPath = 'xl/worksheets/sheet1.xml';
+  const sheet = zip[sheetPath];
+  if (!sheet) throw new Error('付款申请单模板结构异常');
+  let sheetXml = strFromU8(sheet);
+  sheetXml = fillFormXml(sheetXml, item, 0);
+  sheetXml = fillFormXml(sheetXml, item, 10);
+  zip[sheetPath] = strToU8(sheetXml);
+  delete zip['xl/calcChain.xml'];
+  return zipSync(zip, { level: 6 });
+}
+
+export async function exportPaymentApplications(items: PaymentApplicationExportItem[]) {
+  if (!items.length) return;
+  if (items.length === 1) {
+    const file = await buildExactTemplateFile(items[0]);
+    downloadBlob(
+      new Blob([file], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `付款申请单_${cleanSheetName(items[0].projectAddress || items[0].payeeName || items[0].applicant, 0)}_${fileDate()}.xlsx`,
+    );
+    return;
+  }
+
+  const files: Record<string, Uint8Array> = {};
+  for (const [index, item] of items.entries()) {
+    const name = cleanSheetName(item.projectAddress || item.payeeName || item.applicant, index);
+    files[`付款申请单_${name}_${fileDate()}.xlsx`] = await buildExactTemplateFile(item);
+  }
+  const zipped = zipSync(files, { level: 6 });
+  downloadBlob(new Blob([zipped], { type: 'application/zip' }), `付款申请单_${fileDate()}.zip`);
+}
+
+function getCellValue(sheet: any, address: string) {
+  const cell = sheet[address];
+  if (!cell) return '';
+  if (cell.w !== undefined) return String(cell.w).trim();
+  if (cell.v !== undefined) return String(cell.v).trim();
+  return '';
+}
+
+function getCellNumber(sheet: any, address: string) {
+  const value = sheet[address]?.v;
+  if (typeof value === 'number') return value;
+  const text = getCellValue(sheet, address).replace(/[¥,\s]/g, '');
+  const amount = Number(text);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function parseExcelDate(value: any, XLSX: any) {
+  if (typeof value === 'number' && XLSX.SSF?.parse_date_code) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) {
+      const month = String(parsed.m).padStart(2, '0');
+      const day = String(parsed.d).padStart(2, '0');
+      return `${parsed.y}-${month}-${day}`;
+    }
+  }
+  const text = String(value || '').trim();
+  if (!text) return todayDateForImport();
+  const time = new Date(text.replace(/[./年]/g, '-').replace('月', '-').replace('日', '')).getTime();
+  return Number.isNaN(time) ? text : formatDate(new Date(time).toISOString());
+}
+
+function todayDateForImport() {
+  return formatDate(new Date().toISOString());
+}
+
+function parseSheet(sheet: any, sheetName: string, XLSX: any): ImportedPaymentApplication | null {
+  const rawDate = sheet.A3?.v || sheet.A13?.v || getCellValue(sheet, 'A3') || getCellValue(sheet, 'A13');
+  const item: ImportedPaymentApplication = {
+    applicant: getCellValue(sheet, 'B9') || getCellValue(sheet, 'B19'),
+    applicationDate: parseExcelDate(rawDate, XLSX),
+    payeeName: getCellValue(sheet, 'B4') || getCellValue(sheet, 'B14'),
+    payeeBank: getCellValue(sheet, 'B5') || getCellValue(sheet, 'B15'),
+    payeeAccount: getCellValue(sheet, 'B6') || getCellValue(sheet, 'B16'),
+    projectAddress: getCellValue(sheet, 'F4') || getCellValue(sheet, 'F14'),
+    ownerName: getCellValue(sheet, 'F5') || getCellValue(sheet, 'F15'),
+    paymentType: getCellValue(sheet, 'F6') || getCellValue(sheet, 'F16'),
+    paymentPurpose: getCellValue(sheet, 'F7') || getCellValue(sheet, 'F17'),
+    amount: getCellNumber(sheet, 'B8') || getCellNumber(sheet, 'B18'),
+    amountUppercase: getCellValue(sheet, 'B7') || getCellValue(sheet, 'B17'),
+    projectManager: getCellValue(sheet, 'D9') || getCellValue(sheet, 'D19'),
+    approverNames: getCellValue(sheet, 'F9') || getCellValue(sheet, 'F19'),
+    payerNames: getCellValue(sheet, 'H9') || getCellValue(sheet, 'H19'),
+    remark: getCellValue(sheet, 'B10') || getCellValue(sheet, 'B20'),
+    sheetName,
+  };
+
+  const hasContent = [
+    item.applicant,
+    item.payeeName,
+    item.payeeBank,
+    item.payeeAccount,
+    item.projectAddress,
+    item.ownerName,
+    item.paymentPurpose,
+    item.remark,
+  ].some(Boolean) || item.amount > 0;
+
+  return hasContent ? item : null;
+}
+
+export async function parsePaymentApplicationsFromFile(file: File): Promise<ImportedPaymentApplication[]> {
+  const XLSX = await import('xlsx-js-style');
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true } as any);
+  return workbook.SheetNames
+    .map((sheetName: string) => parseSheet(workbook.Sheets[sheetName], sheetName, XLSX))
+    .filter(Boolean) as ImportedPaymentApplication[];
+}
