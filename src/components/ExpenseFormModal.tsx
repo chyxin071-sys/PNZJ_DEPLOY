@@ -212,7 +212,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
       <div className="space-y-4" onKeyDown={focusNextOnEnter}>
         {/* 合同选择 - compact模式只显示固定合同 */}
         {compact && selectedContract ? (
-          <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+          <div className="p-2.5 bg-gray-50 rounded border border-gray-100">
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400">关联项目：</span>
               <span className="text-sm font-medium text-gray-800">{selectedContract.houseAddress}</span>
@@ -227,7 +227,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input value={contractSearch} onChange={(e) => setContractSearch(e.target.value)} placeholder="搜索项目地址 / 合同编号 / 客户姓名..." className="erp-input pl-9" autoFocus />
                 </div>
-                <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                <div className="max-h-48 overflow-y-auto border border-gray-100 rounded divide-y divide-gray-50">
                   {/* 非项目支出选项 */}
                   <button type="button" onClick={() => { setContractSearch('非项目支出'); setForm(prev => ({ ...prev, contractId: '__none__' })); }}
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors">
@@ -263,7 +263,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
                 </div>
               </div>
             ) : (
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="p-3 bg-gray-50 rounded border border-gray-100">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-800">
                     {form.contractId === '__none__' ? '非项目支出' : selectedContract?.houseAddress}
@@ -341,7 +341,7 @@ export default function ExpenseFormModal({ open, onClose, defaultContractId, edi
             const files = Array.from(e.target.files || []);
             setPendingUploads(prev => [...prev, ...files.map(createUploadProgressItem)]);
             e.currentTarget.value = '';
-          }} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
+          }} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
           <p className="text-xs text-amber-600 mt-1">附件非必填，可先登记支出，后续再补上传票据或收据。</p>
           <UploadProgressList
             items={pendingUploads}

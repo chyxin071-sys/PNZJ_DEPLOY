@@ -186,7 +186,7 @@ export default function ProjectCost() {
             <MetricCard label="毛利润" value={formatMoney(summary.grossProfit)} icon={PieChart} tone={summary.grossProfit >= 0 ? 'emerald' : 'red'} />
           </div>
 
-          <section className="rounded-xl border border-gray-100 bg-white p-4">
+          <section className="rounded border border-gray-100 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">成本分类</h2>
               <span className="text-[11px] text-gray-400">{categoryStats.length} 类</span>
@@ -210,7 +210,7 @@ export default function ProjectCost() {
             )}
           </section>
 
-          <section className="rounded-xl border border-gray-100 bg-white p-4">
+          <section className="rounded border border-gray-100 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">项目利润</h2>
               <span className="text-[11px] text-gray-400">{filtered.length} 个项目</span>
@@ -224,7 +224,7 @@ export default function ProjectCost() {
                     key={item.id}
                     type="button"
                     onClick={() => navigate(`/contracts/${item.id}`)}
-                    className="w-full rounded-lg bg-gray-50 px-3 py-2 text-left"
+                    className="w-full rounded bg-gray-50 px-3 py-2 text-left"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -243,7 +243,7 @@ export default function ProjectCost() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-100 bg-white p-4">
+          <section className="rounded border border-gray-100 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">支出记录</h2>
               <span className="text-[11px] text-gray-400">{recentRecords.length} 条</span>
@@ -277,7 +277,7 @@ export default function ProjectCost() {
                 key={row.id}
                 type="button"
                 onClick={() => navigate(`/contracts/${row.id}`)}
-                className="w-full rounded-xl border border-gray-100 bg-white p-4 text-left shadow-sm active:bg-gray-50"
+                className="w-full rounded border border-gray-100 bg-white p-4 text-left shadow-sm active:bg-gray-50"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -304,10 +304,10 @@ export default function ProjectCost() {
 function MetricCard({ label, value, icon: Icon, tone = 'gray' }: { label: string; value: string; icon: any; tone?: 'gray' | 'red' | 'emerald' }) {
   const toneClass = tone === 'red' ? 'text-red-500 bg-red-50' : tone === 'emerald' ? 'text-emerald-600 bg-emerald-50' : 'text-gray-700 bg-gray-100';
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3">
+    <div className="rounded border border-gray-100 bg-white p-3">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-xs font-medium text-gray-400">{label}</span>
-        <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${toneClass}`}>
+        <span className={`flex h-7 w-7 items-center justify-center rounded ${toneClass}`}>
           <Icon size={15} />
         </span>
       </div>
@@ -319,7 +319,7 @@ function MetricCard({ label, value, icon: Icon, tone = 'gray' }: { label: string
 function MiniValue({ label, value, tone = 'gray' }: { label: string; value: string; tone?: 'gray' | 'red' | 'emerald' }) {
   const color = tone === 'red' ? 'text-red-500' : tone === 'emerald' ? 'text-emerald-600' : 'text-gray-900';
   return (
-    <div className="rounded-lg bg-gray-50 px-3 py-2">
+    <div className="rounded bg-gray-50 px-3 py-2">
       <p className="text-[11px] text-gray-400">{label}</p>
       <p className={`mt-1 break-all text-sm font-bold ${color}`}>{value}</p>
     </div>

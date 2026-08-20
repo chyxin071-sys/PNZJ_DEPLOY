@@ -948,7 +948,7 @@ export default function ReimbursementPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0 whitespace-nowrap ${
+              className={`px-2.5 py-1.5 text-xs font-medium rounded transition-colors shrink-0 whitespace-nowrap ${
                 tab === t ? 'bg-gold-50 text-gold-700' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -1030,7 +1030,7 @@ export default function ReimbursementPage() {
           <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">事由说明</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
-            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
+            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
               <Upload size={20} className="mx-auto text-gray-400 mb-2" />
               <p className="text-xs text-gray-400">点击上传图片附件（支持多选，可多次追加）</p>
               <input ref={fileRef} type="file" multiple onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" />
@@ -1038,7 +1038,7 @@ export default function ReimbursementPage() {
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {files.map((f, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                  <div key={i} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
                     <button type="button" onClick={() => setLocalPreviewIndex(i)} className="h-full w-full">
                       <img src={localPreviewUrls[i]} alt={f.name} className="w-full h-full object-cover" />
                     </button>
@@ -1048,7 +1048,7 @@ export default function ReimbursementPage() {
               </div>
             )}
           </div>
-          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+          <div className="rounded border border-gray-100 bg-gray-50 px-3 py-3">
             <div className="mb-3 text-sm font-medium text-gray-900">审批流程</div>
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3">
@@ -1100,13 +1100,13 @@ export default function ReimbursementPage() {
                 placeholder="新增报销类型"
                 className="erp-input"
               />
-              <button type="button" onClick={addTypeDraft} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-white">
+              <button type="button" onClick={addTypeDraft} className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-900 text-white">
                 <Plus size={16} />
               </button>
             </div>
             <div className="space-y-2">
               {typeDraft.map((type, index) => (
-                <div key={`${type}-${index}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div key={`${type}-${index}`} className="flex items-center gap-2 rounded border border-gray-100 bg-gray-50 px-3 py-2">
                   <input
                     value={type}
                     onChange={(e) => {
@@ -1142,7 +1142,7 @@ export default function ReimbursementPage() {
       {canManageApprovalFlow && (
         <Modal open={showFlowModal} onClose={() => setShowFlowModal(false)} title="报销审批流程" size="lg">
           <div className="space-y-5">
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+            <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
               报销提交后依次流转：一级审核 &gt; 复核 &gt; 打款。抄送人只接收通知，不参与操作。
             </div>
             <div className="grid grid-cols-1 gap-4">
@@ -1191,14 +1191,14 @@ export default function ReimbursementPage() {
         >
           {controlAction && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
                 {controlAction.type === 'reverse'
                   ? '已打款的报销不能直接删除。冲销后该记录不再作为有效报销处理，但会保留付款与冲销痕迹。'
                   : controlAction.type === 'void'
                     ? '已进入审批流程的报销不能直接删除。作废后流程终止，并保留审批与作废痕迹。'
                     : '未形成有效审批结果的报销可以删除，系统会保留操作日志。'}
               </div>
-              <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              <div className="rounded bg-gray-50 px-3 py-3 text-sm text-gray-600">
                 <div>申请人：<span className="font-medium text-gray-900">{controlAction.item.applicant}</span></div>
                 <div className="mt-1">金额：<span className="font-medium text-emerald-600">{formatMoney(controlAction.item.amount)}</span></div>
                 <div className="mt-1">当前状态：<span className="font-medium text-gray-900">{getReimbursementStatus(controlAction.item)}</span></div>
@@ -1217,7 +1217,7 @@ export default function ReimbursementPage() {
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button onClick={() => { setControlAction(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
-                <button onClick={handleReimbursementControlAction} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+                <button onClick={handleReimbursementControlAction} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors">
                   确认{controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}
                 </button>
               </div>
@@ -1234,7 +1234,7 @@ export default function ReimbursementPage() {
             
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">打款凭证（可选）</label>
-              <input type="file" multiple onChange={(e) => setPayFiles(Array.from(e.target.files || []))} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
+              <input type="file" multiple onChange={(e) => setPayFiles(Array.from(e.target.files || []))} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
               <p className="text-xs text-amber-600 mt-1">（选填）如有需要，您可以在打款后继续通过报销详情补充打款凭证。</p>
             </div>
             
@@ -1274,7 +1274,7 @@ export default function ReimbursementPage() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setShowRejectModal(null); setRejectReason(''); }} className="erp-btn-secondary">取消</button>
-              <button onClick={handleRejectFlow} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+              <button onClick={handleRejectFlow} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors">
                 {submitting ? '处理中...' : '确认驳回'}
               </button>
             </div>
@@ -1295,7 +1295,7 @@ export default function ReimbursementPage() {
               <div className="flex items-center gap-2"><CheckCircle size={14} className="text-gray-400" /><span className="text-gray-500">状态：</span><span className={`text-xs px-2 py-0.5 rounded font-medium ${statusBadge[getReimbursementStatus(showDetail)] || ''}`}>{getReimbursementStatus(showDetail)}</span></div>
             </div>
             <div className="text-sm"><span className="text-gray-500">事由说明：</span><p className="text-gray-700 mt-1">{showDetail.description}</p></div>
-            <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+            <div className="rounded bg-gray-50 p-3 text-xs text-gray-600">
               <div className="mb-2 font-medium text-gray-800">审批流程</div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>一级审核：{getNamesByIds(getFlow(showDetail).approver1Ids)}</div>

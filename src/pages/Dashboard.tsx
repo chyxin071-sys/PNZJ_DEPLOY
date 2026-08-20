@@ -741,14 +741,14 @@ export default function Dashboard() {
     );
 
     if (!canOpenFinanceReports) {
-      return <div className="rounded-lg border border-gray-100 bg-white p-3.5 md:p-4">{content}</div>;
+      return <div className="rounded border border-gray-100 bg-white p-3.5 md:p-4">{content}</div>;
     }
 
     return (
       <button
         type="button"
         onClick={() => navigate('/reports')}
-        className="rounded-lg border border-gray-100 bg-white p-3.5 text-left transition-all hover:border-gray-300 hover:shadow-sm active:scale-[0.99] md:p-4"
+        className="rounded border border-gray-100 bg-white p-3.5 text-left transition-all hover:border-gray-300 hover:shadow-sm active:scale-[0.99] md:p-4"
       >
         {content}
       </button>
@@ -772,7 +772,7 @@ export default function Dashboard() {
             <svg className={`w-3 h-3 transition-transform ${showTimeFilter ? 'rotate-180' : ''}`} viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 1l4 4 4-4" /></svg>
           </button>
           {showTimeFilter && (
-            <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg border border-gray-200 shadow-lg p-3 w-[220px]">
+            <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded border border-gray-200 shadow-lg p-3 w-[220px]">
               <select value={timeYear} onChange={e => setTimeYear(Number(e.target.value))} className="erp-select text-sm w-full mb-2">
                 {Array.from({ length: 11 }, (_, i) => currentYear - 5 + i).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
@@ -791,7 +791,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
-        <button onClick={() => navigate('/leads')} className="bg-white rounded-xl p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <button onClick={() => navigate('/leads')} className="bg-white rounded p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
           <div className="flex items-center justify-between mb-1.5 md:mb-2">
             <Users size={16} className="text-blue-500" />
             <span className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded-full ${monthLeads > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>本月+{monthLeads}</span>
@@ -799,7 +799,7 @@ export default function Dashboard() {
           <p className="text-lg md:text-2xl font-bold text-gray-900">{totalLeads}</p>
           <p className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">客户总数</p>
         </button>
-        <button onClick={() => navigate('/leads?filter=monthNew')} className="bg-white rounded-xl p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <button onClick={() => navigate('/leads?filter=monthNew')} className="bg-white rounded p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
           <div className="flex items-center justify-between mb-1.5 md:mb-2">
             <Calendar size={16} className="text-indigo-500" />
             <span className="text-[10px] md:text-xs px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 truncate max-w-[60px] md:max-w-none">本周 {weekLeads}</span>
@@ -807,7 +807,7 @@ export default function Dashboard() {
           <p className="text-lg md:text-2xl font-bold text-gray-900">{monthLeads}</p>
           <p className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">本月新增</p>
         </button>
-        <button onClick={() => navigate('/leads?filter=signed')} className="bg-white rounded-xl p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <button onClick={() => navigate('/leads?filter=signed')} className="bg-white rounded p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
           <div className="flex items-center justify-between mb-1.5 md:mb-2">
             <Target size={16} className="text-emerald-500" />
             <span className="text-[10px] md:text-xs px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">{convRate}%</span>
@@ -815,7 +815,7 @@ export default function Dashboard() {
           <p className="text-lg md:text-2xl font-bold text-gray-900">{signedLeads}</p>
           <p className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">已签约</p>
         </button>
-        <button onClick={() => navigate('/leads?filter=lost')} className="bg-white rounded-xl p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <button onClick={() => navigate('/leads?filter=lost')} className="bg-white rounded p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
           <div className="flex items-center justify-between mb-1.5 md:mb-2">
             <TrendingDown size={16} className="text-rose-500" />
             <span className="text-[10px] md:text-xs px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600">{totalLeads > 0 ? ((lostLeads / totalLeads) * 100).toFixed(0) : 0}%</span>
@@ -823,7 +823,7 @@ export default function Dashboard() {
           <p className="text-lg md:text-2xl font-bold text-gray-900">{lostLeads}</p>
           <p className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">已流失</p>
         </button>
-        <button onClick={() => navigate('/projects-biz')} className="bg-white rounded-xl p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <button onClick={() => navigate('/projects-biz')} className="bg-white rounded p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
           <div className="flex items-center justify-between mb-1.5 md:mb-2">
             <Layers size={16} className="text-amber-500" />
             <span className="text-[10px] md:text-xs px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 truncate max-w-[60px] md:max-w-none">进行中 {ongoingProjects}</span>
@@ -831,7 +831,7 @@ export default function Dashboard() {
           <p className="text-lg md:text-2xl font-bold text-gray-900">{projects.length}</p>
           <p className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">工地总数</p>
         </button>
-        <button onClick={() => navigate('/todos')} className="bg-white rounded-xl p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <button onClick={() => navigate('/todos')} className="bg-white rounded p-2.5 md:p-4 border border-gray-100 text-left hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
           <div className="flex items-center justify-between mb-1.5 md:mb-2">
             <Clock size={16} className={overdueTodos > 0 ? 'text-rose-500' : 'text-blue-500'} />
             {overdueTodos > 0 && <span className="text-[10px] md:text-xs px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 truncate max-w-[50px] md:max-w-none">逾期{overdueTodos}</span>}
@@ -862,9 +862,9 @@ export default function Dashboard() {
               <button
                 key={`mobile-${item.action}-${item.label}-${index}`}
                 onClick={() => handleQuickAction(item.action)}
-                className="min-h-[64px] rounded-xl border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
+                className="min-h-[64px] rounded border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
               >
-                <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded-lg ${tone}`}>
+                <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded ${tone}`}>
                   <Icon size={18} />
                 </span>
                 <span className="mt-1.5 block text-[11px] font-medium text-gray-900 truncate">{item.label}</span>
@@ -880,9 +880,9 @@ export default function Dashboard() {
               <button
                 key={`desktop-${item.action}-${item.label}-${index}`}
                 onClick={() => handleQuickAction(item.action)}
-                className="md:min-h-[80px] min-h-[64px] rounded-xl border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
+                className="md:min-h-[80px] min-h-[64px] rounded border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
               >
-                <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded-lg ${tone}`}>
+                <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded ${tone}`}>
                   <Icon size={18} />
                 </span>
                 <span className="mt-1.5 block text-xs font-medium text-gray-900 truncate">{item.label}</span>
@@ -920,7 +920,7 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => navigate('/leads')}
-            className="overflow-hidden rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
+            className="overflow-hidden rounded border border-gray-100 bg-white p-4 text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -936,7 +936,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-5 grid grid-cols-3 gap-2">
               {leadStatusOverview.map((item) => (
-                <div key={item.key} className="min-w-0 rounded-lg bg-gray-50 px-3 py-3">
+                <div key={item.key} className="min-w-0 rounded bg-gray-50 px-3 py-3">
                   <div className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className={`h-2 w-2 shrink-0 rounded-full ${item.color}`} />{item.label}</div>
                   <div className={`mt-1.5 text-xl font-bold ${item.text}`}>{item.value}</div>
                   <div className="mt-0.5 text-[10px] text-gray-400">占比 {totalLeads > 0 ? Math.round((item.value / totalLeads) * 100) : 0}%</div>
@@ -952,7 +952,7 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => navigate('/worker-schedule')}
-            className="min-w-0 overflow-hidden rounded-xl border border-gray-100 bg-white text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
+            className="min-w-0 overflow-hidden rounded border border-gray-100 bg-white text-left transition-all hover:border-gray-200 hover:shadow-sm active:scale-[0.995]"
           >
             <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
               <div className="min-w-0">
@@ -997,7 +997,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
             {/* 客户来源与转化 */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="bg-white rounded border border-gray-100 p-4">
               <div className="flex items-center gap-1.5 mb-3">
                 <h3 className="text-sm font-semibold text-gray-800">客户来源与转化</h3>
                 <Tooltip content="各渠道来源的客户数量及签单转化率。">
@@ -1006,7 +1006,7 @@ export default function Dashboard() {
               </div>
               <div className="space-y-2">
                 {sources.slice(0, 5).map(s => (
-                  <button key={s.name} onClick={() => navigate(`/leads?source=${encodeURIComponent(s.name)}`)} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 w-full text-left transition-all cursor-pointer">
+                  <button key={s.name} onClick={() => navigate(`/leads?source=${encodeURIComponent(s.name)}`)} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 w-full text-left transition-all cursor-pointer">
                     <span className="text-sm text-gray-700 w-24 truncate">{s.name}</span>
                     <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
                       <div className="bg-blue-400 h-full rounded-full" style={{ width: `${sources[0]?.count > 0 ? (s.count / sources[0].count * 100) : 0}%` }} />
@@ -1021,7 +1021,7 @@ export default function Dashboard() {
             </div>
 
             {/* 员工表现详情（销售 / 设计 / 项目经理） */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="bg-white rounded border border-gray-100 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <Award size={16} className="text-amber-500" />
@@ -1034,7 +1034,7 @@ export default function Dashboard() {
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {performanceSections.map((section) => (
-                  <div key={section.key} className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                  <div key={section.key} className="rounded border border-gray-100 bg-gray-50/70 p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-600">{section.title}</span>
                       <span className="text-[10px] text-gray-400">{section.items.length} 人</span>
@@ -1046,7 +1046,7 @@ export default function Dashboard() {
                         <button
                           key={`${section.key}-${item.name}`}
                           onClick={() => openEmployeeWorkList(section.target, item.name)}
-                          className="flex w-full items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-left transition-colors hover:bg-gray-100"
+                          className="flex w-full items-center gap-2 rounded bg-white px-2.5 py-2 text-left transition-colors hover:bg-gray-100"
                         >
                           <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>{idx + 1}</span>
                           <span className="min-w-0 flex-1">
@@ -1070,7 +1070,7 @@ export default function Dashboard() {
             </div>
 
             {/* 流失原因分布 */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="bg-white rounded border border-gray-100 p-4">
               <div className="flex items-center gap-1.5 mb-3">
                 <h3 className="text-sm font-semibold text-gray-800">流失原因分布</h3>
                 <Tooltip content="统计已流失客户的原因占比。">
@@ -1081,7 +1081,7 @@ export default function Dashboard() {
                 {Object.keys(lostReasonDist).length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-4">暂无流失数据</p>
                 ) : Object.entries(lostReasonDist).sort((a, b) => b[1] - a[1]).map(([reason, count]) => (
-                  <div key={reason} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50">
+                  <div key={reason} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50">
                     <span className="text-sm text-gray-700 w-24 truncate">{reason}</span>
                     <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
                       <div className="bg-rose-400 h-full rounded-full" style={{ width: `${(count / Object.values(lostReasonDist).reduce((a, b) => a + b, 0)) * 100}%` }} />
@@ -1097,7 +1097,7 @@ export default function Dashboard() {
 
             {/* 每日新增趋势 */}
             {sortedDays.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="bg-white rounded border border-gray-100 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-sm font-semibold text-gray-800">新增客户趋势</h3>
@@ -1105,7 +1105,7 @@ export default function Dashboard() {
                       <HelpCircle size={14} className="text-gray-400 cursor-pointer hover:text-gray-600" />
                     </Tooltip>
                   </div>
-                  <div className="flex bg-gray-100 rounded-lg p-0.5">
+                  <div className="flex bg-gray-100 rounded p-0.5">
                     {['day', 'week', 'month'].map(scale => (
                       <button key={scale} onClick={() => setChartTimeScale(scale as any)}
                         className={`text-xs px-2.5 py-1 rounded-md transition-colors ${chartTimeScale === scale ? 'bg-white text-gray-900 shadow-sm font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -1169,7 +1169,7 @@ export default function Dashboard() {
           {/* 右侧 */}
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col justify-center items-center text-center">
+              <div className="bg-white rounded border border-gray-100 p-4 flex flex-col justify-center items-center text-center">
                 <div className="flex items-center gap-1.5 mb-2">
                   <h3 className="text-sm font-semibold text-gray-800">平均转化周期</h3>
                   <Tooltip content="统计客户从系统录入到最终签单所经历的平均天数。">
@@ -1183,7 +1183,7 @@ export default function Dashboard() {
                 <p className="text-[10px] text-gray-400">基于 {validSignedCount} 个签单</p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col justify-center items-center text-center">
+              <div className="bg-white rounded border border-gray-100 p-4 flex flex-col justify-center items-center text-center">
                 <div className="flex items-center gap-1.5 mb-2">
                   <h3 className="text-sm font-semibold text-gray-800">平均施工周期</h3>
                   <Tooltip content="统计工地从开工到完工所经历的平均天数。">
@@ -1201,7 +1201,7 @@ export default function Dashboard() {
             {/* 工地 & 设计阶段耗时分析 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 设计阶段耗时 */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="bg-white rounded border border-gray-100 p-4">
                 <div className="flex items-center gap-1.5 mb-3">
                   <h3 className="text-sm font-semibold text-gray-800">设计阶段平均耗时</h3>
                   <Tooltip content="各设计阶段的平均完成天数。">
@@ -1221,7 +1221,7 @@ export default function Dashboard() {
               </div>
 
               {/* 工地阶段耗时 */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="bg-white rounded border border-gray-100 p-4">
                 <div className="flex items-center gap-1.5 mb-3">
                   <h3 className="text-sm font-semibold text-gray-800">施工节点平均耗时与逾期</h3>
                   <Tooltip content="按大节点统计：平均耗时 = 该节点（实际完工日 − 实际开工日）的平均天数；逾期 = 实际完工晚于计划完工，显示逾期次数与平均逾期天数。">
@@ -1250,7 +1250,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="bg-white rounded border border-gray-100 p-4">
               <div className="flex items-center gap-1.5 mb-3">
                 <h3 className="text-sm font-semibold text-gray-800">客户评级分布</h3>
                 <Tooltip content="统计当前筛选时间范围内各意向评级的客户数量。">
@@ -1259,7 +1259,7 @@ export default function Dashboard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {Object.entries(ratingDist).map(([rating, count]) => (
-                  <div key={rating} className={`rounded-lg p-3 text-center ${rating === 'A' ? 'bg-red-50' : rating === 'B' ? 'bg-orange-50' : rating === 'C' ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                  <div key={rating} className={`rounded p-3 text-center ${rating === 'A' ? 'bg-red-50' : rating === 'B' ? 'bg-orange-50' : rating === 'C' ? 'bg-blue-50' : 'bg-gray-50'}`}>
                     <p className={`text-xl font-bold ${rating === 'A' ? 'text-red-600' : rating === 'B' ? 'text-orange-600' : rating === 'C' ? 'text-blue-600' : 'text-gray-600'}`}>{count}</p>
                     <p className="text-xs mt-1 font-medium text-gray-500">{rating}级</p>
                   </div>
@@ -1267,7 +1267,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="bg-white rounded border border-gray-100 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-sm font-semibold text-gray-800">最近跟进</h3>
@@ -1281,7 +1281,7 @@ export default function Dashboard() {
                 {recentFollowUps.length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-2">暂无跟进记录</p>
                 ) : recentFollowUps.map(fu => (
-                  <div key={fu._id} className="p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div key={fu._id} className="p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors">
                     <p className="text-xs text-gray-600 truncate mb-1">{fu.content?.split('\n')[0]}</p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-[11px] font-medium text-gray-900 truncate flex-1 mr-2" title={(() => {
@@ -1308,7 +1308,7 @@ export default function Dashboard() {
       {isAdmin && (
         <Modal open={showFinanceTargetModal} onClose={() => setShowFinanceTargetModal(false)} title="设置经营目标" size="md">
           <div className="space-y-4">
-            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            <div className="rounded border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
               当前业务：<span className="font-semibold text-gray-900">{currentBizType}</span>。目标只影响首页完成率展示，不修改合同或收款数据。
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1370,7 +1370,7 @@ export default function Dashboard() {
                           onClick={() => { setShowAllFunctions(false); navigate(item.path); }}
                           className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
                         >
-                          <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
+                          <span className={`flex h-12 w-12 items-center justify-center rounded ${tone}`}>
                             <Icon size={20} />
                           </span>
                           <span className="block w-full text-center text-[11px] font-medium text-gray-700 leading-tight truncate">
@@ -1398,7 +1398,7 @@ export default function Dashboard() {
             <div className="col-span-3 md:col-span-2 text-right">转化率</div>
           </div>
           {employeeSigned.map((emp, idx) => (
-            <div key={emp.name} className="grid grid-cols-12 gap-2 md:gap-4 items-center p-2 md:p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+            <div key={emp.name} className="grid grid-cols-12 gap-2 md:gap-4 items-center p-2 md:p-3 rounded bg-gray-50 hover:bg-gray-100 transition-colors">
               <div className="col-span-2 md:col-span-1 flex justify-center">
                 <div className={`w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center text-xs md:text-sm font-bold ${idx === 0 ? 'bg-amber-100 text-amber-600' : idx === 1 ? 'bg-gray-200 text-gray-600' : idx === 2 ? 'bg-orange-100 text-orange-600' : 'bg-white text-gray-500'}`}>
                   {idx + 1}
@@ -1437,9 +1437,9 @@ export default function Dashboard() {
                 <div className="h-px flex-1 bg-gray-100" />
               </div>
               {section.items.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">暂无数据</div>
+                <div className="rounded border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">暂无数据</div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+                <div className="overflow-hidden rounded border border-gray-100 bg-white">
                   {section.items.map((item: any, idx) => {
                     const rate = section.target === 'projects' ? item.onTimeRate : item.rate;
                     const primaryCount = section.target === 'projects' ? item.projectCount : item.total;

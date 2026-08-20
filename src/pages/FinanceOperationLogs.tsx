@@ -327,7 +327,7 @@ export default function FinanceOperationLogs() {
       <Modal open={!!selectedLog} onClose={() => setSelectedLog(null)} title="操作日志详情" size="lg">
         {selectedLog && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+            <div className="rounded border border-gray-100 bg-gray-50 px-4 py-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="text-xs text-gray-400">{selectedLog.createdAt ? formatDate(selectedLog.createdAt) : '-'}</div>
@@ -358,7 +358,7 @@ export default function FinanceOperationLogs() {
 
 function DetailItem({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className={`rounded-lg border border-gray-100 bg-white px-3 py-2.5 ${wide ? 'sm:col-span-2' : ''}`}>
+    <div className={`rounded border border-gray-100 bg-white px-3 py-2.5 ${wide ? 'sm:col-span-2' : ''}`}>
       <p className="text-xs text-gray-400">{label}</p>
       <p className="mt-1 break-words text-sm font-medium text-gray-800">{value}</p>
     </div>
@@ -367,7 +367,7 @@ function DetailItem({ label, value, wide = false }: { label: string; value: stri
 
 function JsonBlock({ title, value }: { title: string; value: unknown }) {
   return (
-    <div className="rounded-lg border border-gray-100 bg-white">
+    <div className="rounded border border-gray-100 bg-white">
       <div className="border-b border-gray-100 px-3 py-2 text-xs font-semibold text-gray-500">{title}</div>
       <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-xs leading-5 text-gray-600">
         {safeJson(value)}

@@ -1025,11 +1025,11 @@ export default function ProjectsBiz() {
         </div>
         <div className="flex items-center gap-2 pt-0.5 shrink-0">
           {isAdmin && (
-            <button onClick={openTemplateLib} className="flex items-center gap-1.5 px-2.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gold-300 hover:text-gold-600 transition-colors whitespace-nowrap">
+            <button onClick={openTemplateLib} className="flex items-center gap-1.5 px-2.5 py-2 border border-gray-200 rounded text-sm text-gray-600 hover:border-gold-300 hover:text-gold-600 transition-colors whitespace-nowrap">
               模板
             </button>
           )}
-          <button onClick={handleOpenCreate} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap">
+          <button onClick={handleOpenCreate} className="flex items-center gap-1.5 px-3 py-2 rounded bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap">
             <Plus size={16} /> 新建工地
           </button>
         </div>
@@ -1041,7 +1041,7 @@ export default function ProjectsBiz() {
           const Icon = card.icon;
           return (
             <button key={card.key} type="button" onClick={() => setStatFilter(active && statFilter !== 'all' ? 'all' : card.key)}
-              className={`flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
+              className={`flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] md:text-xs text-gray-400">{card.label}</span>
                 <Icon size={14} className={active ? card.color : 'text-gray-300'} />
@@ -1056,10 +1056,10 @@ export default function ProjectsBiz() {
         <button
           type="button"
           onClick={() => navigate('/worker-schedule')}
-          className="mb-4 flex w-full items-center justify-between border-y border-gray-200 bg-white px-3 py-3 text-left transition-colors hover:bg-gray-50 md:rounded-lg md:border"
+          className="mb-4 flex w-full items-center justify-between border-y border-gray-200 bg-white px-3 py-3 text-left transition-colors hover:bg-gray-50 md:rounded md:border"
         >
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold-50 text-gold-600"><Calendar size={17} /></span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-gold-50 text-gold-600"><Calendar size={17} /></span>
             <div className="min-w-0"><div className="text-sm font-medium text-gray-900">工人排期</div><div className="mt-0.5 truncate text-xs text-gray-400">查看班组档期、安排施工阶段与处理排期冲突</div></div>
           </div>
           <ChevronRight size={17} className="shrink-0 text-gray-400" />
@@ -1076,7 +1076,7 @@ export default function ProjectsBiz() {
             <div className="flex items-center gap-2 shrink-0">
               <>
                   {/* 桌面端：双按钮 */}
-                  <div className="hidden md:flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                  <div className="hidden md:flex rounded border border-gray-200 overflow-hidden shrink-0">
                     <button type="button" onClick={() => setFilterScope('related')}
                       className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${filterScope === 'related' ? 'bg-gold-400 text-black' : 'text-gray-500 hover:bg-gray-50'}`}>
                       与我相关
@@ -1090,7 +1090,7 @@ export default function ProjectsBiz() {
                   <button
                     type="button"
                     onClick={() => setFilterScope(s => s === 'related' ? 'all' : 'related')}
-                    className={`md:hidden shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${filterScope === 'related' ? 'border-gold-400 text-gold-600 bg-gold-50/60' : 'border-gray-200 text-gray-600 bg-white'}`}
+                    className={`md:hidden shrink-0 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${filterScope === 'related' ? 'border-gold-400 text-gold-600 bg-gold-50/60' : 'border-gray-200 text-gray-600 bg-white'}`}
                   >
                     {filterScope === 'related' ? '我的' : '全部'}
                   </button>
@@ -1399,9 +1399,9 @@ export default function ProjectsBiz() {
                     <div className="sticky right-0 z-10 -mr-4 flex self-stretch items-center justify-end gap-1 bg-white pl-3 pr-4 group-hover:bg-gray-50" onClick={e => e.stopPropagation()}>
                       {isRelated && (
                         <>
-                          <button title="编辑工地" aria-label="编辑工地" onClick={() => setShowEdit({ ...p })} className="p-1.5 text-gray-400 hover:text-gold-500 rounded-lg hover:bg-gold-50 transition-colors"><Edit3 size={14} /></button>
+                          <button title="编辑工地" aria-label="编辑工地" onClick={() => setShowEdit({ ...p })} className="p-1.5 text-gray-400 hover:text-gold-500 rounded hover:bg-gold-50 transition-colors"><Edit3 size={14} /></button>
                           {isAdmin && (
-                            <button title="删除工地" aria-label="删除工地" onClick={() => handleDelete(projectId)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
+                            <button title="删除工地" aria-label="删除工地" onClick={() => handleDelete(projectId)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
                           )}
                         </>
                       )}
@@ -1428,7 +1428,7 @@ export default function ProjectsBiz() {
       {/* ========== 新建工地弹窗 ========== */}
       {showCreate && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setShowCreate(false); setSelectedLead(null); }}>
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-visible" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-lg max-h-[90vh] flex flex-col overflow-visible" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100"><h2 className="text-lg font-bold">新建工地</h2></div>
             <div className="p-4 space-y-3 overflow-visible">
               {!selectedLead ? (
@@ -1436,10 +1436,10 @@ export default function ProjectsBiz() {
                   <label className="text-xs text-gray-500 mb-1 block">关联客户 *</label>
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="搜索已签单客户姓名、地址或电话..." className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus />
+                    <input value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="搜索已签单客户姓名、地址或电话..." className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus />
                   </div>
                   {filteredLeads.length > 0 && (
-                    <div className="mt-2 max-h-60 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                    <div className="mt-2 max-h-60 overflow-y-auto border border-gray-100 rounded divide-y divide-gray-50">
                       {filteredLeads.map((l: any) => (
                         <div key={l._id} onClick={() => handleSelectLead(l)} className="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-gold-50 transition-colors">
                           <div className="min-w-0">
@@ -1456,13 +1456,13 @@ export default function ProjectsBiz() {
                     </div>
                   )}
                   {filteredLeads.length === 0 && (
-                    <div className="mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-center text-xs text-gray-400">
+                    <div className="mt-2 rounded border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-center text-xs text-gray-400">
                       暂无可关联的已签单客户
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-gold-50/50 rounded-xl border border-gold-100">
+                <div className="p-3 bg-gold-50/50 rounded border border-gold-100">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-gold-700">已关联客户</span>
                     <button onClick={() => setSelectedLead(null)} className="text-xs text-gray-400 hover:text-gray-600">更换</button>
@@ -1478,14 +1478,14 @@ export default function ProjectsBiz() {
               )}
               {selectedLead && (
                 <>
-                  <div><label className="text-xs text-gray-500 mb-1 block">项目经理 *</label><select value={form.manager} onChange={e => setForm({ ...form, manager: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"><option value="">未分配</option>{managerOptions.map(m => <option key={m}>{m}</option>)}</select></div>
+                  <div><label className="text-xs text-gray-500 mb-1 block">项目经理 *</label><select value={form.manager} onChange={e => setForm({ ...form, manager: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"><option value="">未分配</option>{managerOptions.map(m => <option key={m}>{m}</option>)}</select></div>
                   <div><label className="text-xs text-gray-500 mb-1 block">开工日期 *</label><DatePicker mode="single" value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} placeholder="选择日期" dropUp /></div>
                 </>
               )}
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => { setShowCreate(false); setSelectedLead(null); }} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button onClick={handleCreate} disabled={saving || !selectedLead || !form.manager || !form.startDate} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={() => { setShowCreate(false); setSelectedLead(null); }} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button onClick={handleCreate} disabled={saving || !selectedLead || !form.manager || !form.startDate} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:opacity-50 disabled:cursor-not-allowed">
                 {saving ? '创建中...' : '创建'}
               </button>
             </div>
@@ -1497,27 +1497,27 @@ export default function ProjectsBiz() {
       {/* ========== 编辑工地弹窗 ========== */}
       {showEdit && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowEdit(null)}>
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-visible" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-lg max-h-[90vh] flex flex-col overflow-visible" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100"><h2 className="text-lg font-bold">编辑工地</h2></div>
             <div className="p-4 space-y-3 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">客户姓名</label><input value={showEdit.customer || ''} onChange={e => setShowEdit({ ...showEdit, customer: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">联系电话</label><input value={showEdit.phone || ''} onChange={e => setShowEdit({ ...showEdit, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">客户姓名</label><input value={showEdit.customer || ''} onChange={e => setShowEdit({ ...showEdit, customer: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">联系电话</label><input value={showEdit.phone || ''} onChange={e => setShowEdit({ ...showEdit, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">工地地址</label><input value={showEdit.address || ''} onChange={e => setShowEdit({ ...showEdit, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">工地地址</label><input value={showEdit.address || ''} onChange={e => setShowEdit({ ...showEdit, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">状态</label><select value={showEdit.status === '进行中' ? '施工中' : (showEdit.status || '施工中')} onChange={e => setShowEdit({ ...showEdit, status: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400">{['施工中', '已完工', '已暂停'].map(s => <option key={s}>{s}</option>)}</select></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">项目经理</label><select value={showEdit.manager || ''} onChange={e => setShowEdit({ ...showEdit, manager: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"><option value="">未分配</option>{managerOptions.map(m => <option key={m}>{m}</option>)}</select></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">状态</label><select value={showEdit.status === '进行中' ? '施工中' : (showEdit.status || '施工中')} onChange={e => setShowEdit({ ...showEdit, status: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400">{['施工中', '已完工', '已暂停'].map(s => <option key={s}>{s}</option>)}</select></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">项目经理</label><select value={showEdit.manager || ''} onChange={e => setShowEdit({ ...showEdit, manager: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"><option value="">未分配</option>{managerOptions.map(m => <option key={m}>{m}</option>)}</select></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-xs text-gray-500 mb-1 block">开工日期</label><DatePicker mode="single" value={showEdit.startDate || ''} onChange={(v) => setShowEdit({ ...showEdit, startDate: v })} placeholder="选择日期" dropUp /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">预计完工</label><DatePicker mode="single" value={showEdit.endDate || ''} onChange={(v) => setShowEdit({ ...showEdit, endDate: v })} placeholder="选择日期" dropUp /></div>
               </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">备注</label><textarea value={showEdit.remark || ''} onChange={e => setShowEdit({ ...showEdit, remark: e.target.value })} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">备注</label><textarea value={showEdit.remark || ''} onChange={e => setShowEdit({ ...showEdit, remark: e.target.value })} rows={2} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowEdit(null)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button onClick={handleUpdate} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500">保存</button>
+              <button onClick={() => setShowEdit(null)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button onClick={handleUpdate} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500">保存</button>
             </div>
           </div>
         </div>,
@@ -1527,7 +1527,7 @@ export default function ProjectsBiz() {
       {/* ========== 模板库弹窗 ========== */}
       {showTemplateLib && createPortal(
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center md:p-4" onClick={requestCloseTemplateLib}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl md:rounded shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-2 md:gap-3 min-w-0">
                 <BookOpen className="w-4 h-4 md:w-5 md:h-5 text-gold-500 shrink-0" />
@@ -1537,10 +1537,10 @@ export default function ProjectsBiz() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-                <button onClick={saveTemplateLib} disabled={templateSaving} className="px-3 md:px-4 py-1.5 text-xs md:text-sm bg-gray-900 text-white hover:bg-gray-800 rounded-lg disabled:opacity-50 whitespace-nowrap">
+                <button onClick={saveTemplateLib} disabled={templateSaving} className="px-3 md:px-4 py-1.5 text-xs md:text-sm bg-gray-900 text-white hover:bg-gray-800 rounded disabled:opacity-50 whitespace-nowrap">
                   {templateSaving ? '保存中...' : '保存修改'}
                 </button>
-                <button onClick={requestCloseTemplateLib} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <button onClick={requestCloseTemplateLib} className="p-1.5 hover:bg-gray-100 rounded">
                   <X className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
                 </button>
               </div>
@@ -1558,9 +1558,9 @@ export default function ProjectsBiz() {
                   </div>
 
                   {showAddStage && (
-                    <div className="flex items-center gap-2 bg-gold-50 rounded-lg p-2 md:p-3">
+                    <div className="flex items-center gap-2 bg-gold-50 rounded p-2 md:p-3">
                       <input value={newStageName} onChange={e => setNewStageName(e.target.value)} placeholder="阶段名称" className="flex-1 px-2 md:px-3 py-1.5 text-xs md:text-sm border border-gray-200 rounded focus:outline-none focus:border-gold-400" autoFocus />
-                      <button onClick={addStage} disabled={!newStageName.trim()} className="px-2 md:px-3 py-1.5 bg-gold-400 text-black text-xs md:text-sm rounded-lg hover:bg-gold-500 disabled:opacity-40 whitespace-nowrap">添加</button>
+                      <button onClick={addStage} disabled={!newStageName.trim()} className="px-2 md:px-3 py-1.5 bg-gold-400 text-black text-xs md:text-sm rounded hover:bg-gold-500 disabled:opacity-40 whitespace-nowrap">添加</button>
                       <button onClick={() => { setShowAddStage(false); setNewStageName(''); }} className="px-2 md:px-3 py-1.5 text-xs md:text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">取消</button>
                     </div>
                   )}
@@ -1569,7 +1569,7 @@ export default function ProjectsBiz() {
                     <div
                       key={stage._id || stageIdx}
                       data-move-key={`stage-${stage._id || stageIdx}`}
-                      className={`bg-white rounded-xl border overflow-hidden transition-all duration-300 border-gray-200 ${
+                      className={`bg-white rounded border overflow-hidden transition-all duration-300 border-gray-200 ${
                         movedItem?.key === `stage-${stage._id || stageIdx}` ? 'ring-2 ring-gold-200 shadow-lg' : ''
                       }`}
                     >
@@ -1629,9 +1629,9 @@ export default function ProjectsBiz() {
                           </div>
 
                           {showAddSection === stageIdx && (
-                            <div className="flex items-center gap-2 mb-2 md:mb-3 bg-gold-50 rounded-lg p-2 md:p-3">
+                            <div className="flex items-center gap-2 mb-2 md:mb-3 bg-gold-50 rounded p-2 md:p-3">
                               <input value={newSectionName} onChange={e => setNewSectionName(e.target.value)} placeholder="分组名称（如：材料、验收）" className="flex-1 px-2 md:px-3 py-1.5 text-xs md:text-sm border border-gray-200 rounded focus:outline-none focus:border-gold-400" autoFocus />
-                              <button onClick={() => addSection(stageIdx)} disabled={!newSectionName.trim()} className="px-2 md:px-3 py-1.5 bg-gold-400 text-black text-xs md:text-sm rounded-lg hover:bg-gold-500 disabled:opacity-40 whitespace-nowrap">添加</button>
+                              <button onClick={() => addSection(stageIdx)} disabled={!newSectionName.trim()} className="px-2 md:px-3 py-1.5 bg-gold-400 text-black text-xs md:text-sm rounded hover:bg-gold-500 disabled:opacity-40 whitespace-nowrap">添加</button>
                               <button onClick={() => setShowAddSection(null)} className="px-2 md:px-3 py-1.5 text-xs md:text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">取消</button>
                             </div>
                           )}
@@ -1641,7 +1641,7 @@ export default function ProjectsBiz() {
                               <div
                                 key={section._id || sectionIdx}
                                 data-move-key={`section-${section._id || `${stageIdx}-${sectionIdx}`}`}
-                                className={`bg-white rounded-lg border p-2 md:p-3 transition-all duration-300 border-gray-100 ${
+                                className={`bg-white rounded border p-2 md:p-3 transition-all duration-300 border-gray-100 ${
                                   movedItem?.key === `section-${section._id || `${stageIdx}-${sectionIdx}`}` ? 'ring-2 ring-gold-200 shadow-md' : ''
                                 }`}
                               >
@@ -1695,12 +1695,12 @@ export default function ProjectsBiz() {
 
                                 <div className="mt-2">
                                   {showAddNode?.stageIdx === stageIdx && showAddNode?.sectionIdx === sectionIdx ? (
-                                    <div className="bg-gold-50 rounded-lg p-2 md:p-3 space-y-2">
+                                    <div className="bg-gold-50 rounded p-2 md:p-3 space-y-2">
                                       <div className="flex items-center gap-2">
                                         <input value={newNodeForm.name} onChange={e => setNewNodeForm({ name: e.target.value })} placeholder="检查项名称" className="flex-1 px-2 py-1.5 text-[11px] md:text-xs border border-gray-200 rounded focus:outline-none focus:border-gold-400" autoFocus />
                                       </div>
                                       <div className="flex gap-2">
-                                        <button onClick={() => addNode(stageIdx, sectionIdx)} disabled={!newNodeForm.name.trim()} className="px-2 md:px-3 py-1.5 bg-gold-400 text-black text-[11px] md:text-xs rounded-lg hover:bg-gold-500 disabled:opacity-40">添加</button>
+                                        <button onClick={() => addNode(stageIdx, sectionIdx)} disabled={!newNodeForm.name.trim()} className="px-2 md:px-3 py-1.5 bg-gold-400 text-black text-[11px] md:text-xs rounded hover:bg-gold-500 disabled:opacity-40">添加</button>
                                         <button onClick={() => setShowAddNode(null)} className="px-2 md:px-3 py-1.5 text-[11px] md:text-xs text-gray-400 hover:text-gray-600">取消</button>
                                       </div>
                                     </div>
@@ -1722,12 +1722,12 @@ export default function ProjectsBiz() {
                 {/* 编辑工艺标准弹窗 */}
                 {editingCraftsmanship !== null && createPortal(
                   <div className="fixed inset-0 z-[60] bg-black/30 flex items-end md:items-center justify-center" onClick={() => setEditingCraftsmanship(null)}>
-                    <div className="bg-white rounded-t-2xl md:rounded-2xl shadow-xl w-full md:max-w-2xl max-h-[85vh] md:max-h-[80vh] flex flex-col p-4 md:p-6" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-t-2xl md:rounded shadow-xl w-full md:max-w-2xl max-h-[85vh] md:max-h-[80vh] flex flex-col p-4 md:p-6" onClick={e => e.stopPropagation()}>
                       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-3 md:mb-4">
                         <h3 className="text-sm md:text-lg font-bold text-gray-900 truncate">
                           编辑工艺标准 - {templateData[editingCraftsmanship]?.name}
                         </h3>
-                        <button onClick={addCraftsmanship} className="self-end md:self-auto px-2 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm bg-gold-50 text-gold-600 hover:bg-gold-100 rounded-lg flex items-center gap-1 whitespace-nowrap">
+                        <button onClick={addCraftsmanship} className="self-end md:self-auto px-2 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm bg-gold-50 text-gold-600 hover:bg-gold-100 rounded flex items-center gap-1 whitespace-nowrap">
                           <Plus size={12} className="md:w-3.5 md:h-3.5" /> 添加标准
                         </button>
                       </div>
@@ -1737,8 +1737,8 @@ export default function ProjectsBiz() {
                           <div className="text-center py-10 text-gray-400 text-xs md:text-sm">暂无工艺标准，点击右上角添加</div>
                         ) : (
                           craftsmanshipList.map((craft, idx) => (
-                            <div key={idx} className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-100 relative">
-                              <button onClick={() => removeCraftsmanship(idx)} className="absolute top-2 right-2 md:top-3 md:right-3 p-1 md:p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                            <div key={idx} className="bg-gray-50 rounded p-3 md:p-4 border border-gray-100 relative">
+                              <button onClick={() => removeCraftsmanship(idx)} className="absolute top-2 right-2 md:top-3 md:right-3 p-1 md:p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
                                 <Trash2 size={12} className="md:w-3.5 md:h-3.5" />
                               </button>
                               <label className="block text-[10px] md:text-xs font-medium text-gray-500 mb-1.5 md:mb-2">标准 {idx + 1}</label>
@@ -1746,12 +1746,12 @@ export default function ProjectsBiz() {
                                 value={craft.text}
                                 onChange={e => updateCraftsmanshipText(idx, e.target.value)}
                                 rows={4}
-                                className="w-full px-2 md:px-3 py-1.5 md:py-2 border border-gray-200 rounded-lg text-xs md:text-sm focus:outline-none focus:border-gold-400"
+                                className="w-full px-2 md:px-3 py-1.5 md:py-2 border border-gray-200 rounded text-xs md:text-sm focus:outline-none focus:border-gold-400"
                                 placeholder="输入工艺标准要求..."
                               />
                               <div className="mt-2 md:mt-3 space-y-1.5 md:space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <label className="inline-flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
+                                  <label className="inline-flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded cursor-pointer">
                                     <ImagePlus className="w-3 h-3 md:w-3.5 md:h-3.5" />
                                     {uploadingCraftIdx === idx ? '上传中...' : '添加图片'}
                                     <input
@@ -1770,7 +1770,7 @@ export default function ProjectsBiz() {
                                 {craft.images && craft.images.length > 0 && (
                                   <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 md:gap-2">
                                     {craft.images.map((img, imgIdx) => (
-                                      <div key={`${img}_${imgIdx}`} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 bg-white">
+                                      <div key={`${img}_${imgIdx}`} className="relative group aspect-square rounded overflow-hidden border border-gray-200 bg-white">
                                         <button type="button" onClick={() => openCraftPreview(craft.images, imgIdx)} className="h-full w-full">
                                           <img src={resolveCloudImageSrc(img)} alt="工艺标准图" className="w-full h-full object-cover" />
                                         </button>
@@ -1798,8 +1798,8 @@ export default function ProjectsBiz() {
                       </div>
 
                       <div className="flex justify-end gap-2 mt-3 md:mt-4 pt-3 md:pt-4 border-t border-gray-100">
-                        <button onClick={() => setEditingCraftsmanship(null)} className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-                        <button onClick={saveCraftsmanship} className="px-3 md:px-4 py-1.5 md:py-2 bg-gold-400 text-black text-xs md:text-sm font-medium rounded-lg hover:bg-gold-500">保存</button>
+                        <button onClick={() => setEditingCraftsmanship(null)} className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-gray-500 hover:bg-gray-100 rounded">取消</button>
+                        <button onClick={saveCraftsmanship} className="px-3 md:px-4 py-1.5 md:py-2 bg-gold-400 text-black text-xs md:text-sm font-medium rounded hover:bg-gold-500">保存</button>
                       </div>
                     </div>
                   </div>,
@@ -1823,13 +1823,13 @@ export default function ProjectsBiz() {
 
       {showTemplateCloseConfirm && createPortal(
         <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowTemplateCloseConfirm(false)}>
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md bg-white rounded shadow-2xl p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900">模板修改尚未保存</h3>
             <p className="text-sm text-gray-500 mt-2">当前模板库有未保存的修改。您可以选择保存后退出，或者直接放弃本次修改。</p>
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowTemplateCloseConfirm(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">继续编辑</button>
-              <button onClick={discardTemplateChanges} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">放弃修改</button>
-              <button onClick={saveTemplateLib} disabled={templateSaving} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:opacity-50">
+              <button onClick={() => setShowTemplateCloseConfirm(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded">继续编辑</button>
+              <button onClick={discardTemplateChanges} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">放弃修改</button>
+              <button onClick={saveTemplateLib} disabled={templateSaving} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:opacity-50">
                 {templateSaving ? '保存中...' : '保存并退出'}
               </button>
             </div>

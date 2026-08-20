@@ -89,7 +89,7 @@ export default function Analytics() {
           <p className="mt-1 text-xs md:text-sm text-gray-500">深入分析业务数据，发现增长趋势</p>
         </div>
         <select value={timeRange} onChange={e => setTimeRange(e.target.value as any)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10">
+          className="text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10">
           <option value="7d">最近 7 天</option>
           <option value="30d">最近 30 天</option>
           <option value="90d">最近 90 天</option>
@@ -99,19 +99,19 @@ export default function Analytics() {
 
       {/* 核心指标 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
+        <div className="bg-white rounded p-4 border border-gray-100">
           <div className="flex items-center gap-2 mb-1"><Users size={16} className="text-blue-500" /><span className="text-xs text-gray-400">客户总数</span></div>
           <p className="text-2xl font-bold text-gray-900">{filteredLeads.length}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
+        <div className="bg-white rounded p-4 border border-gray-100">
           <div className="flex items-center gap-2 mb-1"><Target size={16} className="text-emerald-500" /><span className="text-xs text-gray-400">转化率</span></div>
           <p className="text-2xl font-bold text-emerald-600">{convRate}%</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
+        <div className="bg-white rounded p-4 border border-gray-100">
           <div className="flex items-center gap-2 mb-1"><Clock size={16} className="text-amber-500" /><span className="text-xs text-gray-400">跟进次数</span></div>
           <p className="text-2xl font-bold text-gray-900">{filteredFollowUps.length}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
+        <div className="bg-white rounded p-4 border border-gray-100">
           <div className="flex items-center gap-2 mb-1"><Layers size={16} className="text-purple-500" /><span className="text-xs text-gray-400">进行中项目</span></div>
           <p className="text-2xl font-bold text-gray-900">{projects.filter(p => p.status === '进行中').length}</p>
         </div>
@@ -119,7 +119,7 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 客户状态分布 */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <div className="bg-white rounded border border-gray-100 p-4">
           <h3 className="text-sm font-semibold text-gray-800 mb-3">客户状态分布</h3>
           <div className="space-y-3">
             {[{ label: '跟进中', count: followCount, color: 'blue' }, { label: '已签单', count: signedCount, color: 'emerald' }, { label: '已流失', count: lostCount, color: 'rose' }].map(s => (
@@ -140,7 +140,7 @@ export default function Analytics() {
         </div>
 
         {/* 跟进方式分布 */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <div className="bg-white rounded border border-gray-100 p-4">
           <h3 className="text-sm font-semibold text-gray-800 mb-3">跟进方式分布</h3>
           <div className="space-y-2">
             {Object.entries(followTypes).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
@@ -158,11 +158,11 @@ export default function Analytics() {
         </div>
 
         {/* 客户来源分析 */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <div className="bg-white rounded border border-gray-100 p-4">
           <h3 className="text-sm font-semibold text-gray-800 mb-3">客户来源与转化</h3>
           <div className="space-y-2">
             {sourceAnalysis.slice(0, 8).map(s => (
-              <div key={s.name} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50">
+              <div key={s.name} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50">
                 <span className="text-sm text-gray-700 w-24 truncate">{s.name}</span>
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
@@ -179,11 +179,11 @@ export default function Analytics() {
         </div>
 
         {/* 员工表现 */}
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <div className="bg-white rounded border border-gray-100 p-4">
           <h3 className="text-sm font-semibold text-gray-800 mb-3">员工表现</h3>
           <div className="space-y-2">
             {empStats.slice(0, 8).map((emp, idx) => (
-              <div key={emp.name} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+              <div key={emp.name} className="flex items-center gap-3 p-2 rounded hover:bg-gray-50">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                   idx < 3 ? 'bg-amber-100 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
                   {idx + 1}
@@ -210,7 +210,7 @@ export default function Analytics() {
 
         {/* 每日新增趋势 */}
         {sortedDays.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-100 p-4 lg:col-span-2">
+          <div className="bg-white rounded border border-gray-100 p-4 lg:col-span-2">
             <h3 className="text-sm font-semibold text-gray-800 mb-3">每日新增客户趋势</h3>
             <div className="flex items-end gap-1 h-40">
               {sortedDays.map(day => {

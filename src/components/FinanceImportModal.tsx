@@ -785,7 +785,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
   return (
     <Modal open={open} onClose={onClose} title="财务数据导入" size="lg">
       <div className="space-y-4">
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+        <div className="rounded border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
           请先下载系统模板，把历史合同、收入流水、支出流水迁移到对应页签后再上传。模板字段只保留 ERP 电脑端当前会保存和展示的字段；一二级分类必须已存在于 ERP，导入时不会自动新增分类。
         </div>
 
@@ -812,7 +812,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
         </div>
 
         {selectedFileName ? (
-          <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
+          <div className="flex items-center justify-between rounded border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
             <div className="flex min-w-0 items-center gap-2">
               <FileSpreadsheet size={16} className="shrink-0 text-emerald-600" />
               <span className="truncate text-gray-700">{selectedFileName}</span>
@@ -831,28 +831,28 @@ export default function FinanceImportModal({ open, onClose }: Props) {
               <ImportStat label="支出" value={parsed.expenses.length} />
             </div>
             {parsed.contractUpdates.length > 0 ? (
-              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                 将更新 {parsed.contractUpdates.length} 个已有合同的收款计划，所有原阶段均会保留。
               </div>
             ) : null}
             {parsed.errors.length > 0 ? (
-              <div className="max-h-40 overflow-auto rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+              <div className="max-h-40 overflow-auto rounded border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
                 {parsed.errors.slice(0, 50).map((error) => <div key={error}>{error}</div>)}
                 {parsed.errors.length > 50 ? <div>还有 {parsed.errors.length - 50} 条错误未显示。</div> : null}
               </div>
             ) : null}
             {parsed.warnings.length > 0 ? (
-              <div className="max-h-40 overflow-auto rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              <div className="max-h-40 overflow-auto rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
                 {parsed.warnings.slice(0, 50).map((warning) => <div key={warning}>{warning}</div>)}
                 {parsed.warnings.length > 50 ? <div>还有 {parsed.warnings.length - 50} 条提示未显示。</div> : null}
               </div>
             ) : parsed.errors.length === 0 ? (
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              <div className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
                 模板检查通过，未发现明显问题。
               </div>
             ) : null}
             {parsed.errors.length > 0 ? (
-              <div className="rounded-lg border border-red-100 bg-white px-3 py-2 text-xs text-red-600">
+              <div className="rounded border border-red-100 bg-white px-3 py-2 text-xs text-red-600">
                 有错误时系统不会写入数据，避免导入半截账。
               </div>
             ) : null}
@@ -869,7 +869,7 @@ export default function FinanceImportModal({ open, onClose }: Props) {
 
 function ImportStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-gray-100 bg-white px-3 py-3 text-center">
+    <div className="rounded border border-gray-100 bg-white px-3 py-3 text-center">
       <div className="text-xl font-bold text-gray-900">{value}</div>
       <div className="mt-1 text-xs text-gray-400">{label}</div>
     </div>

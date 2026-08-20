@@ -139,8 +139,8 @@ function UploadingItemOverlay({
   const isError = item.uploadStatus === 'error';
   const progress = Math.max(0, Math.min(100, item.uploadProgress || 0));
   return (
-    <div className="absolute inset-0 z-10 flex flex-col justify-end rounded-xl bg-white/70 p-2 backdrop-blur-[1px]">
-      <div className="rounded-lg bg-white/95 p-2 shadow-sm">
+    <div className="absolute inset-0 z-10 flex flex-col justify-end rounded bg-white/70 p-2 backdrop-blur-[1px]">
+      <div className="rounded bg-white/95 p-2 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <span className={`truncate text-[11px] font-semibold ${isError ? 'text-red-600' : 'text-gray-700'}`}>
             {isError ? '上传失败' : item.uploadStatus === 'queued' ? '等待上传' : '上传中'}
@@ -199,13 +199,13 @@ function SearchableSelect({
         if (window.matchMedia('(max-width: 767px)').matches) setMobileOpen(true);
         else setOpen(!open);
       }}
-        className={`w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-1.5 py-1 text-[11px]' : 'px-3 py-2 text-xs'}`}>
+        className={`w-full flex items-center justify-between border border-gray-200 rounded bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-1.5 py-1 text-[11px]' : 'px-3 py-2 text-xs'}`}>
         <span className={`truncate ${selected ? 'text-gray-700' : 'text-gray-400'}`}>{selected?.label || placeholder}</span>
         <ChevronDown size={compact ? 10 : 12} className="shrink-0 ml-0.5 text-gray-400" />
       </button>
       {open && (
         <div
-          className="hidden md:block absolute z-[100] mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+          className="hidden md:block absolute z-[100] mt-1 bg-white border border-gray-200 rounded shadow-xl overflow-hidden"
           style={{ width: menuWidth ?? (compact ? 128 : 180) }}
         >
           <div className="p-2 border-b border-gray-100">
@@ -240,7 +240,7 @@ function SearchableSelect({
       <BottomDrawer open={mobileOpen} onClose={() => { setMobileOpen(false); setSearch(''); }} title={placeholder}>
         <div className="space-y-3">
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder={searchPlaceholder}
-            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400" />
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gold-400" />
           <div className="max-h-[52vh] overflow-auto space-y-1">
             {groups ? groups.map(g => {
               const items = filtered.filter(o => o.group === g.key);
@@ -250,7 +250,7 @@ function SearchableSelect({
                   <div className="px-2 py-2 text-[11px] font-medium text-gray-400">{g.label}</div>
                   {items.map(o => (
                     <button key={o.value} type="button" onClick={() => { onChange(o.value); setMobileOpen(false); setSearch(''); }}
-                      className={`w-full text-left px-4 py-2.5 text-xs rounded-lg transition-colors ${value === o.value ? 'bg-gray-50 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
+                      className={`w-full text-left px-4 py-2.5 text-xs rounded transition-colors ${value === o.value ? 'bg-gray-50 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
                       {o.label}
                     </button>
                   ))}
@@ -258,7 +258,7 @@ function SearchableSelect({
               );
             }) : filtered.map(o => (
               <button key={o.value} type="button" onClick={() => { onChange(o.value); setMobileOpen(false); setSearch(''); }}
-                className={`w-full text-left px-4 py-2.5 text-xs rounded-lg transition-colors ${value === o.value ? 'bg-gray-50 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
+                className={`w-full text-left px-4 py-2.5 text-xs rounded transition-colors ${value === o.value ? 'bg-gray-50 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
                 {o.label}
               </button>
             ))}
@@ -380,7 +380,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
           setViewDate(value ? new Date(value.replace(/-/g, '/')) : new Date());
         }
       }}
-        className={`w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
+        className={`w-full flex items-center justify-between border border-gray-200 rounded bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
         <span className={value ? 'text-gray-700' : 'text-gray-400'}>{value || placeholder}</span>
         <Calendar size={compact ? 10 : 12} className="shrink-0 ml-1 text-gray-400" />
       </button>
@@ -388,7 +388,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
       {open && createPortal(
         <div
           ref={popupRef}
-          className="fixed z-[160] hidden rounded-xl border border-gray-200 bg-white shadow-xl md:block"
+          className="fixed z-[160] hidden rounded border border-gray-200 bg-white shadow-xl md:block"
           style={{ width: 260, top: popupPosition.top, left: popupPosition.left }}
         >
           {renderCalendar(false)}
@@ -2173,7 +2173,7 @@ export default function LeadDetail() {
         type="button"
         onClick={() => openPersonnelModal(field, label)}
         disabled={!canEdit}
-        className={`w-full min-w-0 rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-left transition-colors ${
+        className={`w-full min-w-0 rounded border border-gray-100 bg-white px-3 py-2.5 text-left transition-colors ${
           canEdit ? 'hover:border-gold-200 hover:bg-gold-50/30 cursor-pointer' : 'cursor-default'
         }`}
       >
@@ -2346,11 +2346,11 @@ export default function LeadDetail() {
     return (
       <div
         key={file.fileID}
-        className="relative overflow-hidden rounded-xl border-t border-gray-50 first:border-t-0"
+        className="relative overflow-hidden rounded border-t border-gray-50 first:border-t-0"
         onClick={() => { if (!file.isUploading) void openManagedFile(file); }}
       >
         <div className="flex items-center gap-3 py-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-gray-50">
             {fThumb ? <UploadingMediaThumb type={fType} src={fThumb} alt={file.name} className="h-full w-full object-cover" /> : <FileTy type={fType} size={18} />}
           </div>
           <div className="min-w-0 flex-1">
@@ -2364,14 +2364,14 @@ export default function LeadDetail() {
           </div>
           {canEdit && !file.isUploading && (
             <div className="flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
-              <button onClick={() => { void openManagedFile(file); }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-50" title="查看">
+              <button onClick={() => { void openManagedFile(file); }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-50" title="查看">
                 <Eye size={14} />
               </button>
-              <button onClick={() => { void downloadManagedFile(file); }} className="p-1.5 text-gray-400 hover:text-emerald-500 rounded-lg hover:bg-emerald-50" title="下载">
+              <button onClick={() => { void downloadManagedFile(file); }} className="p-1.5 text-gray-400 hover:text-emerald-500 rounded hover:bg-emerald-50" title="下载">
                 <Download size={14} />
               </button>
               {!file.isReadOnly && (
-                <button onClick={() => deleteFile(file.fileID)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50" title="删除">
+                <button onClick={() => deleteFile(file.fileID)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="删除">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -2386,9 +2386,9 @@ export default function LeadDetail() {
   return (
     <div className="p-3 md:p-6 max-w-[1500px] mx-auto space-y-3 md:space-y-4">
       {standaloneSection && (
-        <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm px-3 py-3 md:px-5 md:py-4">
+        <div className="bg-white rounded md:rounded border border-gray-100 shadow-sm px-3 py-3 md:px-5 md:py-4">
           <div className="flex items-center gap-2.5">
-            <button onClick={() => navigate(`/leads/${id}`)} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => navigate(`/leads/${id}`)} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded transition-colors">
               <ArrowLeft size={18} className="text-gray-400" />
             </button>
             <div className="min-w-0">
@@ -2401,11 +2401,11 @@ export default function LeadDetail() {
 
       {/* ─── 顶部客户信息卡 ─── */}
       {!standaloneSection && (
-      <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white rounded md:rounded border border-gray-100 shadow-sm">
         {/* header */}
         <div className="flex items-start justify-between px-3 md:px-6 py-4 md:py-4 gap-3 md:gap-4">
           <div className="flex items-start gap-2.5 md:gap-3 min-w-0 flex-1">
-            <button onClick={() => smartBack()} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => smartBack()} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded transition-colors">
               <ArrowLeft size={18} className="text-gray-400" />
             </button>
             <div className="min-w-0 flex-1">
@@ -2435,19 +2435,19 @@ export default function LeadDetail() {
           <div className="flex flex-col items-end gap-1.5 shrink-0 pt-0">
             {canEdit && (
               <button onClick={startEdit}
-                className="flex items-center justify-center h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap">
+                className="flex items-center justify-center h-7 w-[76px] md:h-9 md:w-auto md:px-4 text-[11px] md:text-xs font-medium border border-gray-200 rounded hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap">
                 编辑资料
               </button>
             )}
             {canEdit ? (
               <button
                 onClick={() => setMobileStatusPicker(true)}
-                className={`inline-flex items-center justify-center gap-0.5 h-7 w-[76px] md:h-9 md:w-auto md:px-3 text-[11px] md:text-xs rounded-lg font-semibold transition-all ${statusColorMap[lead.status] || 'bg-gray-100 text-gray-500'}`}
+                className={`inline-flex items-center justify-center gap-0.5 h-7 w-[76px] md:h-9 md:w-auto md:px-3 text-[11px] md:text-xs rounded font-semibold transition-all ${statusColorMap[lead.status] || 'bg-gray-100 text-gray-500'}`}
               >
                 {lead.status}<ChevronDown size={11} />
               </button>
             ) : (
-              <span className={`inline-flex items-center justify-center h-7 w-[76px] md:h-9 md:w-auto md:px-3 text-[11px] md:text-xs rounded-lg font-semibold ${statusColorMap[lead.status] || 'bg-gray-100 text-gray-500'}`}>{lead.status}</span>
+              <span className={`inline-flex items-center justify-center h-7 w-[76px] md:h-9 md:w-auto md:px-3 text-[11px] md:text-xs rounded font-semibold ${statusColorMap[lead.status] || 'bg-gray-100 text-gray-500'}`}>{lead.status}</span>
             )}
           </div>
         </div>
@@ -2461,14 +2461,14 @@ export default function LeadDetail() {
                   key={item.label}
                   type="button"
                   onClick={item.onClick}
-                  className="group relative rounded-xl border border-gray-100 bg-white px-3 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold-200 hover:shadow-md"
+                  className="group relative rounded border border-gray-100 bg-white px-3 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold-200 hover:shadow-md"
                 >
                   {item.label === '查看申请' && pendingAccessCount > 0 && (
                     <span className="absolute right-2 top-2 min-w-[18px] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white">
                       {pendingAccessCount > 99 ? '99+' : pendingAccessCount}
                     </span>
                   )}
-                  <span className={`mb-2 flex h-9 w-9 items-center justify-center rounded-lg ${item.tone}`}>
+                  <span className={`mb-2 flex h-9 w-9 items-center justify-center rounded ${item.tone}`}>
                     <Icon size={18} />
                   </span>
                   <span className="block text-sm font-semibold text-gray-900">{item.label}</span>
@@ -2487,7 +2487,7 @@ export default function LeadDetail() {
                   key={item.label}
                   type="button"
                   onClick={item.onClick}
-                  className="relative aspect-square rounded-xl border border-gray-100 bg-white flex flex-col items-center justify-center gap-1.5 text-center shadow-sm active:bg-gray-50 transition-colors"
+                  className="relative aspect-square rounded border border-gray-100 bg-white flex flex-col items-center justify-center gap-1.5 text-center shadow-sm active:bg-gray-50 transition-colors"
                 >
                   {item.label === '查看申请' && pendingAccessCount > 0 && (
                     <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
@@ -2495,7 +2495,7 @@ export default function LeadDetail() {
                   {item.key !== 'share-access' && hasLeadActionUnread(item.key) && (
                     <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
                   )}
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.tone}`}>
+                  <span className={`flex h-8 w-8 items-center justify-center rounded ${item.tone}`}>
                     <Icon size={17} />
                   </span>
                   <span className="text-[11px] font-semibold text-gray-800 leading-tight">{item.label}</span>
@@ -2509,7 +2509,7 @@ export default function LeadDetail() {
           <button
             type="button"
             onClick={openProjectFlow}
-            className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${hasProject ? 'border-emerald-200 bg-emerald-50/70 shadow-[0_10px_24px_rgba(16,185,129,0.08)] active:bg-emerald-100/70' : 'border-gray-100 bg-gray-50/80 active:bg-gray-100'}`}
+            className={`w-full rounded border px-3 py-2.5 text-left transition-colors ${hasProject ? 'border-emerald-200 bg-emerald-50/70 shadow-[0_10px_24px_rgba(16,185,129,0.08)] active:bg-emerald-100/70' : 'border-gray-100 bg-gray-50/80 active:bg-gray-100'}`}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -2531,7 +2531,7 @@ export default function LeadDetail() {
             </div>
           </button>
 
-          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
+          <div className="rounded bg-gray-50/60 px-3 py-2">
             <div className="mb-1.5 text-[12px] font-semibold text-gray-700">跟进人员</div>
             <div className="grid grid-cols-3 gap-2">
               <div className="min-w-0">
@@ -2567,7 +2567,7 @@ export default function LeadDetail() {
             </button>
             {mobileInfoOpen && (
               <div className="space-y-3 pt-2">
-                <div className="rounded-xl bg-gray-50/70 px-3">
+                <div className="rounded bg-gray-50/70 px-3">
                   {mobileInfoRows.map(row => (
                     <DetailRow key={row.label} label={row.label} value={row.value} />
                   ))}
@@ -2640,14 +2640,14 @@ export default function LeadDetail() {
       )}
 
       {/* ─── Tab Content ─── */}
-      <div id="lead-detail-workspace" className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div id="lead-detail-workspace" className="bg-white rounded md:rounded border border-gray-100 shadow-sm overflow-hidden">
         {!standaloneSection && <div className="hidden md:block p-2.5 md:p-4 border-b border-gray-100">
-          <div className="grid grid-cols-4 md:flex gap-2 p-1.5 bg-gray-100/80 rounded-xl">
+          <div className="grid grid-cols-4 md:flex gap-2 p-1.5 bg-gray-100/80 rounded">
             {tabs.map(t => (
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key as TabKey)}
-                className={`${t.hideMobile ? 'hidden md:block' : ''} shrink-0 md:flex-1 min-w-0 md:min-w-[80px] px-1.5 md:px-0 py-2 text-[12px] md:text-[13px] font-medium transition-all rounded-lg ${
+                className={`${t.hideMobile ? 'hidden md:block' : ''} shrink-0 md:flex-1 min-w-0 md:min-w-[80px] px-1.5 md:px-0 py-2 text-[12px] md:text-[13px] font-medium transition-all rounded ${
                   activeTab === t.key
                     ? 'bg-white text-gold-600 shadow-sm border border-gray-200/50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
@@ -2667,18 +2667,18 @@ export default function LeadDetail() {
                 <h3 className="text-[13px] font-semibold text-gray-700">共 {followUps.length} 条跟进记录</h3>
                 {canEdit && (
                   <button onClick={() => setShowFollowForm(!showFollowForm)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded hover:bg-gray-800 transition-colors">
                     <Plus size={14} /> 新增跟进
                   </button>
                 )}
               </div>
               {showFollowForm && (
-                <div className="bg-gray-50/70 rounded-xl p-4 mb-4 space-y-3 border border-gray-100">
+                <div className="bg-gray-50/70 rounded p-4 mb-4 space-y-3 border border-gray-100">
                   <textarea value={followForm.content} onChange={e => setFollowForm({ ...followForm, content: e.target.value })}
-                    placeholder="请输入跟进内容..." rows={3} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
+                    placeholder="请输入跟进内容..." rows={3} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => { setShowFollowForm(false); setFollowForm(INIT_FOLLOW); }} className="px-4 py-2 text-xs border border-gray-200 rounded-lg hover:bg-white transition-colors">取消</button>
-                    <button onClick={handleAddFollow} disabled={isSubmittingFollow} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 transition-colors disabled:opacity-50">{isSubmittingFollow ? '提交中...' : '提交'}</button>
+                    <button onClick={() => { setShowFollowForm(false); setFollowForm(INIT_FOLLOW); }} className="px-4 py-2 text-xs border border-gray-200 rounded hover:bg-white transition-colors">取消</button>
+                    <button onClick={handleAddFollow} disabled={isSubmittingFollow} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 transition-colors disabled:opacity-50">{isSubmittingFollow ? '提交中...' : '提交'}</button>
                   </div>
                 </div>
               )}
@@ -2691,7 +2691,7 @@ export default function LeadDetail() {
                     const canEditOwnFollow = !isSystemFollow && (fu.createdBy || fu.creatorName) === myName;
                     const showFollowActions = swipedFollowId === fu._id;
                     return (
-                    <div key={fu._id} className="group border border-transparent hover:border-gray-200 rounded-xl transition-all overflow-hidden relative">
+                    <div key={fu._id} className="group border border-transparent hover:border-gray-200 rounded transition-all overflow-hidden relative">
                       {/* 移动端左滑操作按钮 - iOS风格 */}
                       {canEditOwnFollow && isMobile && (
                         <div className="absolute inset-y-0 right-0 flex">
@@ -2763,11 +2763,11 @@ export default function LeadDetail() {
               <input ref={nodeFileInputRef} type="file" multiple className="hidden" onChange={handleNodeFileSelect} />
               {(!lead.designNodes || lead.designNodes.length === 0) ? (
                 <div className="py-16 text-center">
-                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center"><Clock size={24} className="text-gray-300" /></div>
+                  <div className="w-14 h-14 mx-auto mb-3 rounded bg-gray-50 flex items-center justify-center"><Clock size={24} className="text-gray-300" /></div>
                   <p className="text-sm text-gray-400 mb-4">尚未开启设计工作流</p>
                   {canEdit && (
                     <button onClick={() => { setDesignSetupMode('create'); setShowDesignSetup(true); }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors">
                       <PlusCircle size={14} /> 开启设计工作流
                     </button>
                   )}
@@ -2864,8 +2864,8 @@ export default function LeadDetail() {
                             {!isLast && <div className={`w-0.5 flex-1 mt-1 mb-1 ${isCompleted ? 'bg-emerald-200' : 'bg-gray-200'}`} />}
                           </div>
 
-                          <div className="relative flex-1 min-w-0 rounded-xl">
-                            <div className={`rounded-xl border transition-all overflow-hidden
+                          <div className="relative flex-1 min-w-0 rounded">
+                            <div className={`rounded border transition-all overflow-hidden
                               ${isCurrent ? 'border-blue-200 bg-blue-50/20 shadow-sm' :
                                 isCompleted ? 'border-emerald-300 bg-white' :
                                 'border-gray-100 bg-gray-50/30 hover:border-gray-200'}
@@ -2914,7 +2914,7 @@ export default function LeadDetail() {
                                           updateDesignNode(node.id, { status: 'current', actualStartDate: new Date().toISOString().slice(0, 10) });
                                         }}
                                         disabled={loading}
-                                        className="inline-flex items-center gap-1 rounded-lg bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600 disabled:opacity-50"
+                                        className="inline-flex items-center gap-1 rounded bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600 disabled:opacity-50"
                                       >
                                         <Play size={10} /> 开始
                                       </button>
@@ -2929,7 +2929,7 @@ export default function LeadDetail() {
                                           }
                                         }}
                                         disabled={loading}
-                                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                                        className="inline-flex items-center gap-1 rounded bg-emerald-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50"
                                       >
                                         <CheckCircle2 size={10} /> 完成
                                       </button>
@@ -2949,7 +2949,7 @@ export default function LeadDetail() {
                                       <button
                                         type="button"
                                         onClick={() => setExpandedNodes(prev => ({ ...prev, [node.id]: !expanded }))}
-                                        className="inline-flex items-center justify-center p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                        className="inline-flex items-center justify-center p-1.5 rounded border border-gray-200 text-gray-500 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                                         title="编辑时间"
                                       >
                                         {isMobile ? <Edit3 size={14} /> : <><Edit3 size={11} /> <span className="text-xs">编辑</span></>}
@@ -2958,7 +2958,7 @@ export default function LeadDetail() {
                                     <button
                                       type="button"
                                       onClick={() => void handleDeleteDesignNode(node.id)}
-                                      className="inline-flex items-center justify-center p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                      className="inline-flex items-center justify-center p-1.5 rounded border border-gray-200 text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors"
                                       title="删除"
                                     >
                                       {isMobile ? <Trash2 size={14} /> : <><Trash2 size={11} /> <span className="text-xs">删除</span></>}
@@ -2973,7 +2973,7 @@ export default function LeadDetail() {
 
                             {/* expanded detail panel — only date pickers */}
                             {expanded && canEditPlan && (
-                              <div className="mt-2 bg-white rounded-xl p-4 border border-gray-200 shadow-sm space-y-4">
+                              <div className="mt-2 bg-white rounded p-4 border border-gray-200 shadow-sm space-y-4">
                                 <div className="flex items-center gap-2 text-xs text-gray-400">
                                   <div className="flex-1 h-px bg-gray-100" />
                                   <span className="shrink-0 font-medium tracking-wide uppercase">编辑计划时间</span>
@@ -2998,7 +2998,7 @@ export default function LeadDetail() {
                                 <button
                                   onClick={() => { nodeFileTargetRef.current = node.id; setNodeFileTarget(node.id); nodeFileInputRef.current?.click(); }}
                                   disabled={nfLoading}
-                                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+                                  className="rounded px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50 disabled:opacity-50"
                                 >
                                   + 上传
                                 </button>
@@ -3015,7 +3015,7 @@ export default function LeadDetail() {
                                   const ext = (f.name || 'FILE').split('.').pop()?.slice(0, 4).toUpperCase() || 'FILE';
                                   const uploadDate = (f.uploadTime || '').slice(0, 10);
                                   return (
-                                    <div key={fi} className="relative overflow-hidden rounded-xl">
+                                    <div key={fi} className="relative overflow-hidden rounded">
                                       {showFileActions && (
                                       <div className="absolute inset-y-0 right-0 flex md:hidden">
                                         <button
@@ -3045,7 +3045,7 @@ export default function LeadDetail() {
                                       </div>
                                       )}
                                       <div
-                                        className={`flex w-full items-center gap-3 rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm shadow-sm group/file transition-transform duration-200 ${showFileActions ? '-translate-x-44 md:translate-x-0' : ''}`}
+                                        className={`flex w-full items-center gap-3 rounded border border-gray-100 bg-white px-3 py-3 text-sm shadow-sm group/file transition-transform duration-200 ${showFileActions ? '-translate-x-44 md:translate-x-0' : ''}`}
                                         onTouchStart={isMobile ? handleDesignFileTouchStart : undefined}
                                         onTouchEnd={isMobile ? (e) => handleDesignFileTouchEnd(e, fileKey) : undefined}
                                         onClick={() => { if (showFileActions) setSwipedDesignFileKey(null); }}
@@ -3056,7 +3056,7 @@ export default function LeadDetail() {
                                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                                       title={`下载 ${f.name}`}
                                     >
-                                      <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                                      <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded text-sm font-bold ${
                                         fileType === 'image'
                                           ? 'bg-blue-50 text-blue-500'
                                           : fileType === 'doc'
@@ -3082,11 +3082,11 @@ export default function LeadDetail() {
                                     </div>
                                     {!f.isUploading && (
                                     <div className="hidden shrink-0 items-center gap-1 md:flex">
-                                      <button onClick={() => { void downloadManagedFile(f); }} className="p-1.5 text-gray-400 hover:text-blue-500 rounded-lg hover:bg-white" title="下载文件"><Download size={14} /></button>
-                                      <button onClick={() => { void toggleDesignNodeFileVisibility(node.id, fi); }} className="p-1.5 text-gray-400 hover:text-gold-500 rounded-lg hover:bg-white" title={f.isVisible === false ? '设为公开' : '设为仅内部'}>
+                                      <button onClick={() => { void downloadManagedFile(f); }} className="p-1.5 text-gray-400 hover:text-blue-500 rounded hover:bg-white" title="下载文件"><Download size={14} /></button>
+                                      <button onClick={() => { void toggleDesignNodeFileVisibility(node.id, fi); }} className="p-1.5 text-gray-400 hover:text-gold-500 rounded hover:bg-white" title={f.isVisible === false ? '设为公开' : '设为仅内部'}>
                                         {f.isVisible === false ? <Eye size={14} /> : <EyeOff size={14} />}
                                       </button>
-                                      <button onClick={() => deleteNodeFile(node.id, fi)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-white" title="删除文件"><Trash2 size={14} /></button>
+                                      <button onClick={() => deleteNodeFile(node.id, fi)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-white" title="删除文件"><Trash2 size={14} /></button>
                                     </div>
                                     )}
                                     <UploadingItemOverlay item={f} onRetry={retryUploadTask} onRemove={removeUploadTask} />
@@ -3105,7 +3105,7 @@ export default function LeadDetail() {
                   </div>
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
                     <button onClick={() => { setDesignSetupMode('manage'); setCustomDesignNodeName(''); setShowDesignSetup(true); }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors">
                       <Edit3 size={14} /> 节点管理
                     </button>
                   </div>
@@ -3120,7 +3120,7 @@ export default function LeadDetail() {
               <div className="flex justify-between items-center gap-2 mb-4">
                 <h3 className="text-sm font-semibold text-gray-700">共 {materials.length} 项</h3>
                 <button onClick={openNewMaterial}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded hover:bg-gray-800 transition-colors">
                   <Plus size={14} /> 添加主材
                 </button>
               </div>
@@ -3129,7 +3129,7 @@ export default function LeadDetail() {
                   const isExpanded = expandedCategories[group.category] !== false;
                   const catState = lead.materialCategoryStates?.[group.category];
                   return (
-                    <div key={group.category} className="border border-gray-100 rounded-xl overflow-hidden">
+                    <div key={group.category} className="border border-gray-100 rounded overflow-hidden">
                       <button onClick={() => setExpandedCategories(prev => ({ ...prev, [group.category]: !isExpanded }))}
                         className="flex items-center gap-2 w-full text-left px-4 py-3 bg-gray-50/50 hover:bg-gray-50 transition-colors">
                         <ChevronRight size={13} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -3207,7 +3207,7 @@ export default function LeadDetail() {
                                             openImagePreview(urls, Math.max(0, urls.indexOf(selectedUrl)));
                                           }
                                         }}
-                                        className="aspect-square rounded-lg overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center"
+                                        className="aspect-square rounded overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center"
                                       >
                                         {matImageUrls[imgId] ? (
                                           <img src={matImageUrls[imgId]} className="w-full h-full object-cover" alt="" />
@@ -3249,9 +3249,9 @@ export default function LeadDetail() {
                                         }
                                       }}>
                                         {matImageUrls[item.images[0]] ? (
-                                          <img src={matImageUrls[item.images[0]]} className="w-10 h-10 rounded-lg object-cover border border-gray-200 shadow-sm" alt="" />
+                                          <img src={matImageUrls[item.images[0]]} className="w-10 h-10 rounded object-cover border border-gray-200 shadow-sm" alt="" />
                                         ) : (
-                                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><ImageIcon size={14} className="text-gray-300" /></div>
+                                          <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center"><ImageIcon size={14} className="text-gray-300" /></div>
                                         )}
                                         {item.images.length > 1 && (
                                           <div className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gray-800 text-white flex items-center justify-center">
@@ -3260,7 +3260,7 @@ export default function LeadDetail() {
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="inline-block w-10 h-10 rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center group-hover/row:border-gold-300 transition-colors">
+                                      <span className="inline-block w-10 h-10 rounded bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center group-hover/row:border-gold-300 transition-colors">
                                         <ImageIcon size={14} className="text-gray-300 group-hover/row:text-gold-400 transition-colors" />
                                       </span>
                                     )}
@@ -3277,10 +3277,10 @@ export default function LeadDetail() {
                                   </td>
                                   <td className="px-3 py-3 text-center">
                                     <div className="flex items-center justify-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
-                                      <button onClick={() => openEditMaterial(item)} className="p-1.5 text-gray-400 hover:text-gold-500 hover:bg-gold-50 rounded-lg transition-colors" title="编辑">
+                                      <button onClick={() => openEditMaterial(item)} className="p-1.5 text-gray-400 hover:text-gold-500 hover:bg-gold-50 rounded transition-colors" title="编辑">
                                         <Edit3 size={13} />
                                       </button>
-                                      <button onClick={() => deleteMaterial(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除">
+                                      <button onClick={() => deleteMaterial(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="删除">
                                         <Trash2 size={13} />
                                       </button>
                                     </div>
@@ -3297,7 +3297,7 @@ export default function LeadDetail() {
                 })}
               </div>
               {materials.length > 0 && (
-                <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 md:hidden">
+                <div className="mt-4 rounded border border-emerald-100 bg-emerald-50/60 p-3 md:hidden">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-emerald-800">发送主材清单给客户确认</div>
@@ -3305,7 +3305,7 @@ export default function LeadDetail() {
                     </div>
                     <button
                       onClick={openShareCategoryModal}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+                      className="inline-flex items-center justify-center gap-1.5 rounded bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
                     >
                       <Share2 size={14} /> 选择并分享
                     </button>
@@ -3323,7 +3323,7 @@ export default function LeadDetail() {
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-gray-700">共 {quoteList.length} 份报价单</h3>
                     <button onClick={() => navigate(`/quotation-builder/lead/${id}/new`)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded hover:bg-gray-800 transition-colors">
                       <Plus size={13} /> 新建报价
                     </button>
                   </div>
@@ -3333,11 +3333,11 @@ export default function LeadDetail() {
                         key={quote.id}
                         type="button"
                         onClick={() => navigate(`/quotation-builder/lead/${id}/${quote.id}?mode=view`)}
-                        className="w-full rounded-xl border border-gray-100 bg-white px-3 py-3 text-left active:bg-gray-50 hover:border-gold-200 transition-colors"
+                        className="w-full rounded border border-gray-100 bg-white px-3 py-3 text-left active:bg-gray-50 hover:border-gold-200 transition-colors"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-blue-50 text-blue-600">
                               <FileText size={17} />
                             </span>
                             <div className="min-w-0">
@@ -3360,13 +3360,13 @@ export default function LeadDetail() {
                 </div>
               ) : (
                 <div className="py-20 text-center">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded bg-gray-50 flex items-center justify-center">
                     <FileText size={28} className="text-gray-300" />
                   </div>
                   <p className="text-sm text-gray-500 mb-1">暂无关联报价单</p>
                   <p className="text-xs text-gray-400 mb-5">为客户创建报价以推进签单流程</p>
                   <button onClick={() => navigate(`/quotation-builder/lead/${id}/new`)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white border border-gray-900 rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-900 text-white border border-gray-900 rounded font-medium hover:bg-gray-800 transition-colors">
                     <Plus size={14} /> 新建报价单
                   </button>
                 </div>
@@ -3380,10 +3380,10 @@ export default function LeadDetail() {
               {hasProject && projectInfo ? (
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">关联工地</h3>
-                  <div className="border border-gray-100 rounded-xl overflow-hidden hover:border-gold-200 transition-colors">
+                  <div className="border border-gray-100 rounded overflow-hidden hover:border-gold-200 transition-colors">
                     <div className="px-4 md:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/30">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded bg-blue-50 flex items-center justify-center">
                           <Building size={18} className="text-blue-500" />
                         </div>
                         <div>
@@ -3392,26 +3392,26 @@ export default function LeadDetail() {
                         </div>
                       </div>
                       <button onClick={() => navigate(`/projects-biz/${projectInfo._id}`)}
-                        className="self-start sm:self-auto flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                        className="self-start sm:self-auto flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors">
                         查看详情 <ChevronRight size={13} />
                       </button>
                     </div>
                     <div className="px-4 md:px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="bg-gray-50/50 rounded-lg px-3 py-2.5">
+                      <div className="bg-gray-50/50 rounded px-3 py-2.5">
                         <p className="text-[11px] text-gray-400 mb-1">工程</p>
                         <p className="text-sm text-gray-800 font-medium">{projectInfo.manager || '-'}</p>
                       </div>
-                      <div className="bg-gray-50/50 rounded-lg px-3 py-2.5">
+                      <div className="bg-gray-50/50 rounded px-3 py-2.5">
                         <p className="text-[11px] text-gray-400 mb-1">施工状态</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${projectInfo.status === '已完成' ? 'bg-emerald-50 text-emerald-600' : projectInfo.status === '已暂停' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
                           {projectInfo.status === '进行中' ? '施工中' : (projectInfo.status || '施工中')}
                         </span>
                       </div>
-                      <div className="bg-gray-50/50 rounded-lg px-3 py-2.5">
+                      <div className="bg-gray-50/50 rounded px-3 py-2.5">
                         <p className="text-[11px] text-gray-400 mb-1">开始日期</p>
                         <p className="text-sm text-gray-700">{projectInfo.startDate || '-'}</p>
                       </div>
-                      <div className="bg-gray-50/50 rounded-lg px-3 py-2.5">
+                      <div className="bg-gray-50/50 rounded px-3 py-2.5">
                         <p className="text-[11px] text-gray-400 mb-1">计划完工</p>
                         <p className="text-sm text-gray-700">{projectInfo.endDate || '-'}</p>
                       </div>
@@ -3420,7 +3420,7 @@ export default function LeadDetail() {
                 </div>
               ) : (
                 <div className="py-20 text-center">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded bg-gray-50 flex items-center justify-center">
                     <Building size={28} className="text-gray-300" />
                   </div>
                   {lead.status === '已签单' ? (
@@ -3429,7 +3429,7 @@ export default function LeadDetail() {
                       <p className="text-xs text-gray-400 mb-5">签单后可创建工地项目进行施工管理</p>
                       {canEdit && (
                         <button onClick={handleCreateProject}
-                          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors">
                           <Plus size={14} /> 新建工地
                         </button>
                       )}
@@ -3447,7 +3447,7 @@ export default function LeadDetail() {
 
           {/* ════ 项目资料 ════ */}
           {activeTab === 'files' && (
-            <div className="relative min-h-[180px] rounded-xl">
+            <div className="relative min-h-[180px] rounded">
               <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
               <div className="md:hidden space-y-2">
                 <div className="flex items-center justify-between pb-1">
@@ -3460,13 +3460,13 @@ export default function LeadDetail() {
                       <>
                         <button
                           onClick={() => { setNewFolderName(''); setShowNewFolderModal(true); }}
-                          className="h-8 px-2.5 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 bg-white"
+                          className="h-8 px-2.5 rounded border border-gray-200 text-[11px] font-medium text-gray-600 bg-white"
                         >
                           新建文件夹
                         </button>
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          className="h-8 px-2.5 rounded-lg bg-gray-900 text-white text-[11px] font-medium flex items-center gap-1"
+                          className="h-8 px-2.5 rounded bg-gray-900 text-white text-[11px] font-medium flex items-center gap-1"
                         >
                           <Upload size={12} /> 上传
                         </button>
@@ -3479,7 +3479,7 @@ export default function LeadDetail() {
                   const folderFiles = allFiles.filter((f: any) => (f.folderName || '默认文件夹') === folder);
                   const isOpen = expandedFileFolders[folder] ?? folderFiles.length > 0;
                   return (
-                    <div key={folder} className="rounded-xl border border-gray-100 bg-white overflow-hidden">
+                    <div key={folder} className="rounded border border-gray-100 bg-white overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setExpandedFileFolders(prev => ({ ...prev, [folder]: !isOpen }))}
@@ -3504,13 +3504,13 @@ export default function LeadDetail() {
                             <div className="flex items-center justify-end gap-1.5 pt-2">
                               <button
                                 onClick={() => { setRenameFolderOld(folder); setRenameFolderNew(folder); setShowRenameFolderModal(true); }}
-                                className="px-2 py-1 text-[11px] text-gray-500 rounded-lg hover:bg-gray-50"
+                                className="px-2 py-1 text-[11px] text-gray-500 rounded hover:bg-gray-50"
                               >
                                 编辑
                               </button>
                               <button
                                 onClick={() => deleteFolder(folder)}
-                                className="px-2 py-1 text-[11px] text-red-500 rounded-lg hover:bg-red-50"
+                                className="px-2 py-1 text-[11px] text-red-500 rounded hover:bg-red-50"
                               >
                                 删除
                               </button>
@@ -3524,7 +3524,7 @@ export default function LeadDetail() {
               </div>
 
               <div className="hidden md:flex flex-col md:flex-row gap-3 md:gap-5 min-h-[420px]">
-                <div className="w-full md:w-[200px] shrink-0 border border-gray-100 rounded-xl overflow-hidden">
+                <div className="w-full md:w-[200px] shrink-0 border border-gray-100 rounded overflow-hidden">
                   <div className="px-3 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-500">文件夹</span>
                     {canEdit && (
@@ -3558,7 +3558,7 @@ export default function LeadDetail() {
                   </div>
                 </div>
 
-                <div className="flex-1 border border-gray-100 rounded-xl overflow-hidden flex flex-col">
+                <div className="flex-1 border border-gray-100 rounded overflow-hidden flex flex-col">
                   <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Folder size={14} className="text-gold-500" />
@@ -3567,12 +3567,12 @@ export default function LeadDetail() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setShowAllFiles(!showAllFiles)}
-                        className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${showAllFiles ? 'bg-gold-400 text-black' : 'border border-gray-200 text-gray-500 hover:bg-white'}`}>
+                        className={`text-xs px-2 py-1 rounded font-medium transition-colors ${showAllFiles ? 'bg-gold-400 text-black' : 'border border-gray-200 text-gray-500 hover:bg-white'}`}>
                         {showAllFiles ? '收起' : '展开全部'}
                       </button>
                       {canEdit && (
                         <button onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors">
                           <Upload size={12} /> 上传文件
                         </button>
                       )}
@@ -3600,9 +3600,9 @@ export default function LeadDetail() {
                                      const fThumb = file.isUploading ? file.previewUrl : fType === 'image' ? fileImgUrls[file.fileID] : fType === 'video' ? (file.poster || file.thumbUrl) : null;
                                      return (
                                        <div key={file.fileID}
-                                         className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
+                                         className={`relative overflow-hidden border border-gray-100 rounded p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
                                          onClick={() => { if (isMobile && !file.isUploading) void openManagedFile(file); }}>
-                                         <div className="w-full aspect-[4/3] rounded-lg bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
+                                         <div className="w-full aspect-[4/3] rounded bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
                                            {fThumb ? (
                                              <UploadingMediaThumb type={fType} src={fThumb} alt={file.name} className="w-full h-full object-cover" />
                                            ) : (
@@ -3659,9 +3659,9 @@ export default function LeadDetail() {
                             const sThumb = file.isUploading ? file.previewUrl : sType === 'image' ? fileImgUrls[file.fileID] : sType === 'video' ? (file.poster || file.thumbUrl) : null;
                             return (
                               <div key={file.fileID}
-                                className={`relative overflow-hidden border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
+                                className={`relative overflow-hidden border border-gray-100 rounded p-3 hover:shadow-md hover:border-gray-200 transition-all group ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
                                 onClick={() => { if (isMobile && !file.isUploading) void openManagedFile(file); }}>
-                                <div className="w-full aspect-[4/3] rounded-lg bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
+                                <div className="w-full aspect-[4/3] rounded bg-gray-50 flex items-center justify-center mb-2 overflow-hidden">
                                   {sThumb ? (
                                     <UploadingMediaThumb type={sType} src={sThumb} alt={file.name} className="w-full h-full object-cover" />
                                   ) : (
@@ -3717,10 +3717,10 @@ export default function LeadDetail() {
 
       {personnelModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-[95] flex items-center justify-center p-4" onClick={() => setPersonnelModal(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-base md:text-lg font-bold">分配{personnelModal.title}</h2>
-              <button type="button" onClick={() => setPersonnelModal(null)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setPersonnelModal(null)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-3">
               <div className="flex flex-wrap gap-1.5 min-h-[28px]">
@@ -3744,8 +3744,8 @@ export default function LeadDetail() {
               />
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setPersonnelModal(null)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={savePersonnelAssignment} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 transition-colors">保存</button>
+              <button onClick={() => setPersonnelModal(null)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={savePersonnelAssignment} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 transition-colors">保存</button>
             </div>
           </div>
         </div>,
@@ -3758,23 +3758,23 @@ export default function LeadDetail() {
           const confirmed = await showConfirm('确定要关闭吗？未保存的更改将丢失。', { confirmStyle: 'danger' });
           if (confirmed) setShowEditModal(false); 
         }}>
-          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto [&_input]:text-[13px] [&_input]:md:text-sm [&_textarea]:text-[13px] [&_textarea]:md:text-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-xl max-h-[85vh] overflow-y-auto [&_input]:text-[13px] [&_input]:md:text-sm [&_textarea]:text-[13px] [&_textarea]:md:text-sm" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10 rounded-t-2xl">
               <h2 className="text-base md:text-lg font-bold">编辑客户资料</h2>
               <button type="button" onClick={async () => { 
                 const confirmed = await showConfirm('确定要关闭吗？未保存的更改将丢失。', { confirmStyle: 'danger' });
                 if (confirmed) setShowEditModal(false); 
-              }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              }} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">客户姓名</label><input value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">联系电话</label><input value={editForm.phone || ''} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">客户姓名</label><input value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">联系电话</label><input value={editForm.phone || ''} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
-              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋地址</label><input value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋地址</label><input value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋面积(㎡)</label><input value={editForm.area || ''} onChange={e => setEditForm({ ...editForm, area: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">装修预算</label><input value={editForm.budget || ''} onChange={e => setEditForm({ ...editForm, budget: e.target.value })} placeholder="例：15万" className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">房屋面积(㎡)</label><input value={editForm.area || ''} onChange={e => setEditForm({ ...editForm, area: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">装修预算</label><input value={editForm.budget || ''} onChange={e => setEditForm({ ...editForm, budget: e.target.value })} placeholder="例：15万" className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">需求类型</label><SearchableSelect options={REQ_OPTIONS.map(r => ({ value: r, label: r }))} value={editForm.requirementType || '毛坯'} onChange={v => setEditForm({ ...editForm, requirementType: v })} placeholder="选择类型" /></div>
@@ -3784,11 +3784,11 @@ export default function LeadDetail() {
                 <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">客户来源</label><SearchableSelect options={SOURCE_OPTIONS.map(s => ({ value: s, label: s }))} value={editForm.source || '自然进店'} onChange={v => setEditForm({ ...editForm, source: v })} placeholder="选择来源" />
                   {editForm.source === '其他' && (
                     <input value={editForm.sourceCustom || ''} onChange={e => setEditForm({ ...editForm, sourceCustom: e.target.value })} placeholder="请输入具体来源"
-                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 mt-2"
+                      className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 mt-2"
                     />
                   )}
                 </div>
-                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">客户编号</label><input value={lead.customerNo || ''} readOnly className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-400" /></div>
+                <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">客户编号</label><input value={lead.customerNo || ''} readOnly className="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-400" /></div>
               </div>
               <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">销售</label>
                 <div className="flex flex-wrap gap-1 mb-1.5">
@@ -3829,11 +3829,11 @@ export default function LeadDetail() {
                   onChange={v => { if (v && !editForm.manager?.includes(v)) setEditForm({ ...editForm, manager: [...(editForm.manager || []), v] }); }}
                   placeholder="添加工程" searchPlaceholder="搜索姓名..." groups={managerGroups} />
               </div>
-              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">备注</label><textarea value={editForm.remark || ''} onChange={e => setEditForm({ ...editForm, remark: e.target.value })} rows={2} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">备注</label><textarea value={editForm.remark || ''} onChange={e => setEditForm({ ...editForm, remark: e.target.value })} rows={2} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-2xl">
-              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={saveEdit} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 transition-colors">保存</button>
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={saveEdit} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 transition-colors">保存</button>
             </div>
           </div>
         </div>,
@@ -3843,10 +3843,10 @@ export default function LeadDetail() {
       {/* Sign Confirm Modal */}
       {showSignModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowSignModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">签单确认</h2>
-              <button type="button" onClick={() => setShowSignModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setShowSignModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
               <p className="text-sm text-gray-500">确认该客户已签单，请填写签单信息。</p>
@@ -3854,8 +3854,8 @@ export default function LeadDetail() {
               <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">签单日期 *</label><CustomDatePicker value={signForm.signDate} onChange={v => setSignForm({ ...signForm, signDate: v })} placeholder="选择签单日期" dropUp /></div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowSignModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={confirmSign} className="px-4 py-2 text-sm bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors">确认签单</button>
+              <button onClick={() => setShowSignModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={confirmSign} className="px-4 py-2 text-sm bg-emerald-500 text-white rounded font-medium hover:bg-emerald-600 transition-colors">确认签单</button>
             </div>
           </div>
         </div>,
@@ -3865,10 +3865,10 @@ export default function LeadDetail() {
       {/* Lost Confirm Modal */}
       {showLostModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowLostModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">客户流失确认</h2>
-              <button type="button" onClick={() => setShowLostModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setShowLostModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
               <p className="text-sm text-gray-500">请记录该客户流失的原因。</p>
@@ -3880,11 +3880,11 @@ export default function LeadDetail() {
                   ))}
                 </div>
               </div>
-              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">详细说明</label><textarea value={lostReasonCustom} onChange={e => setLostReasonCustom(e.target.value)} placeholder="请输入详细流失原因..." rows={3} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">详细说明</label><textarea value={lostReasonCustom} onChange={e => setLostReasonCustom(e.target.value)} placeholder="请输入详细流失原因..." rows={3} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowLostModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={confirmLost} className="px-4 py-2 text-sm bg-rose-500 text-white rounded-lg font-medium hover:bg-rose-600 transition-colors">确认流失</button>
+              <button onClick={() => setShowLostModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={confirmLost} className="px-4 py-2 text-sm bg-rose-500 text-white rounded font-medium hover:bg-rose-600 transition-colors">确认流失</button>
             </div>
           </div>
         </div>,
@@ -3894,17 +3894,17 @@ export default function LeadDetail() {
       {/* Edit Follow Modal */}
       {editFollow && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditFollow(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">编辑跟进记录</h2>
-              <button type="button" onClick={() => setEditFollow(null)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setEditFollow(null)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-3">
-              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">跟进内容</label><textarea value={fuEditForm.content} onChange={e => setFuEditForm({ ...fuEditForm, content: e.target.value })} rows={4} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">跟进内容</label><textarea value={fuEditForm.content} onChange={e => setFuEditForm({ ...fuEditForm, content: e.target.value })} rows={4} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setEditFollow(null)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={handleSaveEditFollow} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 transition-colors">保存</button>
+              <button onClick={() => setEditFollow(null)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={handleSaveEditFollow} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 transition-colors">保存</button>
             </div>
           </div>
         </div>,
@@ -3914,20 +3914,20 @@ export default function LeadDetail() {
       {/* Add Single Node Modal */}
       {showAddNodeModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setShowAddNodeModal(false); setNewNodeName(''); }}>
-          <div className="bg-white rounded-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">新增节点</h2>
-              <button type="button" onClick={() => { setShowAddNodeModal(false); setNewNodeName(''); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => { setShowAddNodeModal(false); setNewNodeName(''); }} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-3">
               <label className="text-[11px] text-gray-500 mb-1 block font-medium">节点名称</label>
               <input value={newNodeName} onChange={e => setNewNodeName(e.target.value)} placeholder="输入节点名称..."
-                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus
+                className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') addDesignNode(); }} />
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => { setShowAddNodeModal(false); setNewNodeName(''); }} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={addDesignNode} disabled={!newNodeName.trim()} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 transition-colors disabled:opacity-50">确认添加</button>
+              <button onClick={() => { setShowAddNodeModal(false); setNewNodeName(''); }} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={addDesignNode} disabled={!newNodeName.trim()} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 transition-colors disabled:opacity-50">确认添加</button>
             </div>
           </div>
         </div>,
@@ -3937,22 +3937,22 @@ export default function LeadDetail() {
       {/* Design Node Upload Sync Modal */}
       {showDesignSetup && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={handleCloseDesignSetupWithConfirm}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto scrollbar-hide" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-2xl max-h-[85vh] overflow-y-auto scrollbar-hide" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
                 <h2 className="text-lg font-bold">节点管理</h2>
                 <p className="text-xs text-gray-400 mt-0.5">直接调整节点顺序、删除节点，或添加新的设计节点</p>
               </div>
-              <button type="button" onClick={handleCloseDesignSetupWithConfirm} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={handleCloseDesignSetupWithConfirm} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-4 md:p-5 space-y-4">
               {/* Current Nodes */}
               {(lead?.designNodes || []).length > 0 ? (
-                <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 md:px-4 py-3">
+                <div className="rounded border border-gray-100 bg-gray-50/60 px-3 md:px-4 py-3">
                   <p className="text-xs text-gray-400 mb-2">当前工作流节点</p>
                   <div className="space-y-2">
                     {(lead.designNodes || []).map((node: any, index: number) => (
-                      <div key={node.id} className="flex items-center justify-between gap-2 md:gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
+                      <div key={node.id} className="flex items-center justify-between gap-2 md:gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm">
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-medium text-gray-700 truncate">{index + 1}. {node.name}</div>
                           <div className="text-[11px] text-gray-400">
@@ -3964,26 +3964,26 @@ export default function LeadDetail() {
                           {isMobile ? (
                             <>
                               <button type="button" onClick={() => void moveDesignNode(node.id, 'up')} disabled={index === 0}
-                                className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" title="上移">
+                                className="p-1.5 rounded border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" title="上移">
                                 <ChevronUp size={14} />
                               </button>
                               <button type="button" onClick={() => void moveDesignNode(node.id, 'down')} disabled={index === (lead.designNodes || []).length - 1}
-                                className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" title="下移">
+                                className="p-1.5 rounded border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" title="下移">
                                 <ChevronDown size={14} />
                               </button>
                               <button type="button" onClick={() => void handleDeleteDesignNode(node.id)}
-                                className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors" title="删除">
+                                className="p-1.5 rounded border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors" title="删除">
                                 <Trash2 size={14} />
                               </button>
                             </>
                           ) : (
                             <>
                               <button type="button" onClick={() => void moveDesignNode(node.id, 'up')} disabled={index === 0}
-                                className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">上移</button>
+                                className="px-2.5 py-1 text-xs rounded border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">上移</button>
                               <button type="button" onClick={() => void moveDesignNode(node.id, 'down')} disabled={index === (lead.designNodes || []).length - 1}
-                                className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">下移</button>
+                                className="px-2.5 py-1 text-xs rounded border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">下移</button>
                               <button type="button" onClick={() => void handleDeleteDesignNode(node.id)}
-                                className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">删除</button>
+                                className="px-2.5 py-1 text-xs rounded border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">删除</button>
                             </>
                           )}
                         </div>
@@ -3992,7 +3992,7 @@ export default function LeadDetail() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center">
+                <div className="rounded border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center">
                   <p className="text-sm text-gray-500 mb-1">当前工作流为空</p>
                   <p className="text-xs text-gray-400">请从下方选择或添加自定义节点</p>
                 </div>
@@ -4010,7 +4010,7 @@ export default function LeadDetail() {
                         const newNode = { id: Date.now(), name: opt, isCustom: false, startDate: '', endDate: '', status: 'pending', actualStartDate: '', actualEndDate: '', delayReason: '' };
                         await persistDesignNodes([...(lead?.designNodes || []), newNode]);
                       }}
-                      className={`flex items-center gap-3 md:gap-4 p-3 md:p-3.5 rounded-xl border-2 transition-all select-none
+                      className={`flex items-center gap-3 md:gap-4 p-3 md:p-3.5 rounded border-2 transition-all select-none
                         ${exists ? 'border-blue-400 bg-blue-50/40 cursor-default opacity-60' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 cursor-pointer'}`}>
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors
                         ${exists ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>
@@ -4034,7 +4034,7 @@ export default function LeadDetail() {
               </div>
 
               {/* Add Custom Node - 移动端垂直布局 */}
-              <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-3 md:px-4 py-3">
+              <div className="mt-3 rounded border border-dashed border-gray-200 bg-gray-50/60 px-3 md:px-4 py-3">
                 <p className="text-xs text-gray-400 mb-2">添加自定义节点</p>
                 <div className={`flex ${isMobile ? 'flex-col' : 'flex-row items-center'} gap-2`}>
                   <input
@@ -4054,7 +4054,7 @@ export default function LeadDetail() {
                       }
                     }}
                     placeholder="例如：水电定位、复尺确认"
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="flex-1 rounded border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                   <button
                     type="button"
@@ -4070,7 +4070,7 @@ export default function LeadDetail() {
                       setCustomDesignNodeName('');
                     }}
                     disabled={!customDesignNodeName.trim()}
-                    className={`${isMobile ? 'w-full' : ''} px-3 py-2 text-sm rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors`}
+                    className={`${isMobile ? 'w-full' : ''} px-3 py-2 text-sm rounded bg-blue-500 text-white font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors`}
                   >
                     直接添加
                   </button>
@@ -4080,7 +4080,7 @@ export default function LeadDetail() {
             {/* 底部完成按钮 - 移动端优化 */}
             <div className="p-4 md:p-5 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0 sticky bottom-0 bg-white rounded-b-2xl">
               <div className="text-xs text-gray-400 text-center md:text-left order-2 md:order-1">操作会自动保存，调整好顺序后即可关闭。</div>
-              <button onClick={handleCloseDesignSetup} className="w-full md:w-auto px-5 py-2.5 md:py-2 text-sm bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors order-1 md:order-2">
+              <button onClick={handleCloseDesignSetup} className="w-full md:w-auto px-5 py-2.5 md:py-2 text-sm bg-blue-500 text-white rounded font-medium hover:bg-blue-600 transition-colors order-1 md:order-2">
                 完成
               </button>
             </div>
@@ -4092,14 +4092,14 @@ export default function LeadDetail() {
       {/* Create Project Modal */}
       {showProjectModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center" onClick={() => setShowProjectModal(false)}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[80vh] overflow-y-auto animate-slide-up md:animate-none" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl md:rounded w-full md:max-w-sm max-h-[80vh] overflow-y-auto animate-slide-up md:animate-none" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 z-10 bg-white border-b border-gray-100 rounded-t-2xl md:rounded-t-2xl flex items-center justify-between px-5 py-3.5">
               <h2 className="text-sm font-semibold text-gray-900">新建工地</h2>
-              <button onClick={() => setShowProjectModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button onClick={() => setShowProjectModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="px-5 py-4 space-y-4">
               {/* 关联客户 */}
-              <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+              <div className="rounded border border-gray-100 bg-gray-50/70 p-3">
                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
                   <Link size={12} className="text-gold-500" /> 关联客户
                 </div>
@@ -4143,17 +4143,17 @@ export default function LeadDetail() {
       {/* Delay Reason Modal */}
       {delayModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setDelayModal(null); setDelayReason(''); }}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">节点逾期 · {delayModal.name}</h2>
-              <button type="button" onClick={() => { setDelayModal(null); setDelayReason(''); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => { setDelayModal(null); setDelayReason(''); }} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-3">
               <p className="text-sm text-gray-500">该节点预计结束日期已过，请填写逾期原因后再标记为完成。</p>
-              <textarea value={delayReason} onChange={e => setDelayReason(e.target.value)} placeholder="请输入逾期原因..." rows={3} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
+              <textarea value={delayReason} onChange={e => setDelayReason(e.target.value)} placeholder="请输入逾期原因..." rows={3} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" />
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => { setDelayModal(null); setDelayReason(''); }} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={() => { setDelayModal(null); setDelayReason(''); }} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={async () => {
                 if (!delayReason.trim()) {
                   await showAlert('请填写逾期原因');
@@ -4161,7 +4161,7 @@ export default function LeadDetail() {
                 }
                 updateDesignNode(delayModal.nodeId, { status: 'completed', actualEndDate: new Date().toISOString().slice(0, 10), delayReason: delayReason.trim() });
                 setDelayModal(null); setDelayReason('');
-              }} className="px-4 py-2 text-sm bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors">确认完成</button>
+              }} className="px-4 py-2 text-sm bg-emerald-500 text-white rounded font-medium hover:bg-emerald-600 transition-colors">确认完成</button>
             </div>
           </div>
         </div>,
@@ -4171,10 +4171,10 @@ export default function LeadDetail() {
       {/* Material Form Modal */}
       {showMaterialModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowMaterialModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10 rounded-t-2xl">
               <h2 className="text-lg font-bold">{editMaterialIndex === -1 ? '添加主材' : '编辑主材'}</h2>
-              <button type="button" onClick={() => setShowMaterialModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setShowMaterialModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
@@ -4232,7 +4232,7 @@ export default function LeadDetail() {
                           setMaterialForm({ ...materialForm, region: newVal });
                         }}
                         placeholder="输入自定义区域"
-                        className="w-40 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
+                        className="w-40 text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
                       />
                     )}
                   </div>
@@ -4265,48 +4265,48 @@ export default function LeadDetail() {
                       />
                     ) : null}
                     <input value={materialForm.name} onChange={e => setMaterialForm({ ...materialForm, name: e.target.value })}
-                      placeholder="输入名称" className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                      placeholder="输入名称" className="flex-1 text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 {['瓷砖/木地板', '木门/金属门', '壁布/乳胶漆/护墙板', '全屋定制衣柜', '全屋定制橱柜'].includes(materialForm.category) && (
-                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">品牌</label><input value={materialForm.brand || ''} onChange={e => setMaterialForm({ ...materialForm, brand: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">品牌</label><input value={materialForm.brand || ''} onChange={e => setMaterialForm({ ...materialForm, brand: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                 )}
                 {['瓷砖/木地板', '壁布/乳胶漆/护墙板'].includes(materialForm.category) && (
-                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">型号</label><input value={materialForm.model || ''} onChange={e => setMaterialForm({ ...materialForm, model: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">型号</label><input value={materialForm.model || ''} onChange={e => setMaterialForm({ ...materialForm, model: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                 )}
                 {['瓷砖/木地板', '集成吊顶/电器'].includes(materialForm.category) && (
-                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">规格</label><input value={materialForm.spec || ''} onChange={e => setMaterialForm({ ...materialForm, spec: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">规格</label><input value={materialForm.spec || ''} onChange={e => setMaterialForm({ ...materialForm, spec: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                 )}
                 {['瓷砖/木地板', '壁布/乳胶漆/护墙板', '集成吊顶/电器'].includes(materialForm.category) && (
-                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">数量</label><input value={materialForm.quantity || ''} onChange={e => setMaterialForm({ ...materialForm, quantity: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                  <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">数量</label><input value={materialForm.quantity || ''} onChange={e => setMaterialForm({ ...materialForm, quantity: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                 )}
                 {materialForm.category === '木门/金属门' && (
                   <>
-                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">边框颜色</label><input value={materialForm.frameColor || ''} onChange={e => setMaterialForm({ ...materialForm, frameColor: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">门芯颜色</label><input value={materialForm.coreColor || ''} onChange={e => setMaterialForm({ ...materialForm, coreColor: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">门型型号</label><input value={materialForm.doorModel || ''} onChange={e => setMaterialForm({ ...materialForm, doorModel: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">边框颜色</label><input value={materialForm.frameColor || ''} onChange={e => setMaterialForm({ ...materialForm, frameColor: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">门芯颜色</label><input value={materialForm.coreColor || ''} onChange={e => setMaterialForm({ ...materialForm, coreColor: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">门型型号</label><input value={materialForm.doorModel || ''} onChange={e => setMaterialForm({ ...materialForm, doorModel: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                   </>
                 )}
                 {['全屋定制衣柜', '全屋定制橱柜'].includes(materialForm.category) && (
                   <>
-                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">柜体</label><input value={materialForm.cabinetBody || ''} onChange={e => setMaterialForm({ ...materialForm, cabinetBody: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">柜门</label><input value={materialForm.cabinetDoor || ''} onChange={e => setMaterialForm({ ...materialForm, cabinetDoor: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">拉手</label><input value={materialForm.handle || ''} onChange={e => setMaterialForm({ ...materialForm, handle: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">柜体</label><input value={materialForm.cabinetBody || ''} onChange={e => setMaterialForm({ ...materialForm, cabinetBody: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">柜门</label><input value={materialForm.cabinetDoor || ''} onChange={e => setMaterialForm({ ...materialForm, cabinetDoor: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                    <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">拉手</label><input value={materialForm.handle || ''} onChange={e => setMaterialForm({ ...materialForm, handle: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
                   </>
                 )}
               </div>
 
-              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">备注</label><input value={materialForm.remark || ''} onChange={e => setMaterialForm({ ...materialForm, remark: e.target.value })} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-[11px] text-gray-500 mb-1 block font-medium">备注</label><input value={materialForm.remark || ''} onChange={e => setMaterialForm({ ...materialForm, remark: e.target.value })} className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
 
               {/* Image Section */}
               <div>
                 <label className="text-[11px] text-gray-500 mb-2 block font-medium">材料图片</label>
                 <div className="flex flex-wrap gap-2">
                   {matExistingImages.map((imgId, idx) => (
-                    <div key={`existing-${idx}`} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group/img">
+                    <div key={`existing-${idx}`} className="relative w-20 h-20 rounded overflow-hidden border border-gray-200 group/img">
                       {matImageUrls[imgId] ? (
                         <img src={matImageUrls[imgId]} alt="" className="w-full h-full object-cover cursor-pointer"
                           onClick={() => {
@@ -4323,7 +4323,7 @@ export default function LeadDetail() {
                     </div>
                   ))}
                   {matLocalImages.map((img, idx) => (
-                    <div key={`local-${idx}`} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group/img">
+                    <div key={`local-${idx}`} className="relative w-20 h-20 rounded overflow-hidden border border-gray-200 group/img">
                       <img
                         src={img.preview}
                         alt=""
@@ -4337,7 +4337,7 @@ export default function LeadDetail() {
                     </div>
                   ))}
                   <button onClick={() => matImgInputRef.current?.click()}
-                    className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-gold-400 hover:bg-gold-50/30 transition-colors">
+                    className="w-20 h-20 rounded border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-gold-400 hover:bg-gold-50/30 transition-colors">
                     <Camera size={16} className="text-gray-400" />
                     <span className="text-[10px] text-gray-400">上传</span>
                   </button>
@@ -4347,9 +4347,9 @@ export default function LeadDetail() {
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-2xl">
               <button onClick={() => { setShowMaterialModal(false); matLocalImages.forEach(i => URL.revokeObjectURL(i.preview)); setMatLocalImages([]); }}
-                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+                className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={saveMaterial} disabled={matImageLoading}
-                className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 transition-colors disabled:opacity-50">
+                className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 transition-colors disabled:opacity-50">
                 {matImageLoading ? '上传图片中...' : '保存'}
               </button>
             </div>
@@ -4361,18 +4361,18 @@ export default function LeadDetail() {
       {/* Design Node Upload Modal */}
       {nodeUploadModal.isOpen && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={closeNodeUploadModal}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">上传设计资料</h2>
               {!nodeFileLoading[nodeUploadModal.targetNodeId || -1] && (
-                <button type="button" onClick={closeNodeUploadModal} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                <button type="button" onClick={closeNodeUploadModal} className="p-1.5 hover:bg-gray-100 rounded transition-colors">
                   <X size={18} />
                 </button>
               )}
             </div>
             <div className="p-5 space-y-4">
               <div className="text-sm text-gray-600 font-medium">已选择 {nodeUploadModal.files.length} 个文件</div>
-              <div className="max-h-32 overflow-auto space-y-1 bg-gray-50 rounded-lg p-2">
+              <div className="max-h-32 overflow-auto space-y-1 bg-gray-50 rounded p-2">
                 {nodeUploadModal.files.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-gray-600 py-1">
                     <FileTy type={getFileType(f.name)} size={14} />
@@ -4397,7 +4397,7 @@ export default function LeadDetail() {
                     value={nodeUploadConfig.folder}
                     onChange={e => setNodeUploadConfig(prev => ({ ...prev, folder: e.target.value }))}
                     placeholder="输入文件夹名称"
-                    className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
+                    className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
                   />
                 </div>
               )}
@@ -4407,14 +4407,14 @@ export default function LeadDetail() {
                   <button
                     type="button"
                     onClick={() => setNodeUploadConfig(prev => ({ ...prev, visibility: 'internal' }))}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${nodeUploadConfig.visibility === 'internal' ? 'bg-gray-100 border-gray-300 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition-colors ${nodeUploadConfig.visibility === 'internal' ? 'bg-gray-100 border-gray-300 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
                   >
                     <Lock size={12} /> 仅内部
                   </button>
                   <button
                     type="button"
                     onClick={() => setNodeUploadConfig(prev => ({ ...prev, visibility: 'public' }))}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${nodeUploadConfig.visibility === 'public' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition-colors ${nodeUploadConfig.visibility === 'public' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
                   >
                     <Eye size={12} /> 公开
                   </button>
@@ -4422,9 +4422,9 @@ export default function LeadDetail() {
               </div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button type="button" onClick={closeNodeUploadModal} disabled={nodeUploadModal.targetNodeId !== null && nodeFileLoading[nodeUploadModal.targetNodeId]} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">取消</button>
+              <button type="button" onClick={closeNodeUploadModal} disabled={nodeUploadModal.targetNodeId !== null && nodeFileLoading[nodeUploadModal.targetNodeId]} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors disabled:opacity-50">取消</button>
               <button type="button" onClick={confirmNodeUpload} disabled={nodeUploadModal.targetNodeId !== null && nodeFileLoading[nodeUploadModal.targetNodeId]}
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">
+                className="px-4 py-2 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">
                 {nodeUploadModal.targetNodeId !== null && nodeFileLoading[nodeUploadModal.targetNodeId] ? '上传中...' : '确认上传'}
               </button>
             </div>
@@ -4436,14 +4436,14 @@ export default function LeadDetail() {
       {/* Upload Modal */}
       {showUploadModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { if (!uploading) setShowUploadModal(false); }}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">上传文件</h2>
-              {!uploading && <button type="button" onClick={() => setShowUploadModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>}
+              {!uploading && <button type="button" onClick={() => setShowUploadModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>}
             </div>
             <div className="p-5 space-y-4">
               <div className="text-sm text-gray-600 font-medium">已选择 {pendingFiles.length} 个文件</div>
-              <div className="max-h-32 overflow-auto space-y-1 bg-gray-50 rounded-lg p-2">
+              <div className="max-h-32 overflow-auto space-y-1 bg-gray-50 rounded p-2">
                 {pendingFiles.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-gray-600 py-1">
                     <FileTy type={getFileType(f.name)} size={14} />
@@ -4463,26 +4463,26 @@ export default function LeadDetail() {
               </div>
               {uploadFolder === '__new__' && (
                 <input value="" onChange={e => setUploadFolder(e.target.value)} placeholder="输入文件夹名称"
-                  className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                  className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
               )}
               <div>
                 <label className="text-[11px] text-gray-500 mb-2 block font-medium">可见性</label>
                 <div className="flex gap-2">
                   <button onClick={() => setUploadVisibility('internal')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${uploadVisibility === 'internal' ? 'bg-gray-100 border-gray-300 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition-colors ${uploadVisibility === 'internal' ? 'bg-gray-100 border-gray-300 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                     <Lock size={12} /> 仅内部
                   </button>
                   <button onClick={() => setUploadVisibility('public')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${uploadVisibility === 'public' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition-colors ${uploadVisibility === 'public' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                     <Eye size={12} /> 公开（客户可见）
                   </button>
                 </div>
               </div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">取消</button>
+              <button onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors disabled:opacity-50">取消</button>
               <button onClick={confirmUpload} disabled={uploading}
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">
+                className="px-4 py-2 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">
                 {uploading ? '上传中...' : '确认上传'}
               </button>
             </div>
@@ -4493,7 +4493,7 @@ export default function LeadDetail() {
 
       {showShareCategoryModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowShareCategoryModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="text-base font-bold text-gray-900 text-center">选择要发送的主材大项</h3>
               <p className="mt-1 text-xs text-gray-400 text-center">客户只会看到本次勾选的主材分类</p>
@@ -4526,14 +4526,14 @@ export default function LeadDetail() {
               <button
                 type="button"
                 onClick={() => setShowShareCategoryModal(false)}
-                className="flex-1 rounded-xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-600"
+                className="flex-1 rounded bg-gray-100 py-2.5 text-sm font-semibold text-gray-600"
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={handleShareMaterials}
-                className="flex-1 rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white"
+                className="flex-1 rounded bg-gray-900 py-2.5 text-sm font-semibold text-white"
               >
                 发送
               </button>
@@ -4546,20 +4546,20 @@ export default function LeadDetail() {
       {/* New Folder Modal */}
       {showNewFolderModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowNewFolderModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">新建文件夹</h2>
-              <button type="button" onClick={() => setShowNewFolderModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setShowNewFolderModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5">
               <label className="text-[11px] text-gray-500 mb-1 block font-medium">文件夹名称</label>
               <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="输入文件夹名称"
-                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus
+                className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') createFolder(); }} />
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowNewFolderModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
-              <button onClick={createFolder} disabled={!newFolderName.trim()} className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">创建</button>
+              <button onClick={() => setShowNewFolderModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={createFolder} disabled={!newFolderName.trim()} className="px-4 py-2 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">创建</button>
             </div>
           </div>
         </div>,
@@ -4569,10 +4569,10 @@ export default function LeadDetail() {
       {/* Move File Modal */}
       {showMoveFileModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowMoveFileModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">移动文件</h2>
-              <button type="button" onClick={() => setShowMoveFileModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setShowMoveFileModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5">
               <label className="text-[11px] text-gray-500 mb-1 block font-medium">移动到文件夹</label>
@@ -4584,13 +4584,13 @@ export default function LeadDetail() {
               />
               {moveTargetFolder === '__new__' && (
                 <input value="" onChange={e => setMoveTargetFolder(e.target.value)} placeholder="输入新文件夹名称"
-                  className="mt-2 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                  className="mt-2 w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" />
               )}
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowMoveFileModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={() => setShowMoveFileModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={confirmMoveFile} disabled={!moveTargetFolder || moveTargetFolder === '__new__'}
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">确认移动</button>
+                className="px-4 py-2 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">确认移动</button>
             </div>
           </div>
         </div>,
@@ -4600,21 +4600,21 @@ export default function LeadDetail() {
       {/* Rename Folder Modal */}
       {showRenameFolderModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowRenameFolderModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold">重命名文件夹</h2>
-              <button type="button" onClick={() => setShowRenameFolderModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
+              <button type="button" onClick={() => setShowRenameFolderModal(false)} className="p-1.5 hover:bg-gray-100 rounded transition-colors"><X size={18} /></button>
             </div>
             <div className="p-5">
               <label className="text-[11px] text-gray-500 mb-1 block font-medium">原名称: {renameFolderOld}</label>
               <input value={renameFolderNew} onChange={e => setRenameFolderNew(e.target.value)} placeholder="输入新名称"
-                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus
+                className="w-full text-xs border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') confirmRenameFolder(); }} />
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowRenameFolderModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={() => setShowRenameFolderModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={confirmRenameFolder} disabled={!renameFolderNew.trim() || renameFolderNew === renameFolderOld}
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">确认</button>
+                className="px-4 py-2 text-sm bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors disabled:opacity-50">确认</button>
             </div>
           </div>
         </div>,
@@ -4631,7 +4631,7 @@ export default function LeadDetail() {
             <button
               key={opt.value}
               onClick={() => handleStatusChange(opt.value)}
-              className={`w-full text-left px-4 py-3 text-sm rounded-lg transition-colors ${
+              className={`w-full text-left px-4 py-3 text-sm rounded transition-colors ${
                 lead.status === opt.value
                   ? 'font-semibold bg-gray-50 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -4647,13 +4647,13 @@ export default function LeadDetail() {
 
       {mobileStatusPicker && createPortal(
         <div className="fixed inset-0 z-[110] hidden items-center justify-center bg-black/35 p-6 md:flex" onClick={() => setMobileStatusPicker(false)}>
-          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-bold text-gray-900">更改客户状态</h3>
               <button
                 type="button"
                 onClick={() => setMobileStatusPicker(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                className="flex h-8 w-8 items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-gray-600"
               >
                 <X size={17} />
               </button>
@@ -4664,7 +4664,7 @@ export default function LeadDetail() {
                   key={opt.value}
                   type="button"
                   onClick={() => handleStatusChange(opt.value)}
-                  className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center justify-between rounded border px-4 py-3 text-left text-sm transition-colors ${
                     lead.status === opt.value
                       ? 'border-gold-200 bg-gold-50 text-gray-900'
                       : 'border-gray-100 text-gray-600 hover:border-gray-200 hover:bg-gray-50'

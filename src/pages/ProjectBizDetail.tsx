@@ -2658,7 +2658,7 @@ export default function ProjectBizDetail() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <HardHat className="w-12 h-12 text-gray-300 mb-3" />
         <p className="text-gray-400 text-sm">工地不存在</p>
-        <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black rounded-lg text-sm">返回工地列表</button>
+        <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black rounded text-sm">返回工地列表</button>
       </div>
     );
   }
@@ -2995,9 +2995,9 @@ export default function ProjectBizDetail() {
     <div className="erp-page max-w-[1500px] mx-auto space-y-4">
       {/* ========== 基本信息置顶 ========== */}
       {!standaloneSection && !isStageDetail && (
-      <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded md:rounded border border-gray-100 shadow-sm overflow-hidden">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1.5 px-3 py-4 md:gap-x-3 md:px-6">
-          <button onClick={() => smartBack()} className="col-start-1 row-start-1 -ml-1.5 rounded-lg p-1.5 transition-colors hover:bg-gray-100 md:row-span-2">
+          <button onClick={() => smartBack()} className="col-start-1 row-start-1 -ml-1.5 rounded p-1.5 transition-colors hover:bg-gray-100 md:row-span-2">
             <ArrowLeft className="h-[18px] w-[18px] text-gray-400" />
           </button>
           <h1 className="col-span-2 col-start-2 row-start-1 min-w-0 break-words text-base font-bold leading-[1.4] tracking-tight text-gray-900 md:col-span-1 md:text-xl">
@@ -3019,7 +3019,7 @@ export default function ProjectBizDetail() {
                   <button
                     onClick={editMode ? saveProject : startEdit}
                     disabled={isProjectActionBusy('save-project')}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 md:h-9 md:w-auto md:gap-1.5 md:px-4 md:text-xs md:font-medium"
+                    className="flex h-7 w-7 items-center justify-center rounded border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 md:h-9 md:w-auto md:gap-1.5 md:px-4 md:text-xs md:font-medium"
                     title={editMode ? '保存资料' : '编辑资料'}
                     aria-label={editMode ? '保存资料' : '编辑资料'}
                   >
@@ -3034,14 +3034,14 @@ export default function ProjectBizDetail() {
                   </button>
                 )}
                 {canShareCustomerProgress && (
-                  <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
+                  <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
                     <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
                   </button>
                 )}
               </>
             )}
             {!canEdit && canShareCustomerProgress && (
-              <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
+              <button onClick={handleShareProject} className="inline-flex h-7 w-7 items-center justify-center rounded bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 md:h-9 md:w-auto md:gap-1 md:px-4 md:text-xs md:font-medium" title="分享给客户" aria-label="分享给客户">
                 <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" /> <span className="hidden md:inline">分享</span>
               </button>
             )}
@@ -3060,14 +3060,14 @@ export default function ProjectBizDetail() {
                     key={action.key}
                     type="button"
                     onClick={() => openQuickAction(action)}
-                    className="group relative min-w-[132px] flex-1 rounded-xl border border-gray-100 bg-white px-3 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold-200 hover:shadow-md"
+                    className="group relative min-w-[132px] flex-1 rounded border border-gray-100 bg-white px-3 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold-200 hover:shadow-md"
                   >
                     {action.key === 'share-access' && pendingAccessCount > 0 && (
                       <span className="absolute right-2 top-2 min-w-[18px] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white">
                         {pendingAccessCount > 99 ? '99+' : pendingAccessCount}
                       </span>
                     )}
-                    <span className={`mb-2 flex h-9 w-9 items-center justify-center rounded-lg ${action.tone}`}>
+                    <span className={`mb-2 flex h-9 w-9 items-center justify-center rounded ${action.tone}`}>
                       <Icon size={18} />
                     </span>
                     <span className="block text-sm font-semibold text-gray-900">{action.label}</span>
@@ -3087,7 +3087,7 @@ export default function ProjectBizDetail() {
                   <button
                     key={action.key}
                     onClick={() => openQuickAction(action)}
-                    className="relative aspect-square rounded-xl border border-gray-100 bg-white flex flex-col items-center justify-center gap-1.5 text-center shadow-sm"
+                    className="relative aspect-square rounded border border-gray-100 bg-white flex flex-col items-center justify-center gap-1.5 text-center shadow-sm"
                   >
                     {action.key === 'share-access' && pendingAccessCount > 0 && (
                       <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
@@ -3095,7 +3095,7 @@ export default function ProjectBizDetail() {
                     {action.key !== 'share-access' && hasProjectActionUnread(action.key) && (
                       <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
                     )}
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${action.tone}`}>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded ${action.tone}`}>
                       <Icon size={17} />
                     </span>
                     <span className="text-[11px] font-semibold text-gray-800 leading-tight">{action.label}</span>
@@ -3107,7 +3107,7 @@ export default function ProjectBizDetail() {
             <button
               type="button"
               onClick={() => setMobileInfoOpen(v => !v)}
-              className="w-full rounded-xl bg-gray-50 px-3 py-3 text-left"
+              className="w-full rounded bg-gray-50 px-3 py-3 text-left"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -3121,7 +3121,7 @@ export default function ProjectBizDetail() {
             </button>
 
             {mobileInfoOpen && (
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-100 p-3">
+              <div className="grid grid-cols-2 gap-2 rounded border border-gray-100 p-3">
                 {[
                   { label: '客户名称', value: project.customer || '-' },
                   { label: '客户电话', value: project.phone || '-' },
@@ -3140,7 +3140,7 @@ export default function ProjectBizDetail() {
                   <div className="text-[13px] font-semibold text-gray-900 mb-2">跟进人员</div>
                   <div className="grid grid-cols-3 gap-2">
                     {followPeople.map(item => (
-                      <div key={item.label} className="rounded-xl bg-gray-50 px-2.5 py-2">
+                      <div key={item.label} className="rounded bg-gray-50 px-2.5 py-2">
                         <div className="text-[11px] text-gray-400">{item.label}</div>
                         <div className="mt-1 text-[13px] font-semibold text-gray-900 break-words">{item.value}</div>
                       </div>
@@ -3327,12 +3327,12 @@ export default function ProjectBizDetail() {
 
         {/* ========== Tab Bar (Professional ERP Style) ========== */}
         <div className="hidden md:block px-4 pb-4">
-          <div className="flex flex-wrap gap-2 p-1.5 bg-gray-100/80 rounded-xl">
+          <div className="flex flex-wrap gap-2 p-1.5 bg-gray-100/80 rounded">
             {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 min-w-[80px] py-2 text-[13px] font-medium transition-all rounded-lg ${
+                className={`flex-1 min-w-[80px] py-2 text-[13px] font-medium transition-all rounded ${
                   activeTab === tab.key
                     ? 'bg-white text-gold-600 shadow-sm border border-gray-200/50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
@@ -3347,11 +3347,11 @@ export default function ProjectBizDetail() {
       )}
 
       {standaloneSection && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-4">
+        <div className="bg-white rounded border border-gray-100 shadow-sm px-4 py-4">
           <div className="flex items-start gap-3">
             <button
               onClick={() => navigate(`/projects-biz/${id}`)}
-              className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded transition-colors"
             >
               <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
             </button>
@@ -3362,12 +3362,12 @@ export default function ProjectBizDetail() {
                 <div className="mt-1 truncate text-xs text-gray-500 md:text-sm">{project.address || '未命名工地'}</div>
               </div>
               {standaloneSection === 'logs' && canEditSite && (
-                <button onClick={openNewLogModal} className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800">
+                <button onClick={openNewLogModal} className="shrink-0 inline-flex items-center gap-1 rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800">
                   <Plus size={16} /> 日志
                 </button>
               )}
               {standaloneSection === 'inspections' && isAdmin && !isProjectCompleted && (
-                <button onClick={() => setShowInspectionModal(true)} className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 md:text-sm">
+                <button onClick={() => setShowInspectionModal(true)} className="shrink-0 inline-flex items-center gap-1 rounded bg-gray-900 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 md:text-sm">
                   <Shield size={15} /> 发起巡检
                 </button>
               )}
@@ -3378,7 +3378,7 @@ export default function ProjectBizDetail() {
       {isStageDetail && (
         <div className="px-1 py-2 md:hidden">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(`/projects-biz/${id}`)} className="-ml-1.5 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-gray-100">
+            <button onClick={() => navigate(`/projects-biz/${id}`)} className="-ml-1.5 shrink-0 rounded p-1.5 transition-colors hover:bg-gray-100">
               <ArrowLeft className="h-[18px] w-[18px] text-gray-400" />
             </button>
             <div className="min-w-0 flex-1">
@@ -3403,11 +3403,11 @@ export default function ProjectBizDetail() {
       <div id="project-detail-workspace" className="space-y-4">
         {/* ========== Tab: 施工进度 ========== */}
         {activeTab === 'site' && (
-          <div className="relative space-y-4 rounded-xl">
+          <div className="relative space-y-4 rounded">
             {isStageDetail && (
-              <div className="flex items-center justify-between gap-3 border-y border-gray-200 bg-white px-3 py-3 md:rounded-lg md:border md:px-4">
+              <div className="flex items-center justify-between gap-3 border-y border-gray-200 bg-white px-3 py-3 md:rounded md:border md:px-4">
                 {selectedStageWorkerSchedule ? (
-                  <button type="button" onClick={() => setWorkerProfileSchedule(selectedStageWorkerSchedule)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gold-400" title="查看工人档案">
+                  <button type="button" onClick={() => setWorkerProfileSchedule(selectedStageWorkerSchedule)} className="flex min-w-0 flex-1 items-center gap-3 rounded text-left outline-none transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gold-400" title="查看工人档案">
                     <WorkerAvatar name={selectedStageWorker?.name || selectedStageWorkerSchedule.workerName} fileID={selectedStageWorker?.photoFileID} className="h-9 w-9" />
                     <span className="min-w-0">
                       <span className="flex items-center gap-2"><span className="text-xs text-gray-400">施工工人</span><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">已排期</span></span>
@@ -3417,18 +3417,18 @@ export default function ProjectBizDetail() {
                   </button>
                 ) : (
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400"><Users size={17} /></span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400"><Users size={17} /></span>
                     <div className="min-w-0"><div className="text-xs text-gray-400">施工工人</div><div className="mt-0.5 text-sm text-gray-500">暂未安排工人</div></div>
                   </div>
                 )}
-                {canArrangeWorkers ? <button onClick={openWorkerScheduleModal} className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:border-gold-300 hover:text-gold-600" title={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'} aria-label={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}>{selectedStageWorkerSchedule ? <Edit3 size={16} /> : <Plus size={16} />}</button> : <button onClick={() => navigate('/worker-schedule')} className="shrink-0 text-xs font-medium text-gold-600">查看排期</button>}
+                {canArrangeWorkers ? <button onClick={openWorkerScheduleModal} className="shrink-0 rounded border border-gray-200 p-2 text-gray-500 transition-colors hover:border-gold-300 hover:text-gold-600" title={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'} aria-label={selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}>{selectedStageWorkerSchedule ? <Edit3 size={16} /> : <Plus size={16} />}</button> : <button onClick={() => navigate('/worker-schedule')} className="shrink-0 text-xs font-medium text-gold-600">查看排期</button>}
               </div>
             )}
             {!isStageDetail && projectTodos.length > 0 && (
-              <div className="hidden overflow-hidden rounded-xl border border-red-100 bg-white shadow-sm md:block">
+              <div className="hidden overflow-hidden rounded border border-red-100 bg-white shadow-sm md:block">
                 <div className="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-4 py-3">
                   <div className="flex items-center gap-2 text-sm font-semibold text-red-600"><AlertTriangle className="h-4 w-4" /> 当前待办 {projectTodos.length} 项</div>
-                  {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Plus className="h-3.5 w-3.5" /> 新增待办</button>}
+                  {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="inline-flex items-center gap-1 rounded border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"><Plus className="h-3.5 w-3.5" /> 新增待办</button>}
                 </div>
                 <div className="divide-y divide-gray-100">
                   {projectTodos.map(todo => (
@@ -3449,7 +3449,7 @@ export default function ProjectBizDetail() {
             )}
             {/* 模板操作 (仅在没有节点时显示) */}
             {(!project.nodesData || project.nodesData.length === 0) ? (
-              <div className="hidden md:flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="hidden md:flex items-center justify-between bg-white rounded border border-gray-200 p-4 shadow-sm">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">当前项目暂无施工节点，请选择模板进行生成</p>
@@ -3457,12 +3457,12 @@ export default function ProjectBizDetail() {
                 {(canCreateProjectTodo || canManageConstructionStructure) && (
                   <div className="flex items-center gap-2">
                     {canCreateProjectTodo && (
-                      <button onClick={openQuickTodoModal} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50">
+                      <button onClick={openQuickTodoModal} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50">
                         <ClipboardList className="h-3.5 w-3.5" /> 新增待办
                       </button>
                     )}
                     {canManageConstructionStructure && (
-                      <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded-lg hover:bg-gold-500 transition-colors">
+                      <button onClick={openTemplateModal} className="text-sm px-4 py-2 bg-gold-400 text-black font-medium rounded hover:bg-gold-500 transition-colors">
                         套用模板
                       </button>
                     )}
@@ -3470,7 +3470,7 @@ export default function ProjectBizDetail() {
                 )}
               </div>
             ) : (
-              <div className="hidden md:flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="hidden md:flex items-center justify-between bg-white rounded border border-gray-200 p-4 shadow-sm">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700">施工节点</h3>
                   <p className="text-xs text-gray-400 mt-0.5">管理和查看各阶段进度</p>
@@ -3479,7 +3479,7 @@ export default function ProjectBizDetail() {
                   <div className="flex items-center gap-2">
                     {canCreateProjectTodo && <button
                       onClick={openQuickTodoModal}
-                      className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-3 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-8 md:text-xs"
+                      className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded border border-gray-200 px-3 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-8 md:text-xs"
                     >
                       <ClipboardList className="h-3.5 w-3.5" /> 新增待办
                     </button>}
@@ -3488,7 +3488,7 @@ export default function ProjectBizDetail() {
                         <button
                           onClick={openCompletionModal}
                           disabled={isProjectActionBusy('complete-project')}
-                          className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-50"
+                          className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium rounded bg-gray-900 text-white hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-50"
                         >
                           <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> 标记完工
                         </button>
@@ -3496,7 +3496,7 @@ export default function ProjectBizDetail() {
                         <button
                           onClick={handleReopenProject}
                           disabled={isProjectActionBusy('reopen-project')}
-                          className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors whitespace-nowrap disabled:opacity-50"
+                          className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors whitespace-nowrap disabled:opacity-50"
                         >
                           <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> 恢复为施工中
                         </button>
@@ -3504,10 +3504,10 @@ export default function ProjectBizDetail() {
                     )}
                     {canManageConstructionStructure && isEditingNodes && (
                       <>
-                        <button onClick={applyTemplate} className="text-sm px-4 py-2 bg-white border border-gold-400 text-gold-600 font-medium rounded-lg hover:bg-gold-50 transition-colors flex items-center gap-1">
+                        <button onClick={applyTemplate} className="text-sm px-4 py-2 bg-white border border-gold-400 text-gold-600 font-medium rounded hover:bg-gold-50 transition-colors flex items-center gap-1">
                           ↻ 同步模板库
                         </button>
-                        <button onClick={() => { setIsEditingNodes(false); loadProject(); }} className="text-sm px-4 py-2 bg-gray-100 text-gray-600 font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                        <button onClick={() => { setIsEditingNodes(false); loadProject(); }} className="text-sm px-4 py-2 bg-gray-100 text-gray-600 font-medium rounded hover:bg-gray-200 transition-colors">
                           取消修改
                         </button>
                       </>
@@ -3522,7 +3522,7 @@ export default function ProjectBizDetail() {
                         setProject({ ...project, nodesData: newNodes });
                       }
                       setIsEditingNodes(!isEditingNodes);
-                    }} className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap">
+                    }} className="flex items-center h-7 md:h-8 px-3 text-[11px] md:text-xs font-medium border border-gray-200 rounded hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap">
                       {isEditingNodes ? '保存编辑' : '编辑节点'}
                     </button>}
                   </div>
@@ -3531,14 +3531,14 @@ export default function ProjectBizDetail() {
             )}
 
             <div className="md:hidden space-y-3">
-              <div className={isStageDetail ? '' : 'overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm'}>
+              <div className={isStageDetail ? '' : 'overflow-hidden rounded border border-gray-100 bg-white shadow-sm'}>
                 {!isStageDetail && <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-gray-700">施工动态</h3>
                   </div>
                   {(canCreateProjectTodo || canManageConstructionStructure) && !isStageDetail && (
                     <div className="flex items-center gap-1.5">
-                    {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
+                    {canCreateProjectTodo && <button onClick={openQuickTodoModal} className="flex h-7 w-7 items-center justify-center rounded border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50" title="新增待办" aria-label="新增待办">
                       <ClipboardList className="h-3.5 w-3.5" />
                     </button>}
                     {canManageConstructionStructure && <button
@@ -3553,7 +3553,7 @@ export default function ProjectBizDetail() {
                         }
                         setIsEditingNodes(!isEditingNodes);
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
+                      className="flex h-7 w-7 items-center justify-center rounded border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
                       title={isEditingNodes ? '保存节点' : '编辑节点'}
                       aria-label={isEditingNodes ? '保存节点' : '编辑节点'}
                     >
@@ -3588,7 +3588,7 @@ export default function ProjectBizDetail() {
             {isEditingNodes ? (
               <div className="md:hidden space-y-2">
                 {project.nodesData?.map((node: any, index: number) => (
-                  <div key={node._id || `m-node-${index}`} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  <div key={node._id || `m-node-${index}`} className="bg-white rounded border border-gray-200 overflow-hidden">
                     <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <button onClick={async (e) => { e.stopPropagation(); if(await confirmUser('删除后无法恢复。', { title: '确定删除该节点？', confirmStyle: 'danger', confirmText: '删除' })) { const n = [...project.nodesData]; n.splice(index, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={14} /></button>
@@ -3605,7 +3605,7 @@ export default function ProjectBizDetail() {
                       <div className="p-2 space-y-2 bg-gray-50/40">
                         {/* 工艺标准 — 移动端编辑 */}
                         {((node.craftsmanship && node.craftsmanship.length > 0) || node.craftCollapsed === false) ? (
-                        <div className="rounded-lg border border-gray-100 bg-white overflow-hidden">
+                        <div className="rounded border border-gray-100 bg-white overflow-hidden">
                           <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60">
                             <button type="button" onClick={(e) => { e.stopPropagation(); const n = [...project.nodesData]; n[index].craftCollapsed = !n[index].craftCollapsed; setProject({ ...project, nodesData: n }); }} className="flex items-center gap-1.5 text-left">
                               {node.craftCollapsed ? <ChevronRight size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
@@ -3618,9 +3618,9 @@ export default function ProjectBizDetail() {
                           ) : (
                             <div className="p-2 space-y-2">
                               {node.craftsmanship.map((craft: any, ci: number) => (
-                                <div key={ci} className="rounded-lg border border-gray-100 bg-gray-50 p-2">
+                                <div key={ci} className="rounded border border-gray-100 bg-gray-50 p-2">
                                   <div className="flex justify-end mb-1"><button onClick={() => removeProjectCraftsmanship(node._id, ci)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></div>
-                                  <textarea value={craft?.text || ''} onChange={(e) => updateProjectCraftsmanship(node._id, ci, { text: e.target.value })} onBlur={(e) => updateProjectCraftsmanship(node._id, ci, { text: e.target.value }, true)} rows={Math.min(8, Math.max(3, Math.ceil((craft?.text || '').length / 22)))} placeholder="输入工艺标准..." className="min-h-[80px] w-full resize-y rounded-lg border border-gray-100 px-2 py-1.5 text-xs text-gray-700 outline-none focus:border-gold-300" />
+                                  <textarea value={craft?.text || ''} onChange={(e) => updateProjectCraftsmanship(node._id, ci, { text: e.target.value })} onBlur={(e) => updateProjectCraftsmanship(node._id, ci, { text: e.target.value }, true)} rows={Math.min(8, Math.max(3, Math.ceil((craft?.text || '').length / 22)))} placeholder="输入工艺标准..." className="min-h-[80px] w-full resize-y rounded border border-gray-100 px-2 py-1.5 text-xs text-gray-700 outline-none focus:border-gold-300" />
                                   <div className="mt-2 flex flex-wrap gap-1.5">
                                     {(craft?.images || []).map((img: string, ii: number) => (
                                       <div key={`${img}-${ii}`} className="relative h-12 w-12 rounded-md overflow-hidden border border-gray-200">
@@ -3638,10 +3638,10 @@ export default function ProjectBizDetail() {
                           ))}
                         </div>
                         ) : (
-                          <button onClick={() => addProjectCraftsmanship(node._id)} className="w-full py-2 text-xs font-medium text-gray-400 border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-1 hover:text-gold-600 hover:border-gold-300 transition-colors"><Plus size={14} /> 添加工艺标准</button>
+                          <button onClick={() => addProjectCraftsmanship(node._id)} className="w-full py-2 text-xs font-medium text-gray-400 border border-dashed border-gray-200 rounded flex items-center justify-center gap-1 hover:text-gold-600 hover:border-gold-300 transition-colors"><Plus size={14} /> 添加工艺标准</button>
                         )}
                         {node.sections?.map((sec: any, secIdx: number) => (
-                          <div key={secIdx} className="rounded-lg border border-gray-100 bg-white overflow-hidden">
+                          <div key={secIdx} className="rounded border border-gray-100 bg-white overflow-hidden">
                             <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60 border-b border-gray-100">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 <button onClick={async (e) => { e.stopPropagation(); if(await confirmUser('删除后无法恢复。', { title: '确定删除该阶段？', confirmStyle: 'danger', confirmText: '删除' })) { const n = [...project.nodesData]; n[index].sections.splice(secIdx, 1); syncToDB(n); }}} className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={12} /></button>
@@ -3666,12 +3666,12 @@ export default function ProjectBizDetail() {
                             )}
                           </div>
                         ))}
-                        <button onClick={() => addSection(index)} className="w-full py-2 text-xs font-medium text-gray-500 bg-white border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-1"><Plus size={14} /> 添加阶段</button>
+                        <button onClick={() => addSection(index)} className="w-full py-2 text-xs font-medium text-gray-500 bg-white border border-dashed border-gray-200 rounded flex items-center justify-center gap-1"><Plus size={14} /> 添加阶段</button>
                       </div>
                     )}
                   </div>
                 ))}
-                <button onClick={() => addNode()} className="w-full py-2.5 text-xs font-medium text-gray-500 bg-white border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-2"><Plus size={15} /> 新建节点</button>
+                <button onClick={() => addNode()} className="w-full py-2.5 text-xs font-medium text-gray-500 bg-white border border-dashed border-gray-200 rounded flex items-center justify-center gap-2"><Plus size={15} /> 新建节点</button>
               </div>
             ) : (
               /* ===== 移动端：查看模式 ===== */
@@ -3724,7 +3724,7 @@ export default function ProjectBizDetail() {
                                     }}
                                     onBlur={() => syncToDB(project.nodesData)}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gold-400"
+                                    className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gold-400"
                                   />
                                 ) : (
                                   <div className={`truncate text-sm font-medium ${hasCurrent ? 'text-amber-600' : 'text-gray-800'}`}>
@@ -3759,7 +3759,7 @@ export default function ProjectBizDetail() {
                                   e.stopPropagation();
                                   toggleNodeCollapse(node._id);
                                 }}
-                                className="shrink-0 rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
+                                className="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
                               >
                                 {node.collapsed ? '展开' : '收起'}
                               </button>
@@ -3782,7 +3782,7 @@ export default function ProjectBizDetail() {
                                 </summary>
                                 <div className="mt-3 space-y-2">
                                   {node.craftsmanship.map((craft: any, cIdx: number) => (
-                                    <div key={cIdx} className="rounded-lg border border-gray-100 bg-white p-2">
+                                    <div key={cIdx} className="rounded border border-gray-100 bg-white p-2">
                                       <p className="text-xs leading-relaxed text-gray-700 whitespace-pre-wrap">{craft?.text || ''}</p>
                                       {craft?.images && craft.images.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mt-2">
@@ -3799,7 +3799,7 @@ export default function ProjectBizDetail() {
                                 {canShareCustomerProgress && <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                                   <button
                                     onClick={() => handleShareCraft(index, node.name)}
-                                    className="flex items-center gap-1 rounded-lg border border-gray-900 bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white"
+                                    className="flex items-center gap-1 rounded border border-gray-900 bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white"
                                   >
                                     <Share2 className="w-3 h-3" /> 分享给客户
                                   </button>
@@ -3818,7 +3818,7 @@ export default function ProjectBizDetail() {
                               const latestEditTime = section.updateTime || section.lastEditedAt || section.submitTime;
 
                               return (
-                                <div key={secIdx} className={`overflow-hidden rounded-xl border ${isSecCurrent ? 'border-amber-400' : 'border-gray-100'} bg-white shadow-sm`}>
+                                <div key={secIdx} className={`overflow-hidden rounded border ${isSecCurrent ? 'border-amber-400' : 'border-gray-100'} bg-white shadow-sm`}>
                                   <div
                                     className="px-3 py-3 bg-white cursor-pointer"
                                     onClick={() => !isEditingNodes && toggleSectionCollapse(node._id, secIdx)}
@@ -3835,7 +3835,7 @@ export default function ProjectBizDetail() {
                                                 setProject({ ...project, nodesData: newNodes });
                                               }}
                                               onBlur={() => syncToDB(project.nodesData)}
-                                              className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gold-400"
+                                              className="w-full rounded border border-gray-200 px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gold-400"
                                             />
                                           ) : (
                                             <div className="truncate text-sm font-medium text-gray-800">{section.name}</div>
@@ -3877,7 +3877,7 @@ export default function ProjectBizDetail() {
                                               endDate: section.endDate || '',
                                             });
                                           }}
-                                          className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600"
+                                          className="rounded bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600"
                                         >
                                           {section.startDate || section.endDate ? '修改计划时间' : '设置计划时间'}
                                         </button>
@@ -3939,14 +3939,14 @@ export default function ProjectBizDetail() {
                                                 onChange={(e) => updateSubNodeName(index, secIdx, subIdx, e.target.value)}
                                                 onBlur={() => syncToDB(project.nodesData)}
                                                 rows={Math.max(2, Math.ceil((sn.name || '').length / 18))}
-                                                className="min-h-[44px] flex-1 resize-none rounded-lg border border-gray-200 px-2 py-1.5 text-sm leading-relaxed text-gray-800 outline-none focus:border-gold-400"
+                                                className="min-h-[44px] flex-1 resize-none rounded border border-gray-200 px-2 py-1.5 text-sm leading-relaxed text-gray-800 outline-none focus:border-gold-400"
                                                 placeholder="检查项内容"
                                               />
                                             ) : (
                                               <div className="flex-1 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap break-words">{sn.name}</div>
                                             )}
                                             {canManageConstructionStructure && isEditingNodes && (
-                                              <button onClick={() => deleteSubNode(node._id, secIdx, subIdx)} className="mt-1 rounded-lg p-1 text-gray-300 hover:bg-red-50 hover:text-red-500">
+                                              <button onClick={() => deleteSubNode(node._id, secIdx, subIdx)} className="mt-1 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500">
                                                 <Trash2 className="w-4 h-4" />
                                               </button>
                                             )}
@@ -4008,7 +4008,7 @@ export default function ProjectBizDetail() {
                                               onBlur={(e) => updateSectionRecordRemark(node._id, secIdx, e.target.value, true)}
                                               rows={3}
                                               placeholder="填写备注（仅内部可见）..."
-                                              className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-800 outline-none focus:border-gold-400"
+                                              className="w-full resize-y rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-800 outline-none focus:border-gold-400"
                                             />
                                           ) : section.recordRemark ? (
                                             <div className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
@@ -4016,7 +4016,7 @@ export default function ProjectBizDetail() {
                                         </div>
                                       )}
                                       {canManageConstructionStructure && isEditingNodes && (
-                                        <button onClick={() => addBlankSubNode(node._id, secIdx)} className="my-2 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-500">
+                                        <button onClick={() => addBlankSubNode(node._id, secIdx)} className="my-2 flex w-full items-center justify-center gap-1 rounded border border-dashed border-gray-300 py-2 text-xs font-medium text-gray-500">
                                           <Plus className="h-4 w-4" /> 新增检查项
                                         </button>
                                       )}
@@ -4030,7 +4030,7 @@ export default function ProjectBizDetail() {
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                                className="rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white disabled:opacity-50"
+                                                className="rounded bg-emerald-600 py-2 text-xs font-medium text-white disabled:opacity-50"
                                               >
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                               </button>
@@ -4039,7 +4039,7 @@ export default function ProjectBizDetail() {
                                               <button
                                                 onClick={() => completeSectionNode(node._id, secIdx)}
                                                 disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                                className="rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white disabled:opacity-50"
+                                                className="rounded bg-emerald-600 py-2 text-xs font-medium text-white disabled:opacity-50"
                                               >
                                                 {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                               </button>
@@ -4047,7 +4047,7 @@ export default function ProjectBizDetail() {
                                             {canManageConstruction && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
                                               <button
                                                 onClick={() => startEditingSectionRecord(node._id, secIdx)}
-                                                className="rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-700"
+                                                className="rounded bg-gray-100 py-2 text-xs font-medium text-gray-700"
                                               >
                                                 编辑记录
                                               </button>
@@ -4058,19 +4058,19 @@ export default function ProjectBizDetail() {
                                                 <div className="col-span-2 flex gap-2">
                                                   <button
                                                     onClick={() => toggleShareSelectAll(section)}
-                                                    className={`flex-none px-4 rounded-lg py-2 text-xs font-medium transition-colors ${isAllShareSelected(section) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}
+                                                    className={`flex-none px-4 rounded py-2 text-xs font-medium transition-colors ${isAllShareSelected(section) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}
                                                   >
                                                     全选
                                                   </button>
                                                   <button
                                                     onClick={cancelShareSelect}
-                                                    className="flex-none px-4 rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-600"
+                                                    className="flex-none px-4 rounded bg-gray-100 py-2 text-xs font-medium text-gray-600"
                                                   >
                                                     取消
                                                   </button>
                                                   <button
                                                     onClick={confirmShareSelect}
-                                                    className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white flex items-center justify-center gap-1.5"
+                                                    className="flex-1 rounded bg-emerald-600 py-2 text-xs font-medium text-white flex items-center justify-center gap-1.5"
                                                   >
                                                     <Share2 className="w-3.5 h-3.5" /> 确认分享
                                                   </button>
@@ -4078,7 +4078,7 @@ export default function ProjectBizDetail() {
                                               ) : (
                                                 <button
                                                   onClick={() => enterShareSelect(index, secIdx, section)}
-                                                  className="rounded-lg bg-gray-900 py-2 text-xs font-medium text-white flex items-center justify-center gap-1.5"
+                                                  className="rounded bg-gray-900 py-2 text-xs font-medium text-white flex items-center justify-center gap-1.5"
                                                 >
                                                   <Share2 className="w-3.5 h-3.5" /> 分享给客户
                                                 </button>
@@ -4109,7 +4109,7 @@ export default function ProjectBizDetail() {
                 {project.nodesData?.map((node: any, index: number) => (
                   <div 
                     key={node._id || `node-${index}`} 
-                    className={`bg-white rounded-lg border transition-all ${
+                    className={`bg-white rounded border transition-all ${
                       draggedNodeIndex === index ? 'opacity-50 border-gold-400' :
                       dragOverNodeIndex === index ? 'border-gold-400 border-dashed border-2' :
                       'border-gray-200'
@@ -4170,7 +4170,7 @@ export default function ProjectBizDetail() {
                       <div className="p-3 bg-white space-y-3 border-t border-gray-100">
                         {/* 工艺标准 — 桌面编辑 */}
                         {((node.craftsmanship && node.craftsmanship.length > 0) || node.craftCollapsed === false) ? (
-                        <div className="rounded-lg border border-gray-100 bg-gray-50/40 overflow-hidden">
+                        <div className="rounded border border-gray-100 bg-gray-50/40 overflow-hidden">
                           <div className="flex items-center justify-between px-3 py-2">
                             <button
                               type="button"
@@ -4196,7 +4196,7 @@ export default function ProjectBizDetail() {
                           ) : (
                             <div className="border-t border-gray-100 p-3 space-y-2">
                               {node.craftsmanship.map((craft: any, craftIdx: number) => (
-                                <div key={craftIdx} className="rounded-lg bg-white border border-gray-100 p-2">
+                                <div key={craftIdx} className="rounded bg-white border border-gray-100 p-2">
                                   <div className="flex items-center justify-end gap-2 mb-1.5">
                                     <button onClick={() => removeProjectCraftsmanship(node._id, craftIdx)} className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
                                       <Trash2 size={13} />
@@ -4208,11 +4208,11 @@ export default function ProjectBizDetail() {
                                     onBlur={(e) => updateProjectCraftsmanship(node._id, craftIdx, { text: e.target.value }, true)}
                                     rows={Math.min(12, Math.max(4, Math.ceil((craft?.text || '').length / 28)))}
                                     placeholder="输入工艺标准..."
-                                    className="min-h-[120px] w-full resize-y rounded-lg border border-gray-100 px-2 py-1.5 text-xs md:text-sm text-gray-700 outline-none focus:border-gold-300"
+                                    className="min-h-[120px] w-full resize-y rounded border border-gray-100 px-2 py-1.5 text-xs md:text-sm text-gray-700 outline-none focus:border-gold-300"
                                   />
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     {(craft?.images || []).map((img: string, imgIdx: number) => (
-                                      <div key={`${img}-${imgIdx}`} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                      <div key={`${img}-${imgIdx}`} className="relative h-14 w-14 overflow-hidden rounded border border-gray-200 bg-white">
                                         <button type="button" onClick={() => openPreview({ fileID: img }, (craft?.images || []).map((url: string) => ({ fileID: url })))} className="h-full w-full">
                                           <CloudImage src={img} alt="工艺标准图" className="h-full w-full object-cover" />
                                         </button>
@@ -4224,7 +4224,7 @@ export default function ProjectBizDetail() {
                                         </button>
                                       </div>
                                     ))}
-                                    <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white text-[10px] text-gray-400 hover:text-gold-600">
+                                    <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded border border-dashed border-gray-200 bg-white text-[10px] text-gray-400 hover:text-gold-600">
                                       <ImageIcon size={15} />
                                       {isProjectActionBusy(`craft-${node._id}-${craftIdx}`) ? '上传中' : '图片'}
                                       <input
@@ -4246,12 +4246,12 @@ export default function ProjectBizDetail() {
                           ))}
                         </div>
                         ) : (
-                          <button onClick={() => addProjectCraftsmanship(node._id)} className="w-full py-2 text-xs font-medium text-gray-400 border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-1 hover:text-gold-600 hover:border-gold-300 transition-colors"><Plus size={14} /> 添加工艺标准</button>
+                          <button onClick={() => addProjectCraftsmanship(node._id)} className="w-full py-2 text-xs font-medium text-gray-400 border border-dashed border-gray-200 rounded flex items-center justify-center gap-1 hover:text-gold-600 hover:border-gold-300 transition-colors"><Plus size={14} /> 添加工艺标准</button>
                         )}
 
                         {/* 阶段列表 */}
                         {node.sections?.map((sec: any, secIdx: number) => (
-                          <div key={secIdx} className="rounded-lg border border-gray-100 overflow-hidden">
+                          <div key={secIdx} className="rounded border border-gray-100 overflow-hidden">
                             <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60 border-b border-gray-100">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 <button 
@@ -4338,7 +4338,7 @@ export default function ProjectBizDetail() {
                         
                         <button 
                           onClick={() => addSection(index)}
-                          className="w-full py-2 text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-1 transition-colors"
+                          className="w-full py-2 text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-200 rounded flex items-center justify-center gap-1 transition-colors"
                         >
                           <Plus size={16} /> 添加阶段
                         </button>
@@ -4348,7 +4348,7 @@ export default function ProjectBizDetail() {
                 ))}
                 <button 
                   onClick={() => addNode()}
-                  className="w-full py-3 text-xs md:text-sm font-medium text-gray-500 bg-white hover:bg-gray-50 border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  className="w-full py-3 text-xs md:text-sm font-medium text-gray-500 bg-white hover:bg-gray-50 border border-dashed border-gray-200 rounded flex items-center justify-center gap-2 transition-colors"
                 >
                   <Plus size={16} /> 新建节点
                 </button>
@@ -4363,7 +4363,7 @@ export default function ProjectBizDetail() {
                   const nodeIsCompleted = stageSummary?.status === 'completed';
 
                   return (
-                    <div key={node._id || `node-${index}`} className="bg-white rounded-xl border overflow-hidden transition-all border-gray-200">
+                    <div key={node._id || `node-${index}`} className="bg-white rounded border overflow-hidden transition-all border-gray-200">
                       <div className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
                         <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => toggleNodeCollapse(node._id)}>
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center border shrink-0 transition-colors ${
@@ -4387,7 +4387,7 @@ export default function ProjectBizDetail() {
                         <div className="border-t border-gray-100 bg-gray-50/50 p-3 space-y-3">
                           {/* 工艺标准 */}
                           {(node.craftsmanship && node.craftsmanship.length > 0) && (
-                            <details className="group bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                            <details className="group bg-white rounded border border-gray-100 p-4 shadow-sm">
                               <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-gray-800">
                                 <div className="flex items-center gap-2">
                                   <BookOpen className="w-4 h-4 text-gold-500 shrink-0" />
@@ -4398,7 +4398,7 @@ export default function ProjectBizDetail() {
                               </summary>
                               <div className="mt-3 space-y-3">
                                 {node.craftsmanship.map((craft: any, cIdx: number) => (
-                                   <div key={cIdx} className="bg-gray-50 rounded-lg p-3">
+                                   <div key={cIdx} className="bg-gray-50 rounded p-3">
                                      <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{craft?.text || ''}</p>
                                      {craft?.images && craft.images.length > 0 && (
                                       <div className="flex flex-wrap gap-2 mt-2">
@@ -4415,7 +4415,7 @@ export default function ProjectBizDetail() {
                               {canShareCustomerProgress && <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
                                 <button
                                   onClick={() => handleShareCraft(index, node.name)}
-                                  className="flex items-center gap-1.5 rounded-lg border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                                  className="flex items-center gap-1.5 rounded border border-gray-900 bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
                                 >
                                   <Share2 className="w-3.5 h-3.5" />
                                   分享给客户
@@ -4454,7 +4454,7 @@ export default function ProjectBizDetail() {
                             };
 
                             return (
-                              <div key={secIdx} className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-3">
+                              <div key={secIdx} className="bg-white rounded border border-gray-100 overflow-hidden mb-3">
                                 {section.name && (
                                   <div className="px-4 py-3 bg-gray-50/80 border-b border-gray-100 transition-colors">
                                     <div className="flex items-center justify-between mb-2">
@@ -4579,7 +4579,7 @@ export default function ProjectBizDetail() {
                                           </div>
                                         )}
                                         {sn.acceptanceRecord?.remark && (
-                                          <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg whitespace-pre-wrap">{sn.acceptanceRecord.remark}</div>
+                                          <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded whitespace-pre-wrap">{sn.acceptanceRecord.remark}</div>
                                         )}
                                         {photos.length > 0 && (
                                           <div className="mt-2 grid w-full grid-cols-4 gap-1 md:hidden">
@@ -4657,9 +4657,9 @@ export default function ProjectBizDetail() {
                                       canEditRecord ? (
                                         <textarea value={section.recordRemark || ''} onChange={(e) => updateSectionRecordRemark(node._id, secIdx, e.target.value)}
                                           onBlur={(e) => updateSectionRecordRemark(node._id, secIdx, e.target.value, true)} rows={3} placeholder="填写备注..."
-                                          className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-800 outline-none focus:border-gold-400" />
+                                          className="w-full resize-y rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-800 outline-none focus:border-gold-400" />
                                       ) : (
-                                        <div className="rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
+                                        <div className="rounded bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{section.recordRemark}</div>
                                       )
                                     )}
                 {(canManageConstruction || canShareCustomerProgress) && (
@@ -4676,44 +4676,44 @@ export default function ProjectBizDetail() {
                                                 startDate: section.startDate || '',
                                                 endDate: section.endDate || '',
                                               })}
-                                              className="rounded-lg bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
+                                              className="rounded bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
                                             >
                                               {section.startDate || section.endDate ? '修改计划时间' : '设置计划时间'}
                                             </button>
                                           )}
                                           {canManageConstruction && isSecPending && !section.submitted && (
                                             <button onClick={() => startSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`start-${node._id}-${secIdx}`)}
-                                              className="rounded-lg border border-gold-500 px-4 py-2 text-xs font-medium text-gold-600 hover:bg-gold-50 disabled:opacity-50">
+                                              className="rounded border border-gold-500 px-4 py-2 text-xs font-medium text-gold-600 hover:bg-gold-50 disabled:opacity-50">
                                               {isProjectActionBusy(`start-${node._id}-${secIdx}`) ? '处理中...' : '开工'}
                                             </button>
                                           )}
                                           {canManageConstruction && isSecCurrent && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                              className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
+                                              className="rounded bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交记录'}
                                             </button>
                                           )}
                                           {canManageConstruction && isSecCompleted && isEditingRecord && (
                                             <button onClick={() => completeSectionNode(node._id, secIdx)} disabled={isProjectActionBusy(`submit-${node._id}-${secIdx}`)}
-                                              className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
+                                              className="rounded bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white disabled:opacity-50">
                                               {isProjectActionBusy(`submit-${node._id}-${secIdx}`) ? '提交中...' : '提交'}
                                             </button>
                                           )}
                                           {canManageConstruction && isSecCompleted && !isEditingRecord && !(shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx) && (
-                                            <button onClick={() => startEditingSectionRecord(node._id, secIdx)} className="rounded-lg bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700">编辑记录</button>
+                                            <button onClick={() => startEditingSectionRecord(node._id, secIdx)} className="rounded bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-700">编辑记录</button>
                                           )}
                                           {/* 开工后任意时刻均可分享，不要求阶段已完工 */}
                                           {canShareCustomerProgress && !isSecPending && !isEditingRecord && (
                                             shareSelect && shareSelect.nodeIdx === index && shareSelect.secIdx === secIdx ? (
                                               <div className="flex gap-1.5 w-full">
-                                                <button onClick={() => toggleShareSelectAll(section)} className={`flex-none rounded-lg px-3 py-2 text-[11px] font-medium transition-colors ${isAllShareSelected(section) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>全选</button>
-                                                <button onClick={cancelShareSelect} className="flex-none rounded-lg bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-600">取消</button>
-                                                <button onClick={confirmShareSelect} className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white flex items-center justify-center gap-1">
+                                                <button onClick={() => toggleShareSelectAll(section)} className={`flex-none rounded px-3 py-2 text-[11px] font-medium transition-colors ${isAllShareSelected(section) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>全选</button>
+                                                <button onClick={cancelShareSelect} className="flex-none rounded bg-gray-100 px-3 py-2 text-[11px] font-medium text-gray-600">取消</button>
+                                                <button onClick={confirmShareSelect} className="flex-1 rounded bg-emerald-600 px-3 py-2 text-[11px] font-medium text-white flex items-center justify-center gap-1">
                                                   <Share2 className="w-3 h-3" /> 确认分享
                                                 </button>
                                               </div>
                                             ) : (
-                                              <button onClick={() => enterShareSelect(index, secIdx, section)} className="rounded-lg bg-gray-900 px-3 py-2 text-[11px] font-medium text-white flex items-center gap-1">
+                                              <button onClick={() => enterShareSelect(index, secIdx, section)} className="rounded bg-gray-900 px-3 py-2 text-[11px] font-medium text-white flex items-center gap-1">
                                                 <Share2 className="w-3 h-3" /> 分享给客户
                                               </button>
                                             )
@@ -4752,7 +4752,7 @@ export default function ProjectBizDetail() {
                       setShowCompletionModal(true);
                     }}
                     disabled={isProjectActionBusy('complete-project')}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded bg-emerald-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
                   >
                     <CheckCircle className="h-4 w-4" />
                     工地完工
@@ -4762,7 +4762,7 @@ export default function ProjectBizDetail() {
                     type="button"
                     onClick={handleReopenProject}
                     disabled={isProjectActionBusy('reopen-project')}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
                   >
                     <RotateCcw className="h-4 w-4" />
                     恢复为施工中
@@ -4778,7 +4778,7 @@ export default function ProjectBizDetail() {
           <div className="space-y-4">
             {!standaloneSection && canEditSite && (
               <div className="flex justify-end">
-                <button onClick={openNewLogModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">
+                <button onClick={openNewLogModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-medium rounded hover:bg-gray-800 transition-colors">
                   <Plus size={14} /> 新增日志
                 </button>
               </div>
@@ -4786,7 +4786,7 @@ export default function ProjectBizDetail() {
             
             <div className="space-y-3">
               {logs.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400">
+                <div className="bg-white rounded border border-gray-200 py-12 text-center text-gray-400">
                   <ClipboardList className="w-10 h-10 mx-auto mb-2 text-gray-200" />
                   <p className="text-sm">暂无施工日志</p>
                 </div>
@@ -4794,7 +4794,7 @@ export default function ProjectBizDetail() {
                 logs.map((log, index) => {
                   const logKey = String((log as any)._id || log.id || `log-${index}`);
                   return (
-                  <div key={logKey} className="relative overflow-hidden rounded-xl">
+                  <div key={logKey} className="relative overflow-hidden rounded">
                     {canEditSite && (
                       <div className="absolute inset-y-0 right-0 flex md:hidden">
                         <button onClick={() => openEditLogModal(log)} className="w-16 bg-amber-500 text-xs font-semibold text-white">编辑</button>
@@ -4802,7 +4802,7 @@ export default function ProjectBizDetail() {
                       </div>
                     )}
                   <div
-                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === logKey ? '-translate-x-32' : 'translate-x-0'} md:!translate-x-0`}
+                    className={`relative bg-white rounded border border-gray-200 p-4 shadow-sm transition-transform duration-200 ${swipedLogId === logKey ? '-translate-x-32' : 'translate-x-0'} md:!translate-x-0`}
                     onTouchStart={(event) => { logSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
                     onTouchEnd={(event) => {
                       const startX = logSwipeStartX.current;
@@ -4841,7 +4841,7 @@ export default function ProjectBizDetail() {
                               logId: String((log as any)._id || log.id),
                               tab: 'logs',
                             })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+                            className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
                           >
                             <Share2 className="w-3 h-3" /> 分享
                           </button>
@@ -4854,11 +4854,11 @@ export default function ProjectBizDetail() {
                             {log.photos.map((photo, idx) => {
                               const isVideo = isVideoMedia(photo);
                               return (
-                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: isVideoMedia(p) ? 'video' : 'image' })))} className="relative aspect-square min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 md:h-16 md:w-16">
+                              <button key={idx} onClick={() => openPreview({ fileID: photo as string, type: isVideo ? 'video' : 'image' }, log.photos.map(p => ({ fileID: p as string, type: isVideoMedia(p) ? 'video' : 'image' })))} className="relative aspect-square min-w-0 overflow-hidden rounded border border-gray-200 bg-gray-50 md:h-16 md:w-16">
                                 {isVideo
                                   ? <CloudVideo src={photo as string} className="h-full w-full object-cover" />
                                   : <CloudImage src={photo as string} className="h-full w-full object-cover" />}
-                                {isVideo && <VideoPlayBadge className="rounded-lg" />}
+                                {isVideo && <VideoPlayBadge className="rounded" />}
                               </button>
                               );
                             })}
@@ -4877,10 +4877,10 @@ export default function ProjectBizDetail() {
         {activeTab === 'inspections' && (
           <div className="space-y-4">
             {!standaloneSection && (
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex justify-between items-center bg-white p-4 rounded border border-gray-200 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-800">工地巡检</h3>
               {isAdmin && !isProjectCompleted && (
-                <button onClick={() => setShowInspectionModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors">
+                <button onClick={() => setShowInspectionModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-xs font-bold rounded hover:bg-gray-800 transition-colors">
                   <Shield size={14} /> 发起巡检
                 </button>
               )}
@@ -4889,7 +4889,7 @@ export default function ProjectBizDetail() {
             
             <div className="space-y-3">
               {inspections.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400">
+                <div className="bg-white rounded border border-gray-200 py-12 text-center text-gray-400">
                   <Shield className="w-10 h-10 mx-auto mb-2 text-gray-200" />
                   <p className="text-sm">暂无巡检记录</p>
                 </div>
@@ -4898,14 +4898,14 @@ export default function ProjectBizDetail() {
                   const inspectionKey = String((ins as any)._id || ins.id || `inspection-${index}`);
                   const canDeleteCurrentInspection = canDeleteInspection(ins);
                   return (
-                  <div key={inspectionKey} className="relative overflow-hidden rounded-xl">
+                  <div key={inspectionKey} className="relative overflow-hidden rounded">
                     {canDeleteCurrentInspection && (
                       <div className="absolute inset-y-0 right-0 flex md:hidden">
                         <button onClick={() => void handleDeleteInspection(ins)} className="w-20 bg-red-500 text-xs font-semibold text-white">删除</button>
                       </div>
                     )}
                   <div
-                    className={`relative bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col gap-3 transition-transform duration-200 ${swipedInspectionId === inspectionKey ? '-translate-x-20' : 'translate-x-0'} md:!translate-x-0`}
+                    className={`relative bg-white rounded border border-gray-200 p-4 shadow-sm flex flex-col gap-3 transition-transform duration-200 ${swipedInspectionId === inspectionKey ? '-translate-x-20' : 'translate-x-0'} md:!translate-x-0`}
                     onTouchStart={(event) => { inspectionSwipeStartX.current = event.touches[0]?.clientX ?? null; }}
                     onTouchEnd={(event) => {
                       const startX = inspectionSwipeStartX.current;
@@ -4944,7 +4944,7 @@ export default function ProjectBizDetail() {
                       {ins.photos && ins.photos.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-1">
                           {ins.photos.map((photo, idx) => (
-                            <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), ins.photos.map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                            <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), ins.photos.map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded border border-gray-200 bg-gray-50">
                               <MediaThumb src={mediaSourceOf(photo)} poster={(photo as any).poster || (photo as any).thumbUrl || (photo as any).thumbTempFilePath} className="w-full h-full object-cover" />
                             </button>
                           ))}
@@ -4963,7 +4963,7 @@ export default function ProjectBizDetail() {
                         {ins.rectifyPhotos && ins.rectifyPhotos.length > 0 && (
                           <div className="flex flex-wrap gap-2 mt-2">
                             {ins.rectifyPhotos.map((photo, idx) => (
-                              <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), (ins.rectifyPhotos || []).map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded-lg border border-amber-200/50 bg-white">
+                              <button key={idx} onClick={() => openPreview(toPreviewMedia(photo), (ins.rectifyPhotos || []).map(toPreviewMedia))} className="h-16 w-16 overflow-hidden rounded border border-amber-200/50 bg-white">
                                 <MediaThumb src={mediaSourceOf(photo)} poster={(photo as any).poster || (photo as any).thumbUrl || (photo as any).thumbTempFilePath} className="w-full h-full object-cover" />
                               </button>
                             ))}
@@ -4997,20 +4997,20 @@ export default function ProjectBizDetail() {
         {/* ========== Tab: 项目资料 ========== */}
         {activeTab === 'files' && (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white rounded border border-gray-200 p-5">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">{currentBizType === '工装' ? '合同资料' : '项目资料'}</h3>
                   <p className="mt-1 text-xs text-gray-400">同步展示关联客户详情页中的资料文件。</p>
                 </div>
                 {lead?._id && (
-                  <button onClick={() => navigate(`/leads/${lead._id}/files`, { state: { from: returnPath } })} className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white">
+                  <button onClick={() => navigate(`/leads/${lead._id}/files`, { state: { from: returnPath } })} className="inline-flex items-center gap-1 rounded bg-gray-900 px-3 py-2 text-xs font-medium text-white">
                     <ExternalLink className="w-3.5 h-3.5" /> 管理资料
                   </button>
                 )}
               </div>
               {(!lead?.files || lead.files.length === 0) ? (
-                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
+                <div className="rounded border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
                   暂无项目资料
                 </div>
               ) : (
@@ -5020,7 +5020,7 @@ export default function ProjectBizDetail() {
                       key={file.fileID || file.name}
                       type="button"
                       onClick={() => { void openAttachment(file); }}
-                      className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-3 text-left transition-colors hover:border-gold-200 hover:bg-gold-50/30"
+                      className="rounded border border-gray-100 bg-gray-50/60 px-3 py-3 text-left transition-colors hover:border-gold-200 hover:bg-gold-50/30"
                     >
                       <div className="flex items-start gap-2">
                         <Folder className="mt-0.5 h-4 w-4 shrink-0 text-teal-500" />
@@ -5044,7 +5044,7 @@ export default function ProjectBizDetail() {
         {activeTab === 'customer' && (
           <div className="space-y-4">
             {lead ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="bg-white rounded border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900">{lead.name || lead.customerName || '-'}</h3>
                   <button onClick={() => navigate(`/leads/${lead._id}`, { state: { from: returnPath } })} className="flex items-center gap-1 text-xs text-gold-600 hover:text-gold-700">
@@ -5101,11 +5101,11 @@ export default function ProjectBizDetail() {
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <div className="bg-white rounded border border-gray-200 p-8 text-center">
                 <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm text-gray-400">暂无关联客户信息</p>
                 <p className="text-xs text-gray-300 mt-1">客户信息将在关联客户线索后自动同步</p>
-                <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded-lg">
+                <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded">
                   关联客户
                 </button>
               </div>
@@ -5118,7 +5118,7 @@ export default function ProjectBizDetail() {
           <div className="space-y-4">
             {contracts.length > 0 ? (
               contracts.map((c: any) => (
-                <div key={c.id || c._id} className="bg-white rounded-xl border border-gray-200 p-6">
+                <div key={c.id || c._id} className="bg-white rounded border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <FileText className="w-5 h-5 text-gold-500" />
@@ -5189,12 +5189,12 @@ export default function ProjectBizDetail() {
 
                   <div className="mt-4 pt-3 border-t border-gray-100 flex gap-2 justify-end">
                     {(isAdmin || user?.role === 'finance') && (
-                      <button onClick={() => navigate(`/projects/${c._id || c.id}`)} className="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 text-xs font-medium rounded-lg hover:bg-rose-100 transition-colors">
+                      <button onClick={() => navigate(`/projects/${c._id || c.id}`)} className="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 text-xs font-medium rounded hover:bg-rose-100 transition-colors">
                         查看项目利润
                       </button>
                     )}
                     {(isAdmin || user?.role === 'finance') && (
-                      <button onClick={() => navigate(`/expense`)} className="px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-100 transition-colors">
+                      <button onClick={() => navigate(`/expense`)} className="px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 text-xs font-medium rounded hover:bg-gray-100 transition-colors">
                         财务记账
                       </button>
                     )}
@@ -5202,11 +5202,11 @@ export default function ProjectBizDetail() {
                 </div>
               ))
             ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <div className="bg-white rounded border border-gray-200 p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm text-gray-400">暂无关联合同</p>
                 <p className="text-xs text-gray-300 mt-1">合同信息将在签订合同后自动同步显示</p>
-                <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded-lg">
+                <button onClick={() => smartBack()} className="mt-4 px-4 py-2 bg-gold-400 text-black text-sm rounded">
                   查看所有合同
                 </button>
               </div>
@@ -5218,19 +5218,19 @@ export default function ProjectBizDetail() {
       {/* ========== 完工确认弹窗 ========== */}
       {showCompletionModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-end bg-black/30 md:items-center md:justify-center md:p-6" onClick={() => setShowCompletionModal(false)}>
-          <div className="w-full max-h-[88vh] overflow-auto rounded-t-2xl bg-white shadow-xl md:max-w-lg md:rounded-2xl" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-h-[88vh] overflow-auto rounded-t-2xl bg-white shadow-xl md:max-w-lg md:rounded" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4 md:px-6">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">确认工地完工</h2>
                 <p className="mt-1 text-xs text-gray-400">完工后施工进度、日志和巡检将只读预览，管理员可恢复为施工中。</p>
               </div>
-              <button onClick={() => setShowCompletionModal(false)} className="rounded-lg p-1.5 hover:bg-gray-100">
+              <button onClick={() => setShowCompletionModal(false)} className="rounded p-1.5 hover:bg-gray-100">
                 <X className="h-5 w-5 text-gray-400" />
               </button>
             </div>
 
             <div className="space-y-3 px-5 py-4 md:px-6">
-              <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+              <div className="rounded border border-gray-100 bg-gray-50/70 p-3">
                 <label className="mb-1.5 block text-xs font-medium text-gray-500">完工日期</label>
                 <DatePicker
                   mode="single"
@@ -5243,7 +5243,7 @@ export default function ProjectBizDetail() {
               {completionCheckRows.map(row => {
                 const hasIssue = row.items.length > 0;
                 return (
-                  <div key={row.key} className={`rounded-xl border p-3 ${hasIssue ? 'border-amber-200 bg-amber-50/60' : 'border-emerald-100 bg-emerald-50/60'}`}>
+                  <div key={row.key} className={`rounded border p-3 ${hasIssue ? 'border-amber-200 bg-amber-50/60' : 'border-emerald-100 bg-emerald-50/60'}`}>
                     <div className="flex items-start gap-3">
                       <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${hasIssue ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
                         {hasIssue ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
@@ -5277,13 +5277,13 @@ export default function ProjectBizDetail() {
             </div>
 
             <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 md:px-6">
-              <button onClick={() => setShowCompletionModal(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100">
+              <button onClick={() => setShowCompletionModal(false)} className="rounded px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100">
                 取消
               </button>
               <button
                 onClick={handleCompleteProject}
                 disabled={isProjectActionBusy('complete-project')}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 {isProjectActionBusy('complete-project') && <Loader2 className="h-4 w-4 animate-spin" />}
                 {completionIssueCount > 0 ? '仍然标记完工' : '确认完工'}
@@ -5297,10 +5297,10 @@ export default function ProjectBizDetail() {
       {/* ========== 模板选择弹窗 ========== */}
       {showTemplateModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={() => setShowTemplateModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-lg max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">选择施工模板</h2>
-              <button onClick={() => setShowTemplateModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setShowTemplateModal(false)} className="p-1.5 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
@@ -5313,7 +5313,7 @@ export default function ProjectBizDetail() {
                   <button
                     key={tpl.id}
                     onClick={() => setSelectedTemplateId(tpl.id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-colors ${
+                    className={`w-full text-left p-4 rounded border transition-colors ${
                       active ? 'border-gold-400 bg-gold-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -5333,8 +5333,8 @@ export default function ProjectBizDetail() {
               })}
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setShowTemplateModal(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-              <button onClick={applyTemplate} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded-lg hover:bg-gold-500">套用模板</button>
+              <button onClick={() => setShowTemplateModal(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded">取消</button>
+              <button onClick={applyTemplate} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded hover:bg-gold-500">套用模板</button>
             </div>
           </div>
         </div>,
@@ -5344,13 +5344,13 @@ export default function ProjectBizDetail() {
       {/* ========== 编辑子节点弹窗 ========== */}
       {editingSubNode && createPortal(
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-lg max-h-[85vh] overflow-auto p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-4">编辑节点</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-1">名称</label>
-                  <input value={editSubNodeForm.name} onChange={e => setEditSubNodeForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-400" />
+                  <input value={editSubNodeForm.name} onChange={e => setEditSubNodeForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-gold-400" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">类型</label>
@@ -5363,17 +5363,17 @@ export default function ProjectBizDetail() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">工艺标准</label>
-                <textarea value={editSubNodeForm.standard} onChange={e => setEditSubNodeForm(p => ({ ...p, standard: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-400" />
+                <textarea value={editSubNodeForm.standard} onChange={e => setEditSubNodeForm(p => ({ ...p, standard: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-gold-400" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">验收清单（每行一项）</label>
-                <textarea value={editSubNodeForm.checklist} onChange={e => setEditSubNodeForm(p => ({ ...p, checklist: e.target.value }))} rows={4} placeholder="每行一个检查项" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-400" />
+                <textarea value={editSubNodeForm.checklist} onChange={e => setEditSubNodeForm(p => ({ ...p, checklist: e.target.value }))} rows={4} placeholder="每行一个检查项" className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-gold-400" />
               </div>
 
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setEditingSubNode(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-              <button onClick={saveEditSubNode} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded-lg hover:bg-gold-500">保存</button>
+              <button onClick={() => setEditingSubNode(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded">取消</button>
+              <button onClick={saveEditSubNode} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded hover:bg-gold-500">保存</button>
             </div>
           </div>
         </div>,
@@ -5397,7 +5397,7 @@ export default function ProjectBizDetail() {
                   deletePhoto(currentPhotoDeleteContext.nodeId, currentPhotoDeleteContext.secIdx, currentPhotoDeleteContext.subIdx, currentPhotoDeleteContext.photoIdx);
                   closePreviewModal();
                 }}
-                className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-red-500/80 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-red-600/80 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+                className="flex h-10 w-10 items-center justify-center gap-2 rounded bg-red-500/80 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-red-600/80 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
                 title="删除当前媒体"
                 aria-label="删除当前媒体"
               >
@@ -5417,7 +5417,7 @@ export default function ProjectBizDetail() {
                 a.click();
                 document.body.removeChild(a);
               }}
-              className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/20 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded bg-white/20 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
               title="下载当前媒体"
               aria-label="下载当前媒体"
             >
@@ -5426,7 +5426,7 @@ export default function ProjectBizDetail() {
             </button>}
             <button
               onClick={closePreviewModal}
-              className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded bg-white/10 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
               title="关闭预览"
               aria-label="关闭预览"
             >
@@ -5558,7 +5558,7 @@ export default function ProjectBizDetail() {
                 <p className="text-sm">{previewError}</p>
                 <button
                   type="button"
-                  className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white hover:bg-white/25"
+                  className="rounded bg-white/15 px-4 py-2 text-sm font-medium text-white hover:bg-white/25"
                   onClick={() => {
                     const request = previewRequestRef.current;
                     if (!request) return;
@@ -5661,7 +5661,7 @@ export default function ProjectBizDetail() {
       {/* ========== 录入日志弹窗 ========== */}
       {showLogModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+          <div className="bg-white rounded shadow-xl w-full max-w-lg p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">{editingLog ? '编辑施工日志' : '新增施工日志'}</h3>
             <div className="space-y-4">
               <div>
@@ -5691,7 +5691,7 @@ export default function ProjectBizDetail() {
                       常用语 <ChevronDown size={10} />
                     </button>
                     {showQuickReplyMenu && (
-                      <div className="absolute right-0 mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-100 z-10 py-1">
+                      <div className="absolute right-0 mt-1 w-64 bg-white rounded shadow-lg border border-gray-100 z-10 py-1">
                         {quickReplies.map((reply, idx) => (
                           <button
                             key={idx}
@@ -5726,7 +5726,7 @@ export default function ProjectBizDetail() {
                   value={newLogForm.content} 
                   onChange={e => setNewLogForm(p => ({ ...p, content: e.target.value }))}
                   rows={5} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-gold-400 focus:outline-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-gold-400 focus:outline-none"
                   placeholder="请输入今日工作详情..."
                 />
               </div>
@@ -5735,7 +5735,7 @@ export default function ProjectBizDetail() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">现场照片</label>
                 <div className="flex flex-wrap gap-2">
                   {[...newLogForm.photos.map(fileID => ({ fileID, type: 'image' })), ...logPendingPhotos].map((p: any, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                    <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
                       <button type="button" onClick={() => { if (!p.isUploading) openPreview(p, newLogForm.photos.map(fileID => ({ fileID, type: 'image' }))); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" /> : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
@@ -5749,7 +5749,7 @@ export default function ProjectBizDetail() {
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
-                  <button type="button" onClick={() => logFileInputRef.current?.click()} className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-gold-500 hover:border-gold-300 bg-gray-50">
+                  <button type="button" onClick={() => logFileInputRef.current?.click()} className="w-16 h-16 rounded border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-gold-500 hover:border-gold-300 bg-gray-50">
                     <Camera size={16} />
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
@@ -5779,8 +5779,8 @@ export default function ProjectBizDetail() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => { setShowLogModal(false); setEditingLog(null); }} disabled={isSubmittingLog} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg disabled:opacity-50">取消</button>
-              <button onClick={handleSaveLog} disabled={isSubmittingLog} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded-lg hover:bg-gold-500 disabled:opacity-50">{isSubmittingLog ? '保存中...' : editingLog ? '保存修改' : '发布'}</button>
+              <button onClick={() => { setShowLogModal(false); setEditingLog(null); }} disabled={isSubmittingLog} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded disabled:opacity-50">取消</button>
+              <button onClick={handleSaveLog} disabled={isSubmittingLog} className="px-4 py-2 bg-gold-400 text-black text-sm font-medium rounded hover:bg-gold-500 disabled:opacity-50">{isSubmittingLog ? '保存中...' : editingLog ? '保存修改' : '发布'}</button>
             </div>
           </div>
         </div>,
@@ -5790,7 +5790,7 @@ export default function ProjectBizDetail() {
       {/* ========== 发起巡检弹窗 ========== */}
       {showInspectionModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={() => setShowInspectionModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-4">发起工地巡检</h3>
             <div className="space-y-4">
               <div>
@@ -5799,7 +5799,7 @@ export default function ProjectBizDetail() {
                   value={newInspectionForm.title} 
                   onChange={e => setNewInspectionForm(p => ({ ...p, title: e.target.value }))}
                   placeholder="例如：水电阶段突击巡检"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
                 />
               </div>
 
@@ -5823,7 +5823,7 @@ export default function ProjectBizDetail() {
                   value={newInspectionForm.description} 
                   onChange={e => setNewInspectionForm(p => ({ ...p, description: e.target.value }))}
                   rows={3} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-blue-400 focus:outline-none"
                   placeholder="请描述现场情况..."
                 />
               </div>
@@ -5832,7 +5832,7 @@ export default function ProjectBizDetail() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">现场图片/视频</label>
                 <div className="flex flex-wrap gap-2">
                   {[...newInspectionForm.photos.map(toPreviewMedia), ...inspectionPendingPhotos].map((p: any, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                    <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
                       <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), newInspectionForm.photos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? (
@@ -5850,7 +5850,7 @@ export default function ProjectBizDetail() {
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
-                  <button type="button" onClick={() => inspectionFileInputRef.current?.click()} className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-300 bg-gray-50">
+                  <button type="button" onClick={() => inspectionFileInputRef.current?.click()} className="w-16 h-16 rounded border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-300 bg-gray-50">
                     <Camera size={16} />
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
@@ -5875,8 +5875,8 @@ export default function ProjectBizDetail() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowInspectionModal(false)} disabled={isSubmittingInspection} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg disabled:opacity-50">取消</button>
-              <button onClick={handleSaveInspection} disabled={isSubmittingInspection} className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50">{isSubmittingInspection ? '发起中...' : '发起巡检'}</button>
+              <button onClick={() => setShowInspectionModal(false)} disabled={isSubmittingInspection} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded disabled:opacity-50">取消</button>
+              <button onClick={handleSaveInspection} disabled={isSubmittingInspection} className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded hover:bg-blue-600 disabled:opacity-50">{isSubmittingInspection ? '发起中...' : '发起巡检'}</button>
             </div>
           </div>
         </div>,
@@ -5886,7 +5886,7 @@ export default function ProjectBizDetail() {
       {/* ========== 提交整改弹窗 ========== */}
       {showRectifyModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={() => setShowRectifyModal(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-4">提交整改反馈</h3>
             <div className="space-y-4">
               <div>
@@ -5895,7 +5895,7 @@ export default function ProjectBizDetail() {
                   value={rectifyForm.rectifyDescription} 
                   onChange={e => setRectifyForm(p => ({ ...p, rectifyDescription: e.target.value }))}
                   rows={3} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-rose-400 focus:outline-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-rose-400 focus:outline-none"
                   placeholder="请描述整改过程与结果..."
                 />
               </div>
@@ -5904,7 +5904,7 @@ export default function ProjectBizDetail() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">整改后图片/视频</label>
                 <div className="flex flex-wrap gap-2">
                   {[...rectifyForm.rectifyPhotos.map(toPreviewMedia), ...rectifyPendingPhotos].map((p: any, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                    <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
                       <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), rectifyForm.rectifyPhotos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? (
@@ -5922,7 +5922,7 @@ export default function ProjectBizDetail() {
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
-                  <button type="button" onClick={() => rectifyFileInputRef.current?.click()} className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-rose-500 hover:border-rose-300 bg-gray-50">
+                  <button type="button" onClick={() => rectifyFileInputRef.current?.click()} className="w-16 h-16 rounded border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-rose-500 hover:border-rose-300 bg-gray-50">
                     <Camera size={16} />
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
@@ -5947,8 +5947,8 @@ export default function ProjectBizDetail() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowRectifyModal(null)} disabled={isSubmittingRectify} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg disabled:opacity-50">取消</button>
-              <button onClick={handleSaveRectify} disabled={isSubmittingRectify} className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded-lg hover:bg-rose-600 disabled:opacity-50">{isSubmittingRectify ? '提交中...' : '提交整改'}</button>
+              <button onClick={() => setShowRectifyModal(null)} disabled={isSubmittingRectify} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded disabled:opacity-50">取消</button>
+              <button onClick={handleSaveRectify} disabled={isSubmittingRectify} className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded hover:bg-rose-600 disabled:opacity-50">{isSubmittingRectify ? '提交中...' : '提交整改'}</button>
             </div>
           </div>
         </div>,
@@ -5958,7 +5958,7 @@ export default function ProjectBizDetail() {
       {/* ========== 管理常用语弹窗 ========== */}
       {showQuickReplyManager && createPortal(
         <div className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center p-4" onClick={() => setShowQuickReplyManager(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">管理常用语模板</h3>
               <button onClick={() => setShowQuickReplyManager(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -5966,7 +5966,7 @@ export default function ProjectBizDetail() {
             
             <div className="space-y-2 max-h-60 overflow-y-auto mb-4 p-1">
               {quickReplies.map((reply, idx) => (
-                <div key={idx} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 group">
+                <div key={idx} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded border border-gray-100 group">
                   <p className="text-xs text-gray-700 whitespace-pre-wrap flex-1 leading-relaxed">{reply}</p>
                   <button 
                     onClick={() => saveQuickRepliesToCloud(quickReplies.filter((_, i) => i !== idx))} 
@@ -5987,7 +5987,7 @@ export default function ProjectBizDetail() {
                 value={newQuickReplyText}
                 onChange={(e) => setNewQuickReplyText(e.target.value)}
                 placeholder="输入新的常用语模板..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-gold-400 focus:outline-none"
+                className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-gold-400 focus:outline-none"
                 rows={3}
               />
               <button
@@ -5997,14 +5997,14 @@ export default function ProjectBizDetail() {
                     setNewQuickReplyText('');
                   }
                 }}
-                className="mt-2 w-full py-2 bg-gray-50 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-100 border border-gray-200 flex items-center justify-center gap-1 transition-colors"
+                className="mt-2 w-full py-2 bg-gray-50 text-gray-700 text-xs font-medium rounded hover:bg-gray-100 border border-gray-200 flex items-center justify-center gap-1 transition-colors"
               >
                 <Plus size={14} /> 添加为常用语
               </button>
             </div>
             
             <div className="flex justify-end">
-              <button onClick={() => setShowQuickReplyManager(false)} className="px-5 py-2 bg-gold-400 text-black text-sm font-medium rounded-lg hover:bg-gold-500">
+              <button onClick={() => setShowQuickReplyManager(false)} className="px-5 py-2 bg-gold-400 text-black text-sm font-medium rounded hover:bg-gold-500">
                 完成
               </button>
             </div>
@@ -6016,19 +6016,19 @@ export default function ProjectBizDetail() {
       {/* ========== 填写逾期原因弹窗 ========== */}
       {delayReasonModal.open && createPortal(
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4" onClick={() => setDelayReasonModal({ open: false, nodeId: '', secIdx: -1, name: '', reason: '' })}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-red-600 mb-2 text-center">填写逾期原因</h3>
             <p className="text-sm text-gray-500 mb-4 text-center">{delayReasonModal.name}</p>
             <textarea
               value={delayReasonModal.reason}
               onChange={e => setDelayReasonModal(p => ({ ...p, reason: e.target.value }))}
               rows={4}
-              className="w-full px-3 py-2 border border-red-200 bg-red-50 text-red-900 rounded-xl text-sm focus:border-red-400 focus:outline-none mb-4"
+              className="w-full px-3 py-2 border border-red-200 bg-red-50 text-red-900 rounded text-sm focus:border-red-400 focus:outline-none mb-4"
               placeholder="请详细说明导致该阶段逾期的原因..."
             />
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDelayReasonModal({open: false, nodeId: '', secIdx: -1, name: '', reason: ''})} className="flex-1 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">取消</button>
-              <button onClick={saveDelayReason} className="flex-1 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg">保存</button>
+              <button onClick={() => setDelayReasonModal({open: false, nodeId: '', secIdx: -1, name: '', reason: ''})} className="flex-1 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded">取消</button>
+              <button onClick={saveDelayReason} className="flex-1 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded">保存</button>
             </div>
           </div>
         </div>,
@@ -6037,7 +6037,7 @@ export default function ProjectBizDetail() {
 
       {showPlanDateModal && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-6" onClick={() => setShowPlanDateModal(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
             <div className="mb-4">
               <h3 className="text-base font-semibold text-gray-900">设置计划时间</h3>
               <p className="mt-1 text-xs text-gray-400">{showPlanDateModal.name}</p>
@@ -6067,13 +6067,13 @@ export default function ProjectBizDetail() {
             <div className="mt-5 flex gap-3">
               <button
                 onClick={() => setShowPlanDateModal(null)}
-                className="flex-1 rounded-lg bg-gray-100 py-2 text-sm font-medium text-gray-600"
+                className="flex-1 rounded bg-gray-100 py-2 text-sm font-medium text-gray-600"
               >
                 取消
               </button>
               <button
                 onClick={saveSectionPlanDates}
-                className="flex-1 rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white"
+                className="flex-1 rounded bg-gray-900 py-2 text-sm font-semibold text-white"
               >
                 保存
               </button>
@@ -6085,14 +6085,14 @@ export default function ProjectBizDetail() {
 
       {showWorkerScheduleModal && createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-5" onClick={() => setShowWorkerScheduleModal(false)}>
-          <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md rounded bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
               <div><h3 className="text-base font-semibold text-gray-900">{selectedStageWorkerSchedule ? '修改工人排期' : '安排工人'}</h3><p className="mt-1 text-xs text-gray-400">{selectedStage?.name} · {project.address}</p></div>
-              <button onClick={() => setShowWorkerScheduleModal(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" aria-label="关闭"><X size={17} /></button>
+              <button onClick={() => setShowWorkerScheduleModal(false)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100" aria-label="关闭"><X size={17} /></button>
             </div>
             <div className="space-y-4 p-5">
               {eligibleStageWorkers.length === 0 ? (
-                <div className="rounded-lg bg-amber-50 p-4 text-center"><p className="text-sm text-amber-700">还没有可用的{selectedStageTrade}工人</p><button onClick={() => navigate('/worker-schedule')} className="mt-2 text-xs font-medium text-gold-600">前往工人管理添加对应工种</button></div>
+                <div className="rounded bg-amber-50 p-4 text-center"><p className="text-sm text-amber-700">还没有可用的{selectedStageTrade}工人</p><button onClick={() => navigate('/worker-schedule')} className="mt-2 text-xs font-medium text-gold-600">前往工人管理添加对应工种</button></div>
               ) : (
                 <label className="block text-xs text-gray-500">工人 * <span className="text-gold-600">仅显示{selectedStageTrade}工人</span>
                   <Select value={eligibleStageWorkers.some((worker) => workerIdOf(worker) === workerScheduleForm.workerId) ? workerScheduleForm.workerId : ''} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, workerId: value }))} options={eligibleStageWorkers.map((worker) => ({ value: workerIdOf(worker), label: worker.name, description: worker.trades.join('/') }))} placeholder={`请选择${selectedStageTrade}工人`} searchable className="mt-1" sheetTitle="选择匹配工种的工人" />
@@ -6105,8 +6105,8 @@ export default function ProjectBizDetail() {
               <label className="block text-xs text-gray-500">状态
                 <Select value={workerScheduleForm.status} onChange={(value) => setWorkerScheduleForm((current) => ({ ...current, status: value as WorkerScheduleStatus }))} options={[{ value: 'planned', label: '待确认' }, { value: 'confirmed', label: '已排期' }, { value: 'in_progress', label: '施工中' }, { value: 'completed', label: '已完成' }]} className="mt-1" sheetTitle="选择排期状态" />
               </label>
-              <label className="block text-xs text-gray-500">备注<textarea value={workerScheduleForm.note} onChange={(event) => setWorkerScheduleForm((current) => ({ ...current, note: event.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
-              {workerScheduleConflicts.length > 0 && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{workerScheduleConflicts[0].schedule.projectAddress}，{String(workerScheduleConflicts[0].schedule.startDate).slice(5)} 至 {String(workerScheduleConflicts[0].schedule.endDate).slice(5)}</p></div>}
+              <label className="block text-xs text-gray-500">备注<textarea value={workerScheduleForm.note} onChange={(event) => setWorkerScheduleForm((current) => ({ ...current, note: event.target.value }))} rows={2} className="mt-1 w-full resize-none rounded border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
+              {workerScheduleConflicts.length > 0 && <div className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{workerScheduleConflicts[0].schedule.projectAddress}，{String(workerScheduleConflicts[0].schedule.startDate).slice(5)} 至 {String(workerScheduleConflicts[0].schedule.endDate).slice(5)}</p></div>}
               {workerScheduleError && <p className="text-xs text-red-500">{workerScheduleError}</p>}
               <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                 <div>{selectedStageWorkerSchedule && <button onClick={() => void removeStageWorkerSchedule()} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={14} />删除排期</button>}</div>
@@ -6120,10 +6120,10 @@ export default function ProjectBizDetail() {
 
       {workerProfileSchedule && createPortal(
         <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4" onClick={() => setWorkerProfileSchedule(null)}>
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md overflow-hidden rounded bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="font-semibold text-gray-900">工人档案</h2>
-              <button type="button" onClick={() => setWorkerProfileSchedule(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" title="关闭" aria-label="关闭工人档案"><X size={18} /></button>
+              <button type="button" onClick={() => setWorkerProfileSchedule(null)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100" title="关闭" aria-label="关闭工人档案"><X size={18} /></button>
             </div>
             <div className="p-5">
               <div className="flex items-center gap-4">
@@ -6156,13 +6156,13 @@ export default function ProjectBizDetail() {
 
       {showQuickTodoModal && createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-5" onClick={() => setShowQuickTodoModal(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={event => event.stopPropagation()}>
+          <div className="w-full max-w-sm rounded bg-white p-5 shadow-xl" onClick={event => event.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold text-gray-900">新增工地待办</h3>
                 <p className="mt-1 text-xs text-gray-400">自动通知项目经理，关联当前工地</p>
               </div>
-              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100" aria-label="关闭">
+              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex h-8 w-8 items-center justify-center rounded text-gray-400 hover:bg-gray-100" aria-label="关闭">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -6175,7 +6175,7 @@ export default function ProjectBizDetail() {
                   value={quickTodoForm.title}
                   onChange={event => setQuickTodoForm(current => ({ ...current, title: event.target.value }))}
                   placeholder="例如：确认厨房水电定位"
-                  className="min-h-[72px] w-full resize-none overflow-y-hidden rounded-xl border border-gray-200 px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-gold-400"
+                  className="min-h-[72px] w-full resize-none overflow-y-hidden rounded border border-gray-200 px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-gold-400"
                   onInput={event => {
                     const target = event.currentTarget;
                     target.style.height = 'auto';
@@ -6200,12 +6200,12 @@ export default function ProjectBizDetail() {
               </div>
             </div>
             <div className="mt-6 flex gap-3">
-              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600">取消</button>
+              <button type="button" onClick={() => setShowQuickTodoModal(false)} className="flex-1 rounded border border-gray-200 py-2.5 text-sm font-medium text-gray-600">取消</button>
               <button
                 type="button"
                 onClick={() => void handleCreateQuickTodo()}
                 disabled={!quickTodoForm.title.trim() || !quickTodoForm.dueDate || submittingQuickTodo}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-900 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded bg-gray-900 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submittingQuickTodo && <Loader2 className="h-4 w-4 animate-spin" />}
                 创建

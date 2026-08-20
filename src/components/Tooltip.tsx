@@ -59,7 +59,7 @@ export default function Tooltip({ content, children, position = 'top', className
     >
       {children}
       {isVisible && (
-        <div className={`absolute z-50 px-2 py-1 text-xs font-normal text-white bg-gray-800 rounded shadow-lg whitespace-nowrap ${getPositionClasses()}`}>
+        <div className={`absolute z-50 px-2 py-1 text-xs font-normal text-white bg-gray-800 rounded-lg shadow-lg whitespace-nowrap ${getPositionClasses()}`}>
           {content}
           {/* Arrow */}
           <div className={`absolute w-2 h-2 bg-gray-800 rotate-45 

@@ -190,11 +190,11 @@ export default function DatePicker({
       return (
         <div className="p-4">
           <div className="grid grid-cols-[32px_1fr_32px] items-center mb-3">
-            <button type="button" onClick={() => setViewYear(viewYear - 12)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+            <button type="button" onClick={() => setViewYear(viewYear - 12)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 transition-colors">
               <ChevronLeft size={16} />
             </button>
             <span className="text-center text-sm font-semibold text-gray-800">{startYear} - {startYear + 11}</span>
-            <button type="button" onClick={() => setViewYear(viewYear + 12)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+            <button type="button" onClick={() => setViewYear(viewYear + 12)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -204,7 +204,7 @@ export default function DatePicker({
                 type="button"
                 key={year}
                 onClick={() => { setViewYear(year); setPickerView('month'); }}
-                className={`py-2 text-xs rounded-lg transition-colors font-medium ${year === viewYear ? 'bg-gold-400 text-white' : 'text-gray-600 hover:bg-gold-50 hover:text-gold-600'}`}
+                className={`py-2 text-xs rounded transition-colors font-medium ${year === viewYear ? 'bg-gold-400 text-white' : 'text-gray-600 hover:bg-gold-50 hover:text-gold-600'}`}
               >
                 {year}
               </button>
@@ -219,11 +219,11 @@ export default function DatePicker({
       return (
         <div className="p-4">
           <div className="grid grid-cols-[32px_1fr_32px] items-center mb-3">
-            <button type="button" onClick={() => setViewYear(viewYear - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+            <button type="button" onClick={() => setViewYear(viewYear - 1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 transition-colors">
               <ChevronLeft size={16} />
             </button>
             <button type="button" onClick={() => setPickerView('year')} className="text-sm font-semibold text-gray-800 hover:text-gold-600">{viewYear}</button>
-            <button type="button" onClick={() => setViewYear(viewYear + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+            <button type="button" onClick={() => setViewYear(viewYear + 1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -235,7 +235,7 @@ export default function DatePicker({
                   type="button"
                   key={i}
                   onClick={() => handleMonthClick(i)}
-                  className={`py-2 text-xs rounded-lg transition-colors font-medium ${
+                  className={`py-2 text-xs rounded transition-colors font-medium ${
                     isSel
                       ? 'bg-gold-400 text-white'
                       : 'text-gray-600 hover:bg-gold-50 hover:text-gold-600'
@@ -262,11 +262,11 @@ export default function DatePicker({
       <div className="p-4">
         {/* Header */}
         <div className="grid grid-cols-[32px_1fr_32px] items-center mb-4">
-          <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 transition-colors">
             <ChevronLeft size={16} />
           </button>
           <button type="button" onClick={() => setPickerView('month')} className="text-sm font-semibold text-gray-800 hover:text-gold-600">{viewYear}年 {viewMonth + 1}月</button>
-          <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
@@ -289,7 +289,7 @@ export default function DatePicker({
             const isE = isEnd(d);
             const isR = inRange(d);
 
-            let cls = 'text-center text-xs py-1.5 rounded-lg transition-colors font-medium ';
+            let cls = 'text-center text-xs py-1.5 rounded transition-colors font-medium ';
             if (isS || isE) {
               cls += 'bg-gold-400 text-white ';
             } else if (isR) {
@@ -305,7 +305,7 @@ export default function DatePicker({
                 onClick={() => handleDayClick(d)}
                 className={`${cls} h-10`}
               >
-                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg ${isT && !(isS || isE) ? 'border border-gold-300' : ''}`}>
+                <span className={`inline-flex items-center justify-center w-7 h-7 rounded ${isT && !(isS || isE) ? 'border border-gold-300' : ''}`}>
                   {d}
                 </span>
               </button>
@@ -318,7 +318,7 @@ export default function DatePicker({
 
   // ---- Desktop popover ----
   const panel = (
-    <div className="bg-white rounded-xl shadow-xl border border-gray-100 w-64 md:w-72 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-xl border border-gray-100 w-64 md:w-72 overflow-hidden">
       {renderCalendar()}
     </div>
   );
@@ -372,7 +372,7 @@ export default function DatePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="w-full py-2.5 bg-gold-400 text-white text-sm font-medium rounded-lg hover:bg-gold-500 transition-colors"
+                className="w-full py-2.5 bg-gold-400 text-white text-sm font-medium rounded hover:bg-gold-500 transition-colors"
               >
                 确定
               </button>

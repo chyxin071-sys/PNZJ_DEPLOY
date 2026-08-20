@@ -82,13 +82,13 @@ function UploadingAttachmentThumb({ file }: { file: any }) {
   const src = String(file.previewUrl || file.poster || file.thumbUrl || '');
   if (!src) return <Paperclip size={14} className="text-gray-400 shrink-0" />;
   if (type.startsWith('image/') || src.startsWith('data:image/')) {
-    return <img src={src} alt="上传中" className="h-9 w-9 shrink-0 rounded-lg object-cover" />;
+    return <img src={src} alt="上传中" className="h-9 w-9 shrink-0 rounded object-cover" />;
   }
   if (type.startsWith('video/')) {
     return (
       <video
         src={src}
-        className="h-9 w-9 shrink-0 rounded-lg object-cover"
+        className="h-9 w-9 shrink-0 rounded object-cover"
         muted
         playsInline
         preload="auto"
@@ -1363,7 +1363,7 @@ export default function ContractDetail() {
         <div className="flex min-w-0 items-start gap-3 md:flex-1 md:items-center">
           <button
             onClick={() => smartBack()}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors shrink-0"
+            className="p-2 hover:bg-gray-100 rounded text-gray-500 transition-colors shrink-0"
           >
             <ArrowLeft size={20} />
           </button>
@@ -1384,19 +1384,19 @@ export default function ContractDetail() {
           </div>
         </div>
         <div className="grid shrink-0 grid-cols-1 gap-1.5 md:ml-3 md:flex md:w-auto md:flex-wrap md:items-center md:justify-end md:gap-2">
-          <button onClick={handleOpenEdit} className="inline-flex h-7 w-[58px] items-center justify-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-9 md:w-auto md:px-4 md:text-sm">
+          <button onClick={handleOpenEdit} className="inline-flex h-7 w-[58px] items-center justify-center rounded border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 md:h-9 md:w-auto md:px-4 md:text-sm">
             编辑
           </button>
-          <button onClick={() => isAdmin ? handleDeleteContract() : showAlert('只有管理员有权限')} className="inline-flex h-7 w-[58px] items-center justify-center rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 md:h-9 md:w-auto md:px-4 md:text-sm">
+          <button onClick={() => isAdmin ? handleDeleteContract() : showAlert('只有管理员有权限')} className="inline-flex h-7 w-[58px] items-center justify-center rounded border border-gray-200 bg-white px-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 md:h-9 md:w-auto md:px-4 md:text-sm">
             删除
           </button>
           {canViewFinance && (
-            <button onClick={handleExportContract} className="hidden h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
+            <button onClick={handleExportContract} className="hidden h-9 items-center justify-center rounded border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
               导出明细
             </button>
           )}
           {canViewFinance && (
-            <button onClick={() => setShowImportModal(true)} className="hidden h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
+            <button onClick={() => setShowImportModal(true)} className="hidden h-9 items-center justify-center rounded border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 md:inline-flex">
               导入
             </button>
           )}
@@ -1438,7 +1438,7 @@ export default function ContractDetail() {
       {/* 详情区 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 左：基本信息 */}
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible lg:col-span-2">
+        <div className="bg-white rounded border border-gray-100 overflow-visible lg:col-span-2">
           <button
             type="button"
             onClick={() => setShowBasicInfo(v => !v)}
@@ -1525,7 +1525,7 @@ export default function ContractDetail() {
         </div>
 
         {/* 右：收款阶段 */}
-        <div className="bg-white rounded-lg border border-gray-100 p-5">
+        <div className="bg-white rounded border border-gray-100 p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-gray-900">收款阶段</h3>
             <button onClick={handleOpenStageModal} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑阶段</button>
@@ -1537,7 +1537,7 @@ export default function ContractDetail() {
               const stageDue = stage.amount - stagePaid;
               const isFullyPaid = stage.amount > 0 && stageDue <= 0;
               return (
-                <div key={idx} className={`px-3 py-2.5 rounded-lg border ${isFullyPaid ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50 border-gray-100'}`}>
+                <div key={idx} className={`px-3 py-2.5 rounded border ${isFullyPaid ? 'bg-emerald-50/50 border-emerald-100' : 'bg-gray-50 border-gray-100'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-gray-700 font-medium truncate">{stage.name}</p>
@@ -1562,7 +1562,7 @@ export default function ContractDetail() {
                             setReceiptDefaultStage(stage.name);
                             setShowReceiptModal(true);
                           }}
-                          className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                          className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded font-medium hover:bg-gray-800 transition-colors"
                         >
                           收款
                         </button>
@@ -1576,7 +1576,7 @@ export default function ContractDetail() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-100 p-5">
+      <div className="bg-white rounded border border-gray-100 p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">合同资料附件</h3>
@@ -1598,11 +1598,11 @@ export default function ContractDetail() {
         </div>
         <div className="mt-4">
           {contractAttachmentList.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-center text-sm text-gray-400">
+            <div className="rounded border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-center text-sm text-gray-400">
               暂无合同附件
             </div>
           ) : (
-            <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            <div className="divide-y divide-gray-100 rounded border border-gray-100">
               {contractAttachmentList.map((file: any, index) => (
                 <div
                   key={`${file.fileID}-${index}`}
@@ -1702,12 +1702,12 @@ export default function ContractDetail() {
       {/* 开票记录 */}
       {showInvoiceFeature && (
       <div>
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="px-5 pt-4 pb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">开票记录</h3>
             <button
               onClick={() => openInvoiceModal()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded hover:bg-gray-800 transition-colors"
             >
               <Plus size={14} /> 新增记录
             </button>
@@ -1758,10 +1758,10 @@ export default function ContractDetail() {
       >
         {reverseReceipt && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-600">
+            <div className="rounded border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-600">
               冲销后该记录不再计入收款汇总，但会保留原始记录和操作痕迹。
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+            <div className="rounded bg-gray-50 px-3 py-3 text-sm text-gray-600">
               <div>客户：<span className="font-medium text-gray-900">{reverseReceipt.customerName || '-'}</span></div>
               <div className="mt-1">金额：<span className="font-medium text-emerald-600">{formatMoney(reverseReceipt.amount || 0)}</span></div>
               <div className="mt-1">阶段：<span className="font-medium text-gray-900">{reverseReceipt.stage || '-'}</span></div>
@@ -1788,7 +1788,7 @@ export default function ContractDetail() {
               <button
                 onClick={handleReverseReceipt}
                 disabled={reverseSubmitting}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {reverseSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
                 {reverseSubmitting ? '冲销中...' : '确认冲销'}
@@ -1811,10 +1811,10 @@ export default function ContractDetail() {
       {/* 支出记录模块 */}
       {canViewFinance && (
       <div>
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">支出记录</h3>
-            <button onClick={() => { setEditingExpense(null); setShowExpenseModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
+            <button onClick={() => { setEditingExpense(null); setShowExpenseModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded hover:bg-gray-800 transition-colors">
               <Plus size={14} /> 新增支出
             </button>
           </div>
@@ -1837,10 +1837,10 @@ export default function ContractDetail() {
 
       {/* 收款记录模块 */}
       <div>
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">收款记录</h3>
-            <button onClick={() => { setEditingReceipt(null); setShowReceiptModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
+            <button onClick={() => { setEditingReceipt(null); setShowReceiptModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded hover:bg-gray-800 transition-colors">
               <Plus size={14} /> 新增收款
             </button>
           </div>
@@ -1874,12 +1874,12 @@ export default function ContractDetail() {
 
       {/* 报价管理 */}
       <div>
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="px-5 pt-4 pb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">报价记录</h3>
             <button
               onClick={handleOpenQuotationModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white border border-gray-900 text-sm font-medium rounded hover:bg-gray-800 transition-colors"
             >
               <Plus size={14} /> 新增报价
             </button>
@@ -1934,7 +1934,7 @@ export default function ContractDetail() {
               const files = Array.from(e.target.files || []);
               setPendingInvoiceUploads(prev => [...prev, ...files.map(createUploadProgressItem)]);
               e.currentTarget.value = '';
-            }} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
+            }} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
             <UploadProgressList
               items={pendingInvoiceUploads}
               disabled={invoiceSubmitting}
@@ -1957,7 +1957,7 @@ export default function ContractDetail() {
       {/* 编辑收款阶段 Modal */}
       <Modal open={showStageModal} onClose={() => setShowStageModal(false)} title="编辑收款阶段" size="sm">
         <div className="space-y-4" onKeyDown={focusNextOnEnter}>
-          <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+          <div className="rounded bg-gray-50 px-3 py-2 text-xs text-gray-500">
             此处维护合同正式收款计划，可自由添加阶段。临时到账请在新增收款时选择“自定义阶段”；阶段金额可以不等于合同金额。
           </div>
           <div className="space-y-3">
@@ -1977,7 +1977,7 @@ export default function ContractDetail() {
             const diff = stageTotal - (contract.contractAmount || 0);
             if (!diff) return null;
             return (
-              <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <div className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 阶段合计 {formatMoney(stageTotal)}，与合同金额相差 {formatMoney(diff)}，仍可保存。
               </div>
             );

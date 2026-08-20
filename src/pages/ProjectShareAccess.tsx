@@ -73,9 +73,9 @@ export default function ProjectShareAccess() {
 
   return (
     <div className="erp-page max-w-[1100px] mx-auto space-y-4">
-      <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded md:rounded border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-start gap-3 px-4 md:px-6 py-4">
-          <button onClick={() => navigate(`/projects-biz/${id}`)} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={() => navigate(`/projects-biz/${id}`)} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded transition-colors">
             <ArrowLeft className="w-[18px] h-[18px] text-gray-400" />
           </button>
           <div className="min-w-0 flex-1">
@@ -87,7 +87,7 @@ export default function ProjectShareAccess() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded md:rounded border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="py-16 text-center text-gray-400">
             <Loader2 className="w-7 h-7 mx-auto mb-3 animate-spin" />
@@ -122,14 +122,14 @@ export default function ProjectShareAccess() {
                         <button
                           disabled={isBusy}
                           onClick={() => updateStatus(record, 'approved')}
-                          className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-50"
+                          className="inline-flex h-8 items-center gap-1 rounded bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-50"
                         >
                           <Check size={13} /> 通过
                         </button>
                         <button
                           disabled={isBusy}
                           onClick={() => updateStatus(record, 'rejected')}
-                          className="inline-flex h-8 items-center gap-1 rounded-lg bg-gray-100 px-3 text-xs font-semibold text-gray-600 disabled:opacity-50"
+                          className="inline-flex h-8 items-center gap-1 rounded bg-gray-100 px-3 text-xs font-semibold text-gray-600 disabled:opacity-50"
                         >
                           <X size={13} /> 拒绝
                         </button>

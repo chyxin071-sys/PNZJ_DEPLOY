@@ -539,7 +539,7 @@ export default function Expense() {
       key: 'category',
       title: '支出类别',
       render: (row: Record<string, unknown>) => (
-        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+        <div className="mt-2 rounded bg-gray-50 px-3 py-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="text-gray-400">支出类别</span>
             <span className={`rounded px-2 py-0.5 font-medium ${categoryBadgeClass(resolveExpenseCategory(row as any, expenseCategories).primaryName)}`}>
@@ -744,7 +744,7 @@ export default function Expense() {
               onChange={(e) => {
                 setAttachmentFiles(Array.from(e.target.files || []));
               }}
-              className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200"
+              className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200"
             />
             <p className="text-xs text-amber-600 mt-1">附件非必填，可先登记支出，后续再补上传票据或收据。</p>
             {attachmentFiles.length > 0 && (
@@ -777,12 +777,12 @@ export default function Expense() {
       >
         {controlAction && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+            <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
               {controlAction.type === 'reverse'
                 ? '已付款的支出不能直接删除。冲销后该记录不再计入支出汇总，但会保留原始记录和操作痕迹。'
                 : '删除会从业务列表中移除该记录，并写入财务操作日志。'}
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+            <div className="rounded bg-gray-50 px-3 py-3 text-sm text-gray-600">
               <div>收款方：<span className="font-medium text-gray-900">{controlAction.item.supplier || '-'}</span></div>
               <div className="mt-1">金额：<span className="font-medium text-red-500">{formatMoney(controlAction.item.amount || 0)}</span></div>
             </div>
@@ -800,7 +800,7 @@ export default function Expense() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setControlAction(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
-              <button onClick={handleExpenseControlAction} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+              <button onClick={handleExpenseControlAction} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors">
                 {controlAction.type === 'reverse' ? '确认冲销' : '确认删除'}
               </button>
             </div>

@@ -119,7 +119,7 @@ export default function ImagePreviewModal({ images, index, onIndexChange, onClos
         >
           {images.map((src, idx) => (
             <div key={`${src}-${idx}`} className="flex h-full items-center justify-center" style={{ width: `${100 / images.length}%` }}>
-              <img src={src} alt="图片预览" className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl" draggable={false} />
+              <img src={src} alt="图片预览" className="max-h-[90vh] max-w-[92vw] rounded object-contain shadow-2xl" draggable={false} />
             </div>
           ))}
         </div>

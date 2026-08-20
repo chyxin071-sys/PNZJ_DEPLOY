@@ -141,11 +141,11 @@ function PairingView() {
 
   return (
     <main className="min-h-screen bg-[#f3f4f6] text-gray-900 flex items-center justify-center p-5 md:p-10">
-      <section className="w-full max-w-[1180px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl shadow-black/10">
+      <section className="w-full max-w-[1180px] overflow-hidden rounded border border-gray-200 bg-white shadow-2xl shadow-black/10">
         <div className="grid min-h-[680px] lg:grid-cols-[1.05fr_0.95fr]">
           <div className="flex flex-col justify-center gap-24 bg-[#111111] px-8 py-10 text-white md:px-14 md:py-14">
             <div className="flex items-center gap-4">
-              <img src={logoUrl} alt="品诺筑家" className="h-14 w-14 rounded-lg bg-white object-contain p-1" />
+              <img src={logoUrl} alt="品诺筑家" className="h-14 w-14 rounded bg-white object-contain p-1" />
               <div>
                 <div className="text-2xl font-bold">品诺筑家</div>
                 <div className="mt-1 text-sm text-white/50">全链路管理系统</div>
@@ -159,7 +159,7 @@ function PairingView() {
           <div className="flex flex-col items-center justify-center px-8 py-10 md:px-14">
             {pairing && remaining > 0 ? (
               <>
-                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="rounded border border-gray-200 bg-white p-3 shadow-sm">
                   {qrUrl ? <img src={qrUrl} alt="大屏授权二维码" className="h-56 w-56 md:h-64 md:w-64" /> : <div className="h-64 w-64 animate-pulse bg-gray-100" />}
                 </div>
                 <p className="mt-6 text-sm text-gray-500">微信扫码后使用已登录的管理员账号确认</p>
@@ -183,7 +183,7 @@ function Stat({ label, value, icon: Icon, tone = 'dark', badge, badgeTone = 'neu
   const colors = { dark: 'text-gray-950', gold: 'text-[#b78618]', red: 'text-red-500', green: 'text-emerald-600' };
   const iconColors = { dark: 'bg-slate-50 text-slate-500', gold: 'bg-amber-50 text-amber-500', red: 'bg-rose-50 text-rose-500', green: 'bg-emerald-50 text-emerald-600' };
   const badgeColors = { neutral: 'bg-gray-100 text-gray-500', green: 'bg-emerald-50 text-emerald-600', red: 'bg-rose-50 text-rose-500', gold: 'bg-amber-50 text-amber-600' };
-  return <div className="min-w-0 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm"><div className="flex items-center justify-between gap-2"><span className={`flex h-8 w-8 items-center justify-center rounded-md ${iconColors[tone]}`}><Icon size={17} /></span>{badge && <span className={`truncate rounded-full px-2 py-1 text-[10px] ${badgeColors[badgeTone]}`}>{badge}</span>}</div><div className={`mt-2 text-2xl font-bold tabular-nums ${colors[tone]}`}>{value}</div><div className="mt-0.5 text-[11px] text-gray-400">{label}</div></div>;
+  return <div className="min-w-0 rounded border border-gray-200 bg-white px-4 py-3 shadow-sm"><div className="flex items-center justify-between gap-2"><span className={`flex h-8 w-8 items-center justify-center rounded-md ${iconColors[tone]}`}><Icon size={17} /></span>{badge && <span className={`truncate rounded-full px-2 py-1 text-[10px] ${badgeColors[badgeTone]}`}>{badge}</span>}</div><div className={`mt-2 text-2xl font-bold tabular-nums ${colors[tone]}`}>{value}</div><div className="mt-0.5 text-[11px] text-gray-400">{label}</div></div>;
 }
 
 function ProjectSortButton({ label, sortKey, activeKey, direction, onSort }: { label: string; sortKey: ProjectSortKey; activeKey: ProjectSortKey; direction: SortDirection; onSort: (key: ProjectSortKey) => void }) {
@@ -333,7 +333,7 @@ function DashboardView({ token }: { token: string }) {
   return (
     <main className="h-screen min-h-[720px] overflow-hidden bg-[#f3f4f6] p-4 text-gray-900 xl:p-6">
       <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-4">
-        <header className="flex h-[72px] shrink-0 items-center justify-between rounded-lg bg-[#111111] px-6 text-white">
+        <header className="flex h-[72px] shrink-0 items-center justify-between rounded bg-[#111111] px-6 text-white">
           <div className="flex items-center gap-4"><img src={logoUrl} alt="品诺筑家" className="h-11 w-11 rounded-md bg-white object-contain p-0.5" /><div><h1 className="text-xl font-bold">品诺筑家运营中心</h1><p className="mt-0.5 text-xs text-white/45">工地进度与资源协同</p></div></div>
           <div className="flex items-center gap-5">
             <div className={`flex items-center gap-2 text-xs ${stale ? 'text-amber-300' : 'text-emerald-300'}`}>{stale ? <WifiOff size={15} /> : <Wifi size={15} />}{stale ? '同步稍有延迟' : `已同步 ${formatTime(lastSuccess)}`}</div>
@@ -352,7 +352,7 @@ function DashboardView({ token }: { token: string }) {
         </section>
 
         <div className="grid min-h-0 flex-1 grid-cols-6 gap-3">
-          <section className="col-span-4 flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="col-span-4 flex min-h-0 flex-col overflow-hidden rounded border border-gray-200 bg-white shadow-sm">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5">
               <div><h2 className="text-base font-semibold">在施工地进度</h2><p className="text-[11px] text-gray-400">待办与施工进度总览</p></div>
               <div className="flex items-center gap-3">
@@ -402,7 +402,7 @@ function DashboardView({ token }: { token: string }) {
             </div>
           </section>
 
-          <section className="col-span-2 flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="col-span-2 flex min-h-0 flex-col overflow-hidden rounded border border-gray-200 bg-white shadow-sm">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-5"><div><h2 className="text-base font-semibold">近期工人进场</h2><p className="text-[11px] text-gray-400">未来 7 天施工安排</p></div><CalendarClock size={17} className="text-[#d4a843]" /></div>
             <div className="grid shrink-0 grid-cols-[92px_repeat(7,minmax(30px,1fr))] border-b border-gray-100 bg-gray-50 text-center text-[10px] text-gray-400">
               <div className="px-2 py-2 text-left">工人 / 工种</div>
@@ -432,7 +432,7 @@ function DashboardView({ token }: { token: string }) {
       <Modal open={Boolean(todoProject)} onClose={() => setTodoProjectId('')} title={`${todoProject?.address || '工地'} · 待解决事项`} size="md">
         <div className="space-y-3">
           {(todoProject?.todoItems || []).map((todo, index) => (
-            <div key={todo.id || `${todo.title}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div key={todo.id || `${todo.title}-${index}`} className="rounded border border-gray-200 bg-gray-50 px-4 py-3">
               <div className="flex items-start justify-between gap-4">
                 <p className="min-w-0 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-gray-900">{todo.title}</p>
                 {todo.overdue && <span className="shrink-0 rounded bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600">已逾期</span>}

@@ -181,7 +181,7 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end bg-black/45 md:items-center md:justify-center md:p-5" onClick={onClose}>
-      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-3xl md:rounded-lg" onClick={(event) => event.stopPropagation()}>
+      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-3xl md:rounded" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-base font-bold text-gray-900">收支类别管理</h2>

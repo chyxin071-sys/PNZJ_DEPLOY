@@ -31,10 +31,10 @@ export default function AttachmentViewerModal({ isOpen, onClose, attachments, ti
             {files.map((file, idx) => {
               const canDelete = Boolean(onDelete && (isAdmin || (file.uploader && file.uploader === myName)));
               return (
-                <div key={`${file.fileID || file.name}-${idx}`} className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
+                <div key={`${file.fileID || file.name}-${idx}`} className="rounded border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-start gap-2.5">
-                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-gray-400">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-white text-gray-400">
                         <Paperclip size={15} />
                       </span>
                       <div className="min-w-0">

@@ -523,7 +523,7 @@ export default function Income() {
       key: 'stage',
       title: '收款阶段',
       render: (row: Record<string, unknown>) => (
-        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+        <div className="mt-2 rounded bg-gray-50 px-3 py-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="text-gray-400">收款阶段</span>
             <span className="font-medium text-gray-700">{(row.stage as string) || '-'}</span>
@@ -630,7 +630,7 @@ export default function Income() {
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input value={contractSearch} onChange={(e) => setContractSearch(e.target.value)} placeholder="搜索项目地址 / 客户姓名..." className="erp-input pl-9" autoFocus />
                 </div>
-                <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                <div className="max-h-48 overflow-y-auto border border-gray-100 rounded divide-y divide-gray-50">
                   {filteredContractList.map(c => {
                     const pct = getContractProgress(c);
                     const color = pct >= 0.8 ? 'bg-emerald-500' : pct >= 0.5 ? 'bg-amber-400' : 'bg-blue-400';
@@ -658,7 +658,7 @@ export default function Income() {
                 </div>
               </div>
             ) : (
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="p-3 bg-gray-50 rounded border border-gray-100">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-800">{selectedContract?.houseAddress}</span>
                   <button onClick={() => { setForm({ ...form, contractId: '', stage: '', stageType: 'contract', amount: '' }); }} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
@@ -721,7 +721,7 @@ export default function Income() {
           </div>
 
           {warning && (
-            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${warning.type === 'over' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
+            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded ${warning.type === 'over' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
               <AlertTriangle size={14} />{warning.msg}
             </div>
           )}
@@ -744,7 +744,7 @@ export default function Income() {
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">追加凭证附件</label>
             <input type="file" multiple onChange={(e) => {
               setAttachmentFiles(Array.from(e.target.files || []));
-            }} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
+            }} className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200" />
             <p className="text-xs text-amber-600 mt-1">附件非必填，可先登记收款，凭证稍后补传。</p>
             {attachmentFiles.length > 0 && (
               <p className="text-xs text-gray-400 mt-1">{attachmentFiles.length} 个新文件待上传</p>
@@ -785,10 +785,10 @@ export default function Income() {
       >
         {reverseReceipt && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+            <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
               已入账的收款不能直接删除。冲销后该记录不再计入收款汇总，但会保留原始记录和操作痕迹。
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+            <div className="rounded bg-gray-50 px-3 py-3 text-sm text-gray-600">
               <div>客户：<span className="font-medium text-gray-900">{reverseReceipt.customerName || '-'}</span></div>
               <div className="mt-1">金额：<span className="font-medium text-emerald-600">{formatMoney(reverseReceipt.amount || 0)}</span></div>
               <div className="mt-1">阶段：<span className="font-medium text-gray-900">{reverseReceipt.stage || '-'}</span></div>
@@ -805,7 +805,7 @@ export default function Income() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setReverseReceipt(null); setReverseReason(''); }} className="erp-btn-secondary">取消</button>
-              <button onClick={handleReverseReceipt} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
+              <button onClick={handleReverseReceipt} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors">
                 确认冲销
               </button>
             </div>

@@ -353,7 +353,7 @@ export default function SignedContracts() {
       <div className="px-3 md:px-4 mb-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {STAT_CARDS.map((card) => (
-            <div key={card.label} className={`flex h-20 flex-col justify-center rounded-lg border border-gray-100 px-4 py-3 ${card.bg}`}>
+            <div key={card.label} className={`flex h-20 flex-col justify-center rounded border border-gray-100 px-4 py-3 ${card.bg}`}>
               <div className="text-[10px] text-gray-400 mb-1">{card.label}</div>
               <div className={`text-sm font-bold ${card.color}`}>{card.value}</div>
             </div>
@@ -404,7 +404,7 @@ export default function SignedContracts() {
                 <div>
                   <label className="block text-[10px] text-gray-400 mb-1">工地进度</label>
                   <select value={filterSite} onChange={e => setFilterSite(e.target.value)}
-                    className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
+                    className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
                     <option value="全部">全部</option>
                     <option value="未开工">未开工</option>
                     <option value="进行中">进行中</option>
@@ -415,7 +415,7 @@ export default function SignedContracts() {
                 <div>
                   <label className="block text-[10px] text-gray-400 mb-1">销售</label>
                   <select value={filterSales} onChange={e => setFilterSales(e.target.value)}
-                    className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
+                    className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
                     <option value="">全部</option>
                     {salesOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -424,7 +424,7 @@ export default function SignedContracts() {
                 <div>
                   <label className="block text-[10px] text-gray-400 mb-1">设计</label>
                   <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)}
-                    className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
+                    className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
                     <option value="">全部</option>
                     {designerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -449,7 +449,7 @@ export default function SignedContracts() {
                 {/* 清除 */}
                 <div className="flex items-end">
                   <button onClick={clearFilters}
-                    className="w-full flex items-center justify-center gap-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors duration-150">
+                    className="w-full flex items-center justify-center gap-1 border border-gray-200 rounded px-3 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors duration-150">
                     <X size={14} /> 清除
                   </button>
                 </div>
@@ -565,7 +565,7 @@ export default function SignedContracts() {
           <div className="hidden md:block">
             {createPortal(
             <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setAssignTarget(null)}>
-              <div className="bg-white rounded-xl w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+              <div className="bg-white rounded w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-100">
                   <h3 className="text-sm font-semibold text-gray-900">
                     分配{assignTarget.role === 'sales' ? '销售' : assignTarget.role === 'designer' ? '设计师' : '工程'} — {assignTarget.lead.name}
@@ -577,7 +577,7 @@ export default function SignedContracts() {
                     return opts.length > 0 ? opts.map(opt => {
                       const checked = assignSelected.includes(opt.value);
                       return (
-                        <label key={opt.value} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gold-50 cursor-pointer transition-colors">
+                        <label key={opt.value} className="flex items-center gap-2.5 px-3 py-2.5 rounded hover:bg-gold-50 cursor-pointer transition-colors">
                           <input type="checkbox" checked={checked} onChange={() => {
                             setAssignSelected(prev => checked ? prev.filter(x => x !== opt.value) : [...prev, opt.value]);
                           }} className="w-4 h-4 text-gold-400 border-gray-300 rounded focus:ring-gold-400" />
@@ -589,7 +589,7 @@ export default function SignedContracts() {
                 </div>
                 <div className="p-3 border-t border-gray-100 flex justify-end gap-2">
                   <button disabled={assigning} onClick={() => setAssignTarget(null)} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 disabled:opacity-40">取消</button>
-                  <button disabled={assigning} onClick={() => handleQuickAssign(assignTarget.lead._id, assignTarget.role, assignSelected)} className="px-4 py-1.5 text-xs bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:opacity-50">
+                  <button disabled={assigning} onClick={() => handleQuickAssign(assignTarget.lead._id, assignTarget.role, assignSelected)} className="px-4 py-1.5 text-xs bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:opacity-50">
                     {assigning ? '保存中...' : '确认'}
                   </button>
                 </div>
@@ -607,7 +607,7 @@ export default function SignedContracts() {
                 return opts.length > 0 ? opts.map(opt => {
                   const checked = assignSelected.includes(opt.value);
                   return (
-                    <label key={opt.value} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gold-50 cursor-pointer transition-colors">
+                    <label key={opt.value} className="flex items-center gap-3 px-4 py-3 rounded hover:bg-gold-50 cursor-pointer transition-colors">
                       <input type="checkbox" checked={checked} onChange={() => {
                         setAssignSelected(prev => checked ? prev.filter(x => x !== opt.value) : [...prev, opt.value]);
                       }} className="w-5 h-5 text-gold-400 border-gray-300 rounded focus:ring-gold-400" />
@@ -619,7 +619,7 @@ export default function SignedContracts() {
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
               <button disabled={assigning} onClick={() => setAssignTarget(null)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40">取消</button>
-              <button disabled={assigning} onClick={() => handleQuickAssign(assignTarget.lead._id, assignTarget.role, assignSelected)} className="px-6 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:opacity-50">
+              <button disabled={assigning} onClick={() => handleQuickAssign(assignTarget.lead._id, assignTarget.role, assignSelected)} className="px-6 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:opacity-50">
                 {assigning ? '保存中...' : '确认'}
               </button>
             </div>

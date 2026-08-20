@@ -84,7 +84,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-8">
             {error && (
-              <div className="p-3 bg-rose-50 text-rose-600 text-sm text-center font-light rounded-lg border border-rose-100">
+              <div className="p-3 bg-rose-50 text-rose-600 text-sm text-center font-light rounded border border-rose-100">
                 {error}
               </div>
             )}
@@ -127,7 +127,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="group flex items-center justify-between w-full bg-[#0f0f0f] text-white px-6 py-4 hover:bg-[#1a1a1a] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed rounded-lg shadow-lg shadow-black/10"
+                className="group flex items-center justify-between w-full bg-[#0f0f0f] text-white px-6 py-4 hover:bg-[#1a1a1a] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed rounded shadow-lg shadow-black/10"
               >
                 {loading ? (
                   <span className="font-light tracking-widest text-sm flex items-center gap-2">
@@ -163,7 +163,7 @@ export default function LoginPage() {
             className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
             onClick={() => setShowContact(false)}
           />
-          <div className="relative bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden">
+          <div className="relative bg-white w-full max-w-sm rounded shadow-xl overflow-hidden">
             <button 
               onClick={() => setShowContact(false)}
               className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-zinc-600 bg-zinc-50 hover:bg-zinc-100 rounded-full transition-colors"
@@ -178,13 +178,13 @@ export default function LoginPage() {
               </div>
 
               <div className="flex flex-col items-center justify-center">
-                <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 rotate-3 border border-amber-100">
+                <div className="w-16 h-16 bg-amber-50 rounded flex items-center justify-center mb-6 rotate-3 border border-amber-100">
                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 -rotate-3">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                   </svg>
                 </div>
                 
-                <div className="bg-zinc-50 w-full rounded-xl p-4 text-center mb-8 border border-zinc-100">
+                <div className="bg-zinc-50 w-full rounded p-4 text-center mb-8 border border-zinc-100">
                   <div className="text-2xl font-light tracking-wider text-zinc-900 select-all">
                     chyxinxin222
                   </div>
@@ -193,7 +193,7 @@ export default function LoginPage() {
 
                 <button 
                   onClick={() => setShowContact(false)}
-                  className="w-full py-3.5 bg-[#0f0f0f] hover:bg-[#1a1a1a] text-white rounded-xl transition-all duration-200 font-medium text-sm shadow-sm"
+                  className="w-full py-3.5 bg-[#0f0f0f] hover:bg-[#1a1a1a] text-white rounded transition-all duration-200 font-medium text-sm shadow-sm"
                 >
                   我知道了
                 </button>

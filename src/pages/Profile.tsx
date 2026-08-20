@@ -268,7 +268,7 @@ export default function Profile() {
       {/* 统计卡片：仅桌面端 */}
       {!isMobile && (
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <div className="bg-white rounded p-4 border border-gray-100">
             <div className="flex items-center gap-2 text-xs text-gray-400 mb-1"><ShieldCheck size={14} /> 角色</div>
             <div className="mt-1 flex flex-wrap gap-1">
               {roles.map(role => {
@@ -277,11 +277,11 @@ export default function Profile() {
               })}
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <div className="bg-white rounded p-4 border border-gray-100">
             <div className="flex items-center gap-2 text-xs text-gray-400 mb-1"><CalendarDays size={14} /> 入职时间</div>
             <div className="text-lg font-bold text-gray-900">{formatDate(form.joinDate)}</div>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <div className="bg-white rounded p-4 border border-gray-100">
             <div className="flex items-center gap-2 text-xs text-gray-400 mb-1"><IdCard size={14} /> 已入职</div>
             <div className="text-lg font-bold text-gray-900">{days ? `${days} 天` : '-'}</div>
           </div>
@@ -292,7 +292,7 @@ export default function Profile() {
       {!isMobile ? (
         /* ---- 桌面端 ---- */
         <div>
-          <div className="flex-1 bg-white rounded-xl border border-gray-100">
+          <div className="flex-1 bg-white rounded border border-gray-100">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900"><UserIcon size={16} className="text-gold-500" /> 基本信息</h2>
             </div>
@@ -329,7 +329,7 @@ export default function Profile() {
             {editMode && (
               <>
                 <div className="flex justify-end gap-3 px-5 pb-5 border-t border-gray-100 pt-4">
-                  <button onClick={handleCancelEdit} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
+                  <button onClick={handleCancelEdit} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
                   <button onClick={handleSaveProfile} disabled={saving} className="erp-btn-primary">
                     <Save size={16} /> {saving ? '保存中...' : '保存资料'}
                   </button>
@@ -368,7 +368,7 @@ export default function Profile() {
                         </div>
                       </div>
                       <div className="flex justify-end mt-4">
-                        <button onClick={handleChangePassword} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800">
+                        <button onClick={handleChangePassword} className="inline-flex items-center gap-2 rounded bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800">
                           <Check size={16} /> 确认修改
                         </button>
                       </div>
@@ -383,12 +383,12 @@ export default function Profile() {
         /* ---- 移动端 ---- */
         <div className="space-y-4">
           {/* 基本信息 */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="bg-white rounded border border-gray-100 p-5">
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">姓名</label>
                 {editMode ? (
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
                 ) : (
                   <p className="text-sm text-gray-900">{form.name || '-'}</p>
                 )}
@@ -396,7 +396,7 @@ export default function Profile() {
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">手机号</label>
                 {editMode ? (
-                  <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" placeholder="请输入手机号" />
+                  <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" placeholder="请输入手机号" />
                 ) : (
                   <p className="text-sm text-gray-900">{form.phone || '-'}</p>
                 )}
@@ -430,8 +430,8 @@ export default function Profile() {
             {editMode && (
               <>
                 <div className="flex gap-3 mt-5 pt-4 border-t border-gray-100">
-                  <button onClick={handleCancelEdit} className="flex-1 py-2.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-                  <button onClick={handleSaveProfile} disabled={saving} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50">
+                  <button onClick={handleCancelEdit} className="flex-1 py-2.5 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+                  <button onClick={handleSaveProfile} disabled={saving} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-800 disabled:opacity-50">
                     <Save size={14} /> {saving ? '保存中...' : '保存资料'}
                   </button>
                 </div>
@@ -448,25 +448,25 @@ export default function Profile() {
                       <div>
                         <label className="mb-1 block text-xs font-medium text-gray-400">旧密码</label>
                         <div className="relative">
-                          <input type={showPwd.old ? 'text' : 'password'} value={passwordForm.oldPassword} onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })} placeholder="输入旧密码" autoComplete="current-password" className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                          <input type={showPwd.old ? 'text' : 'password'} value={passwordForm.oldPassword} onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })} placeholder="输入旧密码" autoComplete="current-password" className="w-full rounded border border-gray-200 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
                           <button type="button" onClick={() => togglePwd('old')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPwd.old ? <EyeOff size={14} /> : <Eye size={14} />}</button>
                         </div>
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-medium text-gray-400">新密码</label>
                         <div className="relative">
-                          <input type={showPwd.new ? 'text' : 'password'} value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="至少6位" autoComplete="new-password" className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                          <input type={showPwd.new ? 'text' : 'password'} value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="至少6位" autoComplete="new-password" className="w-full rounded border border-gray-200 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
                           <button type="button" onClick={() => togglePwd('new')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPwd.new ? <EyeOff size={14} /> : <Eye size={14} />}</button>
                         </div>
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-medium text-gray-400">确认新密码</label>
                         <div className="relative">
-                          <input type={showPwd.confirm ? 'text' : 'password'} value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="再次输入新密码" autoComplete="new-password" className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
+                          <input type={showPwd.confirm ? 'text' : 'password'} value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="再次输入新密码" autoComplete="new-password" className="w-full rounded border border-gray-200 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400" />
                           <button type="button" onClick={() => togglePwd('confirm')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPwd.confirm ? <EyeOff size={14} /> : <Eye size={14} />}</button>
                         </div>
                       </div>
-                      <button onClick={handleChangePassword} className="w-full flex items-center justify-center gap-2 rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white hover:bg-gray-800">
+                      <button onClick={handleChangePassword} className="w-full flex items-center justify-center gap-2 rounded bg-gray-900 py-2.5 text-sm font-medium text-white hover:bg-gray-800">
                         <Check size={14} /> 确认修改
                       </button>
                     </div>
@@ -484,10 +484,10 @@ export default function Profile() {
             type="button"
             onClick={handleOpenWechatNotifications}
             disabled={openingWechatNotifications}
-            className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:bg-gray-50"
+            className="flex w-full items-center justify-between rounded border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:bg-gray-50"
           >
             <span className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <span className="flex h-9 w-9 items-center justify-center rounded bg-emerald-50 text-emerald-600">
                 <Bell size={17} />
               </span>
               <span>
@@ -507,7 +507,7 @@ export default function Profile() {
             const ok = await showConfirm('确定要退出登录吗？', { confirmStyle: 'danger', confirmText: '退出', title: '退出登录' });
             if (ok) logout();
           }}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-medium text-red-500 hover:bg-red-100 transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded border border-red-200 bg-red-50 py-3 text-sm font-medium text-red-500 hover:bg-red-100 transition-colors"
         >
           <LogOut size={16} /> 退出登录
         </button>
@@ -578,7 +578,7 @@ function ProfileDatePicker({ value, onChange }: { value: string; onChange: (v: s
       </div>
       {/* 年份选择 */}
       {showYearPicker && (
-        <div className={`mb-2 p-1 border border-gray-100 rounded-lg bg-white max-h-[140px] overflow-y-auto grid grid-cols-4 gap-1 ${compact ? '' : ''}`}>
+        <div className={`mb-2 p-1 border border-gray-100 rounded bg-white max-h-[140px] overflow-y-auto grid grid-cols-4 gap-1 ${compact ? '' : ''}`}>
           {Array.from({ length: 21 }, (_, i) => today.getFullYear() - 10 + i).map(y => (
             <button key={y} type="button" onClick={() => { setViewDate(new Date(y, month, 1)); setShowYearPicker(false); }}
               className={`text-xs py-1 rounded hover:bg-gray-100 ${y === year ? 'bg-gold-400 text-black font-bold' : ''}`}>{y}</button>
@@ -587,7 +587,7 @@ function ProfileDatePicker({ value, onChange }: { value: string; onChange: (v: s
       )}
       {/* 月份选择 */}
       {showMonthPicker && (
-        <div className="mb-2 p-1 border border-gray-100 rounded-lg bg-white grid grid-cols-4 gap-1">
+        <div className="mb-2 p-1 border border-gray-100 rounded bg-white grid grid-cols-4 gap-1">
           {MONTHS.map((m, i) => (
             <button key={m} type="button" onClick={() => { setViewDate(new Date(year, i, 1)); setShowMonthPicker(false); }}
               className={`text-xs py-1 rounded hover:bg-gray-100 ${i === month ? 'bg-gold-400 text-black font-bold' : ''}`}>{m}</button>
@@ -630,13 +630,13 @@ function ProfileDatePicker({ value, onChange }: { value: string; onChange: (v: s
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={openPicker}
-        className="w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white px-3 py-2 text-xs transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400">
+        className="w-full flex items-center justify-between border border-gray-200 rounded bg-white px-3 py-2 text-xs transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400">
         <span className={value ? 'text-gray-700' : 'text-gray-400'}>{value || '选择日期'}</span>
         <CalendarDays size={12} className="text-gray-400 shrink-0 ml-1" />
       </button>
       {/* 桌面端弹窗 */}
       {open && (
-        <div className="hidden md:block absolute z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-3 mt-1" style={{ width: 260 }}>
+        <div className="hidden md:block absolute z-50 bg-white border border-gray-200 rounded shadow-xl p-3 mt-1" style={{ width: 260 }}>
           {renderCalendar(false)}
         </div>
       )}

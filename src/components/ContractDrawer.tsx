@@ -301,13 +301,13 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
         {/* 头部 */}
         <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b border-gray-100 px-5 md:px-6 py-3.5 md:py-4">
           <h2 className="text-sm md:text-base font-semibold text-gray-900">新建合同</h2>
-          <button onClick={onClose} disabled={saving} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={20} /></button>
+          <button onClick={onClose} disabled={saving} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={20} /></button>
         </div>
 
         <div className="px-5 md:px-6 py-5 space-y-5">
           {/* 关联客户 */}
           {currentBizType === '家装' && (
-            <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+            <div className="rounded border border-gray-100 bg-gray-50/70 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
@@ -323,23 +323,23 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
                   )}
                 </div>
                 <button type="button" onClick={() => setShowLeadPicker(v => !v)}
-                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                  className="shrink-0 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                   {hasSelectedCustomer ? '更换' : '选择'}
                 </button>
               </div>
               {showLeadPicker && (
-                <div className="mt-3 rounded-lg border border-gray-100 bg-white p-2">
+                <div className="mt-3 rounded border border-gray-100 bg-white p-2">
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input value={leadSearch} onChange={e => setLeadSearch(e.target.value)}
                       placeholder="搜索客户姓名、电话或地址"
-                      className="w-full rounded-lg border border-gray-200 py-2 pl-8 pr-3 text-[13px] outline-none focus:ring-1 focus:ring-gold-400" />
+                      className="w-full rounded border border-gray-200 py-2 pl-8 pr-3 text-[13px] outline-none focus:ring-1 focus:ring-gold-400" />
                   </div>
                   {filteredLeads.length > 0 ? (
                     <div className="mt-2 max-h-44 overflow-y-auto space-y-1">
                       {filteredLeads.slice(0, 20).map((l: any) => (
                         <div key={l._id} onClick={() => selectLead(l)}
-                          className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-[13px] hover:bg-gold-50">
+                          className="flex cursor-pointer items-center justify-between rounded px-3 py-2 text-[13px] hover:bg-gold-50">
                           <span className="font-medium text-gray-700">{l.name}</span>
                           <span className="ml-2 flex-1 truncate text-right text-xs text-gray-400">{l.address}</span>
                         </div>
@@ -413,7 +413,7 @@ export default function ContractDrawer({ open, onClose, prefill, onSaved }: Cont
             </div>
             <p className="mb-2 text-[11px] text-gray-400">可修改默认名称或添加合同阶段；临时到账请在新增收款时选择“自定义阶段”。</p>
             {showStageAmountHint && (
-              <div className={`mb-2 rounded-lg px-3 py-2 text-xs ${
+              <div className={`mb-2 rounded px-3 py-2 text-xs ${
                 Math.abs(stageDiff) < 0.01
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'bg-amber-50 text-amber-700'

@@ -13,7 +13,7 @@ export default function FormAttachmentList({
   if (files.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+    <div className="mt-2 space-y-2 rounded border border-gray-100 bg-gray-50 px-3 py-2">
       <p className="text-xs font-medium text-gray-500">已有附件</p>
       <div className="flex flex-col gap-2">
         {files.map((file, idx) => (

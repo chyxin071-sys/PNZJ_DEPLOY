@@ -35,7 +35,7 @@ export default function UploadProgressList({
   if (items.length === 0) return null;
 
   return (
-    <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 divide-y divide-gray-100 overflow-hidden">
+    <div className="mt-3 rounded border border-gray-100 bg-gray-50 divide-y divide-gray-100 overflow-hidden">
       {items.map((item) => {
         const isUploading = item.status === 'uploading';
         const isDone = item.status === 'done';

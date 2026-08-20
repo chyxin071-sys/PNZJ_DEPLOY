@@ -545,7 +545,7 @@ export default function CashFlow() {
       key: 'categorySummary',
       title: '分类与备注',
       render: (row: FlowItem) => (
-        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+        <div className="mt-2 rounded bg-gray-50 px-3 py-2">
           <div className="flex items-start justify-between gap-3 text-xs">
             <span className="shrink-0 text-gray-400">分类</span>
             <span className="text-right font-medium text-gray-700">{row.primaryCategory || '-'} / {row.secondaryCategory || '-'}</span>
@@ -692,7 +692,7 @@ export default function CashFlow() {
             <button
               type="button"
               onClick={loadMoreFlows}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700 transition-colors"
+              className="rounded border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gold-300 hover:bg-gold-50 hover:text-gold-700 transition-colors"
             >
               加载更多（已显示 {visibleFlowCount} / 共 {filtered.length}）
             </button>
@@ -702,7 +702,7 @@ export default function CashFlow() {
       <Modal open={!!selectedFlow} onClose={() => setSelectedFlow(null)} title="流水详情">
         {selectedFlow && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="rounded border border-gray-100 bg-gray-50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400">{formatDate(selectedFlow.date)}</p>
@@ -733,7 +733,7 @@ export default function CashFlow() {
             </div>
             <AttachmentSection attachments={selectedFlow.attachments || []} />
             {selectedFlow.type === '支出' ? (
-              <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
                 专业处理方式：未付款的测试支出可以删除；已付款支出不建议直接删除，应做冲销，系统会保留原记录和冲销痕迹，且不再计入资金流水汇总。
               </div>
             ) : null}
@@ -769,14 +769,14 @@ export default function CashFlow() {
       >
         {controlFlow && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+            <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
               {controlFlow.type === '收款'
                 ? '收款记录不直接删除。冲销后该记录不再计入收入和资金流水汇总，但会保留原始记录、冲销原因和操作日志。'
                 : getControlType(controlFlow) === 'reverse'
                   ? '已付款支出不直接删除。冲销后该记录不再计入支出和资金流水汇总，但会保留原始记录、冲销原因和操作日志。'
                   : '未付款或测试类支出可删除。删除后该记录不再出现在业务列表中，并写入财务操作日志。'}
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600">
+            <div className="rounded bg-gray-50 px-3 py-3 text-sm text-gray-600">
               <div>{controlFlow.type === '收款' ? '客户' : '收款方'}：<span className="font-medium text-gray-900">{controlFlow.relatedParty || '-'}</span></div>
               <div className="mt-1">合同编号：<span className="font-medium text-gray-900">{controlFlow.contractNo || '-'}</span></div>
               <div className="mt-1">金额：<span className={`font-medium ${controlFlow.type === '收款' ? 'text-emerald-600' : 'text-red-500'}`}>{formatMoney(controlFlow.amount || 0)}</span></div>
@@ -796,7 +796,7 @@ export default function CashFlow() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => { setControlFlow(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
-              <button type="button" onClick={handleFlowControl} className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
+              <button type="button" onClick={handleFlowControl} className="rounded bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
                 确认{getControlLabel(controlFlow)}
               </button>
             </div>
@@ -822,7 +822,7 @@ export default function CashFlow() {
 
 function DetailItem({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className={`rounded-lg border border-gray-100 bg-white px-3 py-2.5 ${wide ? 'sm:col-span-2' : ''}`}>
+    <div className={`rounded border border-gray-100 bg-white px-3 py-2.5 ${wide ? 'sm:col-span-2' : ''}`}>
       <p className="text-xs text-gray-400">{label}</p>
       <p className="mt-1 break-words text-sm font-medium text-gray-800">{value}</p>
     </div>
@@ -832,7 +832,7 @@ function DetailItem({ label, value, wide = false }: { label: string; value: stri
 function AttachmentSection({ attachments }: { attachments: AttachmentValue[] }) {
   const files = normalizeAttachments(attachments);
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3">
+    <div className="rounded border border-gray-100 bg-white p-3">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
           <Paperclip size={14} />
@@ -845,7 +845,7 @@ function AttachmentSection({ attachments }: { attachments: AttachmentValue[] }) 
       ) : (
         <div className="space-y-2">
           {files.map((file, index) => (
-            <div key={`${file.fileID || file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+            <div key={`${file.fileID || file.name}-${index}`} className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-800" title={file.name}>{file.name}</p>
                 <p className="mt-0.5 text-[11px] text-gray-400">{file.uploader || '-'}{file.sizeStr ? ` · ${file.sizeStr}` : ''}</p>

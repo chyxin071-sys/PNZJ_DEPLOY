@@ -225,7 +225,7 @@ export default function ProjectDetail() {
     <div className="erp-page-spaced">
       {/* 头部 */}
       <div className="flex items-center gap-4">
-        <button onClick={() => smartBack()} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+        <button onClick={() => smartBack()} className="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div>
@@ -243,7 +243,7 @@ export default function ProjectDetail() {
       {/* 支出双维度分析区 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 按类别分类 */}
-        <div className="bg-white rounded-lg border border-gray-100 p-5">
+        <div className="bg-white rounded border border-gray-100 p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">按类别分类</h3>
           {pieOption ? (
             <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 240 }} notMerge />
@@ -266,7 +266,7 @@ export default function ProjectDetail() {
         </div>
 
         {/* 按收款方分类 */}
-        <div className="bg-white rounded-lg border border-gray-100 p-5">
+        <div className="bg-white rounded border border-gray-100 p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">按收款方分类</h3>
           {barOption ? (
             <ReactEChartsCore echarts={echarts} option={barOption} style={{ height: 240 }} notMerge />
@@ -288,7 +288,7 @@ export default function ProjectDetail() {
 
       {/* 支出明细 - 按类别 */}
       <div>
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="px-5 pt-4 pb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">支出明细 - 按类别</h3>
             <span className="text-sm text-red-500 font-medium">合计：{formatMoney(filteredTotal)}</span>
@@ -307,7 +307,7 @@ export default function ProjectDetail() {
 
       {/* 收入明细 */}
       <div>
-        <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="px-5 pt-4 pb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">收入明细</h3>
             <span className="text-sm text-emerald-600 font-medium">合计：{formatMoney(totalReceived)}</span>

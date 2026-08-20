@@ -60,7 +60,7 @@ export default function InventoryRecords() {
   return (
     <div className="erp-page">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => smartBack()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => smartBack()} className="p-2 hover:bg-gray-100 rounded transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div>
@@ -70,21 +70,21 @@ export default function InventoryRecords() {
       </div>
 
       <div className="flex overflow-x-auto gap-1.5 md:grid md:grid-cols-3 md:gap-3 mb-4 scrollbar-hide -mx-1 px-1">
-        <div className="flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 border-transparent bg-white">
+        <div className="flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded p-2.5 md:p-4 border-2 border-transparent bg-white">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] md:text-xs text-gray-400">总记录数</span>
             <FileText size={14} className="text-gray-300" />
           </div>
           <p className="text-xl md:text-2xl font-bold text-gray-900">{records.length}</p>
         </div>
-        <div className="flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 border-transparent bg-white">
+        <div className="flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded p-2.5 md:p-4 border-2 border-transparent bg-white">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] md:text-xs text-gray-400">入库次数</span>
             <ArrowDownCircle size={14} className="text-gray-300" />
           </div>
           <p className="text-xl md:text-2xl font-bold text-emerald-600">{inCount}</p>
         </div>
-        <div className="flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 border-transparent bg-white">
+        <div className="flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded p-2.5 md:p-4 border-2 border-transparent bg-white">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] md:text-xs text-gray-400">出库次数</span>
             <ArrowUpCircle size={14} className="text-gray-300" />
@@ -93,7 +93,7 @@ export default function InventoryRecords() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100">
+      <div className="bg-white rounded border border-gray-100">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 border-b border-gray-100">
           <div className="flex gap-1.5">
             {([
@@ -117,7 +117,7 @@ export default function InventoryRecords() {
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               placeholder="搜索型号、色号、品牌、操作人..."
-              className="w-full pl-8 pr-8 py-1.5 text-sm bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+              className="w-full pl-8 pr-8 py-1.5 text-sm bg-gray-50 rounded focus:outline-none focus:ring-2 focus:ring-gray-900/10"
             />
             {search && (
               <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">

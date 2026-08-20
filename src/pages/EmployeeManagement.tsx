@@ -201,7 +201,7 @@ export default function EmployeeManagement() {
             const members = users.filter(u => employeeRoles(u).includes(role as Role) && u.status !== 'inactive');
             if (members.length === 0) return null;
             return (
-              <div key={role} className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div key={role} className="bg-white rounded border border-gray-100 shadow-sm">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${ROLE_MAP[role]?.bg} ${ROLE_MAP[role]?.color} border-current/20`}>
                     {ROLE_MAP[role]?.label}
@@ -258,7 +258,7 @@ export default function EmployeeManagement() {
             return (
               <button key={card.key} type="button"
                 onClick={() => { setActiveTab(isActive && activeTab !== 'all' ? 'all' : card.key); setExpandedId(null); }}
-                className={`flex-shrink-0 w-[calc((100%-16px)/3)] rounded-xl p-3 border-2 text-left transition-all ${isActive ? `bg-white ${card.border}` : 'border-transparent bg-white'}`}>
+                className={`flex-shrink-0 w-[calc((100%-16px)/3)] rounded p-3 border-2 text-left transition-all ${isActive ? `bg-white ${card.border}` : 'border-transparent bg-white'}`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-[11px] ${isActive ? card.color : 'text-gray-400'}`}>{card.label}</span>
                 </div>
@@ -275,7 +275,7 @@ export default function EmployeeManagement() {
             return (
               <button key={card.key} type="button"
                 onClick={() => { setActiveTab(isActive && activeTab !== 'all' ? 'all' : card.key); setExpandedId(null); }}
-                className={`rounded-xl p-4 border-2 text-left transition-all cursor-pointer ${isActive ? `${activeBg} text-white ${card.border}` : 'bg-white border-transparent hover:bg-gray-50'}`}>
+                className={`rounded p-4 border-2 text-left transition-all cursor-pointer ${isActive ? `${activeBg} text-white ${card.border}` : 'bg-white border-transparent hover:bg-gray-50'}`}>
                 <p className="text-xs mb-1 opacity-80">{card.label}</p>
                 <p className="text-2xl font-bold">{card.count}</p>
               </button>
@@ -285,12 +285,12 @@ export default function EmployeeManagement() {
       )}
 
       {/* 筛选与搜索 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-3 mb-4">
+      <div className="bg-white rounded border border-gray-100 p-3 mb-4">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             placeholder="搜索员工姓名 / 账号 / 手机号"
-            className="w-full pl-8 pr-8 py-1.5 text-sm bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10" />
+            className="w-full pl-8 pr-8 py-1.5 text-sm bg-gray-50 rounded focus:outline-none focus:ring-2 focus:ring-gray-900/10" />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               <X size={14} />
@@ -309,7 +309,7 @@ export default function EmployeeManagement() {
           ) : filtered.map(emp => {
             const isExpanded = expandedId === emp.id;
             return (
-              <div key={emp.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div key={emp.id} className="bg-white rounded border border-gray-100 overflow-hidden">
                 {/* 卡片头部 */}
                 <button
                   type="button"
@@ -379,16 +379,16 @@ export default function EmployeeManagement() {
                     {/* 操作按钮 */}
                     <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-50">
                       <button onClick={() => { handleOpenEdit(emp); setExpandedId(null); }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50">
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded hover:bg-gray-50">
                         <Edit size={12} /> 编辑
                       </button>
                       <button onClick={() => { setResetPwdUser({ id: emp.id, name: emp.name }); setExpandedId(null); }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50">
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded hover:bg-gray-50">
                         <KeyRound size={12} /> 重置密码
                       </button>
                       {emp.id !== myId && (
                           <button onClick={() => { setConfirmAction({ id: emp.id, action: emp.status === 'active' ? '停用' : '启用' }); setExpandedId(null); }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50">
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs border border-amber-200 text-amber-700 rounded hover:bg-amber-50">
                             <Ban size={12} /> {emp.status === 'active' ? '停用' : '启用'}
                           </button>
                       )}
@@ -401,7 +401,7 @@ export default function EmployeeManagement() {
         </div>
       ) : (
         /* 桌面端表格 */
-        <div className="bg-white rounded-xl border border-gray-100 overflow-visible">
+        <div className="bg-white rounded border border-gray-100 overflow-visible">
           <div className="overflow-visible">
             <table className="w-full text-left">
               <thead>
@@ -478,13 +478,13 @@ export default function EmployeeManagement() {
         <Modal onClose={() => setShowAddModal(false)}>
           <h2 className="text-lg font-bold mb-4">{editingUser ? '编辑员工' : '添加员工'}</h2>
           <form onSubmit={handleSave} className="space-y-3">
-            <div><label className="text-xs text-gray-500 mb-1 block">姓名 *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" required /></div>
-            <div><label className="text-xs text-gray-500 mb-1 block">登录账号 *</label><input value={form.account} onChange={e => setForm({ ...form, account: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" required />{!editingUser && <p className="text-xs text-gray-400 mt-1">默认初始密码: 888888</p>}</div>
-            <div><label className="text-xs text-gray-500 mb-1 block">手机号</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" /></div>
+            <div><label className="text-xs text-gray-500 mb-1 block">姓名 *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" required /></div>
+            <div><label className="text-xs text-gray-500 mb-1 block">登录账号 *</label><input value={form.account} onChange={e => setForm({ ...form, account: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" required />{!editingUser && <p className="text-xs text-gray-400 mt-1">默认初始密码: 888888</p>}</div>
+            <div><label className="text-xs text-gray-500 mb-1 block">手机号</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/10" /></div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">角色（可多选）</label>
               <div className="relative">
-                <button type="button" onClick={() => setShowRoleDropdown(!showRoleDropdown)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-left flex items-center justify-between">
+                <button type="button" onClick={() => setShowRoleDropdown(!showRoleDropdown)} className="w-full text-sm border border-gray-200 rounded px-3 py-2 text-left flex items-center justify-between">
                   <span className="flex flex-wrap gap-1">
                     {form.roles.map(role => (
                       <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${ROLE_MAP[role]?.bg} ${ROLE_MAP[role]?.color}`}>{ROLE_MAP[role]?.label}</span>
@@ -493,7 +493,7 @@ export default function EmployeeManagement() {
                   <ChevronDown size={14} className="text-gray-400" />
                 </button>
                 {showRoleDropdown && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-30">
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded shadow-lg border border-gray-100 py-1 z-30">
                     {Object.entries(ROLE_MAP).filter(([key]) => key !== 'employee').map(([key, role]) => (
                       <button key={key} type="button" onClick={() => {
                         const typedRole = key as Role;
@@ -516,7 +516,7 @@ export default function EmployeeManagement() {
               <div className="flex gap-2">
                 {['家装', '工装'].map(biz => (
                   <button key={biz} type="button" onClick={() => setForm({ ...form, bizTypes: form.bizTypes.includes(biz) ? form.bizTypes.filter(b => b !== biz) : [...form.bizTypes, biz] })}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.bizTypes.includes(biz) ? 'border-gray-900 bg-gray-50 text-gray-900' : 'border-gray-200 text-gray-500'}`}>{biz}</button>
+                    className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${form.bizTypes.includes(biz) ? 'border-gray-900 bg-gray-50 text-gray-900' : 'border-gray-200 text-gray-500'}`}>{biz}</button>
                 ))}
               </div>
             </div>
@@ -525,8 +525,8 @@ export default function EmployeeManagement() {
               <CustomDatePicker value={form.joinDate} onChange={v => setForm({ ...form, joinDate: v })} placeholder="选择入职日期" />
             </div>
             <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-              <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button type="submit" disabled={submitting} className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50">{submitting ? '保存中...' : '保存'}</button>
+              <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button type="submit" disabled={submitting} className="px-4 py-2 text-sm bg-gray-900 text-white rounded hover:bg-gray-800 disabled:opacity-50">{submitting ? '保存中...' : '保存'}</button>
             </div>
           </form>
         </Modal>
@@ -543,13 +543,13 @@ export default function EmployeeManagement() {
               ? '停用后该员工将无法登录系统，但数据仍然保留。'
               : '启用后该员工可以重新登录系统。'}
           </p>
-          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-4">
+          <p className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 mb-4">
             此操作将立即生效。
           </p>
           <div className="flex gap-3">
-            <button onClick={() => setConfirmAction(null)} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50" disabled={submitting}>取消</button>
+            <button onClick={() => setConfirmAction(null)} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50" disabled={submitting}>取消</button>
             <button onClick={handleConfirmAction} disabled={submitting}
-              className="flex-1 px-4 py-2 text-sm text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50">
+              className="flex-1 px-4 py-2 text-sm text-white bg-gray-900 rounded hover:bg-gray-800 disabled:opacity-50">
               {submitting ? '处理中...' : '确定'}
             </button>
           </div>
@@ -561,10 +561,10 @@ export default function EmployeeManagement() {
         <Modal onClose={() => { setResetPwdUser(null); setNewPassword(''); }}>
           <h2 className="text-lg font-bold mb-2">重置密码</h2>
           <p className="text-sm text-gray-500 mb-4">为 <span className="font-bold text-gray-900">{resetPwdUser.name}</span> 设置新密码</p>
-          <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="请输入新密码" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900/10" autoFocus />
+          <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="请输入新密码" className="w-full text-sm border border-gray-200 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900/10" autoFocus />
           <div className="flex gap-3">
-            <button onClick={() => { setResetPwdUser(null); setNewPassword(''); }} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50" disabled={submitting}>取消</button>
-            <button onClick={handleResetPassword} disabled={submitting || !newPassword} className="flex-1 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50">{submitting ? '处理中...' : '确认修改'}</button>
+            <button onClick={() => { setResetPwdUser(null); setNewPassword(''); }} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50" disabled={submitting}>取消</button>
+            <button onClick={handleResetPassword} disabled={submitting || !newPassword} className="flex-1 px-4 py-2 text-sm bg-gray-900 text-white rounded hover:bg-gray-800 disabled:opacity-50">{submitting ? '处理中...' : '确认修改'}</button>
           </div>
         </Modal>
       )}
@@ -576,11 +576,11 @@ function UserActionMenu({ emp, myId, onEdit, onToggleStatus, onResetPwd }: any) 
   const [open, setOpen] = useState(false);
   return (
     <div className="relative inline-block">
-      <button onClick={() => setOpen(!open)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><MoreVertical size={14} /></button>
+      <button onClick={() => setOpen(!open)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"><MoreVertical size={14} /></button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20">
+          <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded shadow-lg border border-gray-100 py-1 z-20">
             <button onClick={() => { onEdit(emp); setOpen(false); }} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"><Edit size={12} />编辑</button>
             <button onClick={() => { onResetPwd(emp.id, emp.name); setOpen(false); }} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50"><KeyRound size={12} />重置密码</button>
             {emp.id !== myId && (
@@ -596,7 +596,7 @@ function UserActionMenu({ emp, myId, onEdit, onToggleStatus, onResetPwd }: any) 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-auto p-5" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded w-full max-w-md max-h-[90vh] overflow-auto p-5" onClick={e => e.stopPropagation()}>
         {children}
       </div>
     </div>,
@@ -631,13 +631,13 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期' }: {
   return (
     <div className="relative">
       <button type="button" onClick={() => setOpen(!open)}
-        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-gray-900/10">
+        className="w-full text-sm border border-gray-200 rounded px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-gray-900/10">
         <span className={value ? 'text-gray-900' : 'text-gray-400'}>
           {value || placeholder}
         </span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-3" style={{ width: 260 }}>
+        <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded shadow-xl p-3" style={{ width: 260 }}>
           <div className="flex items-center justify-between mb-2">
             <button type="button" onClick={() => setMonth(m => m <= 0 ? (setYear(y => y - 1), 11) : m - 1)} className="p-1 hover:bg-gray-100 rounded">‹</button>
             <span className="text-sm font-medium text-gray-700">{year}年 {monthNames[month]}</span>

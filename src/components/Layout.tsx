@@ -228,7 +228,7 @@ export default function Layout() {
             {/* 手机端：汉堡菜单按钮 */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors shrink-0"
+              className="lg:hidden w-8 h-8 flex items-center justify-center rounded text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors shrink-0"
             >
               <Menu size={18} />
             </button>
@@ -238,7 +238,7 @@ export default function Layout() {
                 return (
                   <button
                     onClick={() => smartBack()}
-                    className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors shrink-0"
+                    className="lg:hidden w-8 h-8 flex items-center justify-center rounded text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors shrink-0"
                   >
                     <ArrowLeft size={18} />
                   </button>
@@ -257,12 +257,12 @@ export default function Layout() {
           {/* 桌面端右侧：业务类型切换、通知、用户菜单 */}
           <div className="hidden md:flex items-center gap-1 pr-3">
             {bizTypes.length > 1 && (
-              <div className="flex items-center bg-white/8 rounded-lg mr-2">
+              <div className="flex items-center bg-white/8 rounded mr-2">
                 {bizTypes.map((t) => (
                   <button
                     key={t}
                     onClick={() => handleBizTypeSwitch(t)}
-                    className={`text-[12px] px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    className={`text-[12px] px-3 py-1.5 rounded font-medium transition-all ${
                       currentBizType === t
                         ? 'bg-gold-400 text-black'
                         : 'text-white/60 hover:text-white/90'
@@ -277,7 +277,7 @@ export default function Layout() {
             {currentBizType === '家装' && <div ref={notifRef} className="relative">
               <button
                 onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
-                className="relative w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors"
+                className="relative w-8 h-8 flex items-center justify-center rounded text-white/60 hover:text-white/90 hover:bg-white/8 transition-colors"
               >
                 <Bell size={17} />
                 {unreadCount > 0 && (
@@ -288,7 +288,7 @@ export default function Layout() {
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 z-[170]">
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded shadow-xl border border-gray-100 z-[170]">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <span className="text-sm font-semibold text-gray-800">消息通知</span>
                     {unreadCount > 0 && (
@@ -335,7 +335,7 @@ export default function Layout() {
             <div ref={userMenuRef} className="relative">
               <button
                 onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
-                className="flex items-center gap-1.5 h-8 px-2 rounded-lg text-white/80 hover:text-white hover:bg-white/8 transition-colors"
+                className="flex items-center gap-1.5 h-8 px-2 rounded text-white/80 hover:text-white hover:bg-white/8 transition-colors"
               >
                 <div className="w-[22px] h-[22px] rounded-full bg-gold-400 flex items-center justify-center shrink-0">
                   <span className="text-black font-bold text-[10px]">{userName.charAt(0) || 'U'}</span>
@@ -345,7 +345,7 @@ export default function Layout() {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-lg shadow-lg border border-gray-100 z-[170] py-1">
+                <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded shadow-lg border border-gray-100 z-[170] py-1">
                   <div className="px-3 py-2 border-b border-gray-50">
                     <p className="text-[13px] font-medium text-gray-800 truncate">{userName}</p>
                     <p className="text-[11px] text-gray-400">{roleLabel[role]}</p>

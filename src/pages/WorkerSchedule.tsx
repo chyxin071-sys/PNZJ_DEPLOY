@@ -465,10 +465,10 @@ export default function WorkerSchedulePage() {
 
       <div className="mt-4 erp-surface overflow-hidden">
         <div className="sticky top-0 z-40 grid grid-cols-[minmax(0,1fr)_7.25rem] items-center gap-2 border-b border-gray-100 bg-white/95 p-2 backdrop-blur md:flex md:flex-wrap md:p-2.5">
-          <div className="relative h-9 min-w-0 md:h-10 md:flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 md:size-[15px]" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-full w-full rounded-lg border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3 md:text-sm" /></div>
+          <div className="relative h-9 min-w-0 md:h-10 md:flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 md:size-[15px]" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工人、电话或工种" className="h-full w-full rounded border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3 md:text-sm" /></div>
           <Select value={tradeFilter} onChange={setTradeFilter} options={tradeOptions} className="h-9 w-full min-w-0 [&>.erp-select]:h-full [&>.erp-select]:px-2.5 [&>.erp-select]:text-xs md:h-10 md:w-[132px] md:[&>.erp-select]:px-3 md:[&>.erp-select]:text-sm" sheetTitle="选择工种" />
-          <div className="col-span-2 flex h-9 w-full items-center rounded-lg border border-gray-200 bg-white md:col-span-1 md:h-10 md:w-auto"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-0 flex-1 border-x border-gray-200 px-3 text-xs font-medium md:min-w-[92px] md:flex-none" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
-          <div className="hidden h-10 rounded-lg bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
+          <div className="col-span-2 flex h-9 w-full items-center rounded border border-gray-200 bg-white md:col-span-1 md:h-10 md:w-auto"><button onClick={() => setAnchorDate(addDays(anchorDate, -viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="上一时间段" aria-label="上一时间段"><ChevronLeft size={16} /></button><button onClick={() => setAnchorDate(startOfWeek(new Date()))} className="min-w-0 flex-1 border-x border-gray-200 px-3 text-xs font-medium md:min-w-[92px] md:flex-none" title="返回本周">{rangeNavigationLabel}</button><button onClick={() => setAnchorDate(addDays(anchorDate, viewDays))} className="h-full shrink-0 px-3 text-gray-500" title="下一时间段" aria-label="下一时间段"><ChevronRight size={16} /></button></div>
+          <div className="hidden h-10 rounded bg-gray-100 p-0.5 md:flex">{([7, 14, 30] as const).map((days) => <button key={days} onClick={() => setViewDays(days)} className={`rounded-md px-2.5 text-xs ${viewDays === days ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500'}`}>{days === 7 ? '周' : days === 14 ? '双周' : '月'}</button>)}</div>
         </div>
 
         {error && !workerEditorOpen && !scheduleEditorOpen && <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-xs leading-5 text-red-600">{error}</div>}
@@ -496,7 +496,7 @@ export default function WorkerSchedulePage() {
                 { value: 'ready', label: '可安排', count: unassignedStages.filter((item) => item.readiness === 'ready').length },
                 { value: 'overdue', label: '已逾期', count: unassignedStages.filter((item) => item.readiness === 'overdue').length },
                 { value: 'all', label: '全部', count: unassignedStages.length },
-              ] as const).map((item) => <button key={item.value} onClick={() => setBacklogFilter(item.value)} className={`rounded-lg px-3 py-1.5 text-xs ${backlogFilter === item.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label} {item.count}</button>)}
+              ] as const).map((item) => <button key={item.value} onClick={() => setBacklogFilter(item.value)} className={`rounded px-3 py-1.5 text-xs ${backlogFilter === item.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label} {item.count}</button>)}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {visibleBacklog.length === 0 ? <div className="py-20 text-center text-sm text-gray-400">当前没有符合条件的待排阶段</div> : visibleBacklog.map((task) => {
@@ -509,7 +509,7 @@ export default function WorkerSchedulePage() {
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${task.readiness === 'overdue' ? 'bg-red-50 text-red-600' : task.readiness === 'ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{readinessLabel}</span>
                     </div>
                     <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500"><Clock3 size={13} />{task.hasPlanDate ? '计划' : '建议'} {formatShortDate(task.startDate)} 至 {formatShortDate(task.endDate)}</div>
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2.5">
                       <div className="min-w-0"><div className="text-[10px] text-gray-400">推荐工人</div><div className={`mt-0.5 truncate text-xs font-medium ${recommended ? 'text-gray-800' : 'text-amber-600'}`}>{recommended ? `${recommended.name} · 当前档期可安排` : `暂无无冲突的${task.trade}工人`}</div></div>
                       {canEdit && <button onClick={() => openBacklogSchedule(task)} className="erp-btn-primary h-8 shrink-0 px-3 text-xs">安排</button>}
                     </div>
@@ -524,16 +524,16 @@ export default function WorkerSchedulePage() {
 
       {scheduleEditorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onClick={() => setScheduleEditorOpen(false)}>
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded bg-white" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3"><h2 className="font-semibold">{editingSchedule ? '编辑排期' : '新增排期'}</h2><button onClick={() => setScheduleEditorOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button></div>
             <div className="space-y-4 p-4">
               <label className="block text-xs text-gray-500">工地 *<Select value={scheduleForm.projectId} onChange={chooseProject} options={projectOptions} placeholder="请选择工地" searchable className="mt-1" sheetTitle="选择工地" /></label>
               <label className="block text-xs text-gray-500">施工阶段 *<Select value={scheduleForm.stageId} onChange={chooseStage} options={stageOptions} placeholder="请选择施工阶段" className="mt-1" sheetTitle="选择施工阶段" /></label>
               <label className="block text-xs text-gray-500">工人 *<Select value={scheduleForm.workerId} onChange={(value) => setScheduleForm({ ...scheduleForm, workerId: value })} options={workerOptions} placeholder={selectedStage ? `请选择${selectedStageTrade}工人` : '请先选择工地和施工阶段'} searchable className="mt-1" sheetTitle="选择匹配工种的工人" /></label>
-              {selectedStage && eligibleWorkers.length === 0 && <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无可用的{selectedStageTrade}工人，请先在工人管理中为师傅添加对应工种。</div>}
+              {selectedStage && eligibleWorkers.length === 0 && <div className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无可用的{selectedStageTrade}工人，请先在工人管理中为师傅添加对应工种。</div>}
               <div className="grid grid-cols-2 gap-3"><label className="text-xs text-gray-500">开始日期<DatePicker value={scheduleForm.startDate} onChange={(value) => setScheduleForm({ ...scheduleForm, startDate: value })} className="mt-1" /></label><label className="text-xs text-gray-500">结束日期<DatePicker value={scheduleForm.endDate} onChange={(value) => setScheduleForm({ ...scheduleForm, endDate: value })} className="mt-1" /></label></div>
-              <label className="block text-xs text-gray-500">备注<textarea value={scheduleForm.note} onChange={(event) => setScheduleForm({ ...scheduleForm, note: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none" /></label>
-              {conflicts.length > 0 && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{conflicts[0].schedule.projectAddress}，{formatShortDate(conflicts[0].schedule.startDate)}至{formatShortDate(conflicts[0].schedule.endDate)}</p></div>}
+              <label className="block text-xs text-gray-500">备注<textarea value={scheduleForm.note} onChange={(event) => setScheduleForm({ ...scheduleForm, note: event.target.value })} rows={2} className="mt-1 w-full resize-none rounded border border-gray-200 p-3 text-sm outline-none" /></label>
+              {conflicts.length > 0 && <div className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-600"><div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={14} />排期冲突</div><p className="mt-1">已安排：{conflicts[0].schedule.projectAddress}，{formatShortDate(conflicts[0].schedule.startDate)}至{formatShortDate(conflicts[0].schedule.endDate)}</p></div>}
               {error && <p className="text-xs leading-5 text-red-500">{error}</p>}
               <div className="flex items-center justify-between border-t border-gray-100 pt-4"><div>{editingSchedule && <button onClick={() => void deleteSchedule(editingSchedule)} className="inline-flex items-center gap-1 text-xs text-red-500"><Trash2 size={14} />删除排期</button>}</div><div className="flex gap-2"><button onClick={() => setScheduleEditorOpen(false)} className="erp-btn-secondary">取消</button><button disabled={saving || conflicts.length > 0} onClick={() => void saveSchedule()} className="erp-btn-primary">保存排期</button></div></div>
             </div>
@@ -543,7 +543,7 @@ export default function WorkerSchedulePage() {
 
       {profileWorker && (
         <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4" onClick={() => setProfileWorker(null)}>
-          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md overflow-hidden rounded bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="font-semibold text-gray-900">工人档案</h2>
               <button onClick={() => setProfileWorker(null)} className="p-1.5 text-gray-400" title="关闭"><X size={18} /></button>
@@ -576,7 +576,7 @@ export default function WorkerSchedulePage() {
 
       {workerEditorOpen && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-black/40 p-3" onClick={() => setWorkerEditorOpen(false)}>
-          <div className="flex h-[min(90vh,760px)] max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white" onClick={(event) => event.stopPropagation()}>
+          <div className="flex h-[min(90vh,760px)] max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded bg-white" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div><h2 className="font-semibold text-gray-900">工人管理</h2><p className="text-xs text-gray-400">按工种查找并维护工人档案</p></div>
               <button onClick={() => setWorkerEditorOpen(false)} className="p-1.5 text-gray-400"><X size={18} /></button>
@@ -585,15 +585,15 @@ export default function WorkerSchedulePage() {
               <div className={`${workerEditorMode !== 'list' ? 'hidden md:flex' : 'flex'} min-h-0 flex-1 flex-col overflow-hidden border-b border-gray-100 md:w-[320px] md:flex-none md:border-b-0 md:border-r`}>
                   <div className="border-b border-gray-100 p-3">
                     <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2 md:grid-cols-[7rem_minmax(0,1fr)]">
-                      <button onClick={startCreatingWorker} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-gold-200 bg-gold-50 px-2.5 text-xs font-medium text-gold-700 md:h-10 md:px-3 md:text-sm"><Plus size={14} className="md:size-[15px]" />新增工人</button>
-                      <div className="relative h-9 min-w-0 md:h-10"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-full w-full rounded-lg border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3" /></div>
+                      <button onClick={startCreatingWorker} className="flex h-9 w-full items-center justify-center gap-1.5 rounded border border-gold-200 bg-gold-50 px-2.5 text-xs font-medium text-gold-700 md:h-10 md:px-3 md:text-sm"><Plus size={14} className="md:size-[15px]" />新增工人</button>
+                      <div className="relative h-9 min-w-0 md:h-10"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={workerManagerSearch} onChange={(event) => setWorkerManagerSearch(event.target.value)} placeholder="搜索姓名、电话或工种" className="h-full w-full rounded border border-gray-200 pl-8 pr-2.5 text-xs outline-none focus:border-gold-400 md:pl-9 md:pr-3" /></div>
                     </div>
                   </div>
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
                   {groupedManagedWorkers.map((group) => (
                     <section key={group.trade}>
                       <div className="mb-1.5 flex items-center justify-between px-1"><h3 className="text-xs font-medium text-gray-500">{group.trade}</h3><span className="text-[10px] text-gray-400">{group.workers.length} 人</span></div>
-                      <div className="overflow-hidden rounded-lg border border-gray-100">
+                      <div className="overflow-hidden rounded border border-gray-100">
                         {group.workers.map((worker) => (
                           <button key={`${group.trade}-${workerIdOf(worker)}`} onClick={() => selectWorkerForPreview(worker)} className={`flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-gray-50 ${editingWorker && workerIdOf(editingWorker) === workerIdOf(worker) ? 'bg-gold-50' : ''}`}>
                             <WorkerAvatar name={worker.name} fileID={worker.photoFileID} className="h-9 w-9" />
@@ -633,7 +633,7 @@ export default function WorkerSchedulePage() {
                 ) : (
                 <>
                 <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setWorkerEditorMode('list'), setEditingWorker(null))} className="inline-flex items-center text-gray-400 md:hidden" title="返回"><ChevronLeft size={17} /></button><div className="text-sm font-medium text-gray-900">{workerEditorMode === 'create' ? '新增工人' : `编辑 ${editingWorker?.name || ''}`}</div></div>{workerEditorMode === 'edit' && editingWorker && <button onClick={() => selectWorkerForPreview(editingWorker)} className="text-xs text-gray-500">取消编辑</button>}</div>
-                <div className="mb-4 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <div className="mb-4 flex items-center gap-3 rounded border border-gray-100 bg-gray-50 p-3">
                   {(workerPhotoPreview || workerForm.photoFileID) ? (
                     <button type="button" onClick={() => void openWorkerPhoto(workerPhotoPreview || workerForm.photoFileID || '')} className="shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400" title="查看大图">
                       {workerPhotoPreview ? <img src={workerPhotoPreview} alt="工人照片预览" className="h-16 w-16 rounded-full object-cover" /> : <WorkerAvatar name={workerForm.name || '工'} fileID={workerForm.photoFileID} className="h-16 w-16" />}
@@ -643,7 +643,7 @@ export default function WorkerSchedulePage() {
                     <div className="text-sm font-medium text-gray-800">工人照片</div>
                     <div className="mt-1 text-[11px] text-gray-400">用于排期、工地节点及后续客户查看</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:border-gold-300 hover:text-gold-700">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:border-gold-300 hover:text-gold-700">
                         <ImagePlus size={14} />{workerForm.photoFileID || workerPhotoFile ? '更换照片' : '上传照片'}
                         <input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void chooseWorkerPhoto(file); }} />
                       </label>
@@ -653,13 +653,13 @@ export default function WorkerSchedulePage() {
                   <Camera size={18} className="shrink-0 text-gray-300" />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-xs text-gray-500">姓名 *<input value={workerForm.name} onChange={(event) => setWorkerForm({ ...workerForm, name: event.target.value })} placeholder="例如：王师傅" className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
-                  <label className="text-xs text-gray-500">联系电话<input value={workerForm.phone} onChange={(event) => setWorkerForm({ ...workerForm, phone: event.target.value })} className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
-                  <label className="text-xs text-gray-500">工龄（年）<input type="number" min={0} max={60} value={workerForm.experienceYears || ''} onChange={(event) => setWorkerForm({ ...workerForm, experienceYears: Math.max(0, Number(event.target.value) || 0) })} placeholder="例如：8" className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
-                  <label className="text-xs text-gray-500">最大并行任务<input type="number" min={1} value={workerForm.maxConcurrent} onChange={(event) => setWorkerForm({ ...workerForm, maxConcurrent: Math.max(1, Number(event.target.value)) })} className="mt-1 h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none" /></label>
+                  <label className="text-xs text-gray-500">姓名 *<input value={workerForm.name} onChange={(event) => setWorkerForm({ ...workerForm, name: event.target.value })} placeholder="例如：王师傅" className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">联系电话<input value={workerForm.phone} onChange={(event) => setWorkerForm({ ...workerForm, phone: event.target.value })} className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">工龄（年）<input type="number" min={0} max={60} value={workerForm.experienceYears || ''} onChange={(event) => setWorkerForm({ ...workerForm, experienceYears: Math.max(0, Number(event.target.value) || 0) })} placeholder="例如：8" className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none focus:border-gold-400" /></label>
+                  <label className="text-xs text-gray-500">最大并行任务<input type="number" min={1} value={workerForm.maxConcurrent} onChange={(event) => setWorkerForm({ ...workerForm, maxConcurrent: Math.max(1, Number(event.target.value)) })} className="mt-1 h-10 w-full rounded border border-gray-200 px-3 text-sm outline-none" /></label>
                 </div>
                 <div className="mt-4"><p className="text-xs text-gray-500">工种 * <span className="text-gray-400">（可多选）</span></p><div className="mt-2 flex flex-wrap gap-2">{WORKER_TRADES.map((trade) => <button type="button" key={trade} onClick={() => setWorkerForm((current) => ({ ...current, trades: current.trades.includes(trade) ? current.trades.filter((item) => item !== trade) : [...current.trades, trade] }))} className={`rounded-full border px-3 py-1 text-xs ${workerForm.trades.includes(trade) ? 'border-gold-400 bg-gold-50 text-gold-700' : 'border-gray-200 text-gray-500'}`}>{trade}</button>)}</div></div>
-                <label className="mt-4 block text-xs text-gray-500">备注<textarea value={workerForm.note} onChange={(event) => setWorkerForm({ ...workerForm, note: event.target.value })} rows={3} className="mt-1 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
+                <label className="mt-4 block text-xs text-gray-500">备注<textarea value={workerForm.note} onChange={(event) => setWorkerForm({ ...workerForm, note: event.target.value })} rows={3} className="mt-1 w-full resize-none rounded border border-gray-200 p-3 text-sm outline-none focus:border-gold-400" /></label>
                 {error && <p className="mt-3 text-xs leading-5 text-red-500">{error}</p>}
                 <div className="mt-4 flex justify-end gap-2"><button onClick={() => editingWorker ? selectWorkerForPreview(editingWorker) : (setEditingWorker(null), setWorkerEditorMode('list'))} className="erp-btn-secondary">取消</button><button disabled={saving} onClick={() => void saveWorker()} className="erp-btn-primary">{workerEditorMode === 'edit' ? '保存修改' : '新增工人'}</button></div>
                 </>

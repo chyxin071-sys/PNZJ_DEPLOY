@@ -120,13 +120,13 @@ function SearchableSelect({
         if (window.matchMedia('(max-width: 767px)').matches) setMobileOpen(true);
         else setOpen(!open);
       }}
-        className={`w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
+        className={`w-full flex items-center justify-between border border-gray-200 rounded bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'}`}>
         <span className={`truncate ${selected ? 'text-gray-700' : 'text-gray-400'}`}>{selected?.label || placeholder}</span>
         <ChevronDown size={compact ? 12 : 12} className={`shrink-0 ml-1 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {/* 桌面端下拉菜单 */}
       {open && (
-        <div className="hidden md:block absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden" style={{ minWidth: 180 }}>
+        <div className="hidden md:block absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded shadow-xl overflow-hidden" style={{ minWidth: 180 }}>
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
               <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -165,7 +165,7 @@ function SearchableSelect({
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={searchPlaceholder}
-              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400" />
+              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gold-400" />
           </div>
           <div className="max-h-[52vh] overflow-auto space-y-1">
             {groups ? groups.map(g => {
@@ -176,7 +176,7 @@ function SearchableSelect({
                   <div className="px-2 py-2 text-[11px] font-medium text-gray-400">{g.label}</div>
                   {items.map(o => (
                     <button key={o.value} type="button" onClick={() => { onChange(o.value); setMobileOpen(false); setSearch(''); }}
-                      className={`w-full text-left px-4 py-3 text-sm rounded-lg transition-colors ${value === o.value ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
+                      className={`w-full text-left px-4 py-3 text-sm rounded transition-colors ${value === o.value ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
                       {o.label}
                     </button>
                   ))}
@@ -184,7 +184,7 @@ function SearchableSelect({
               );
             }) : filtered.map(o => (
               <button key={o.value} type="button" onClick={() => { onChange(o.value); setMobileOpen(false); setSearch(''); }}
-                className={`w-full text-left px-4 py-3 text-sm rounded-lg transition-colors ${value === o.value ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
+                className={`w-full text-left px-4 py-3 text-sm rounded transition-colors ${value === o.value ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
                 {o.label}
               </button>
             ))}
@@ -270,13 +270,13 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => { setOpen(!open); setViewDate(value ? new Date(value.replace(/-/g, '/')) : new Date()); }}
-        className={`w-full flex items-center justify-between border border-gray-200 rounded-lg bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'}`}>
+        className={`w-full flex items-center justify-between border border-gray-200 rounded bg-white transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold-400 ${compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'}`}>
         <span className={value ? 'text-gray-900' : 'text-gray-400'}>{value || placeholder}</span>
         <Calendar size={compact ? 12 : 14} className="shrink-0 ml-1 text-gray-400" />
       </button>
       {open && (
         <>
-          <div className="hidden md:block absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-3" style={{ width: 280 }}>
+          <div className="hidden md:block absolute z-50 mt-1 bg-white border border-gray-200 rounded shadow-xl p-3" style={{ width: 280 }}>
             <div className="flex items-center justify-between mb-2">
               <button type="button" onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded"><ChevronLeft size={16} /></button>
               <div className="flex items-center gap-1 text-sm font-medium">
@@ -287,7 +287,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
             </div>
             {/* 年份快速选择 */}
             {showYearPicker && (
-              <div className="mb-2 p-1 border border-gray-100 rounded-lg bg-white max-h-[140px] overflow-y-auto grid grid-cols-4 gap-1">
+              <div className="mb-2 p-1 border border-gray-100 rounded bg-white max-h-[140px] overflow-y-auto grid grid-cols-4 gap-1">
                 {Array.from({ length: 21 }, (_, i) => today.getFullYear() - 10 + i).map(y => (
                   <button key={y} type="button" onClick={() => { setViewDate(new Date(y, month, 1)); setShowYearPicker(false); }}
                     className={`text-xs py-1 rounded hover:bg-gray-100 ${y === year ? 'bg-gold-400 text-black font-bold' : ''}`}>{y}</button>
@@ -296,7 +296,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
             )}
             {/* 月份快速选择 */}
             {showMonthPicker && (
-              <div className="mb-2 p-1 border border-gray-100 rounded-lg bg-white grid grid-cols-4 gap-1">
+              <div className="mb-2 p-1 border border-gray-100 rounded bg-white grid grid-cols-4 gap-1">
                 {MONTHS.map((m, i) => (
                   <button key={m} type="button" onClick={() => { setViewDate(new Date(year, i, 1)); setShowMonthPicker(false); }}
                     className={`text-xs py-1 rounded hover:bg-gray-100 ${i === month ? 'bg-gold-400 text-black font-bold' : ''}`}>{m}</button>
@@ -329,7 +329,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
             </div>
           </div>
           {createPortal(<div className="md:hidden fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onClick={() => setOpen(false)}>
-            <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-[300px]" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded shadow-xl p-5 w-full max-w-[300px]" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-3">
                 <button type="button" onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded"><ChevronLeft size={18} /></button>
                 <div className="flex items-center gap-1 text-base font-semibold">
@@ -339,7 +339,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
                 <button type="button" onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded"><ChevronRight size={18} /></button>
               </div>
               {showYearPicker && (
-                <div className="mb-2 p-1 border border-gray-100 rounded-lg bg-white max-h-[140px] overflow-y-auto grid grid-cols-4 gap-1">
+                <div className="mb-2 p-1 border border-gray-100 rounded bg-white max-h-[140px] overflow-y-auto grid grid-cols-4 gap-1">
                   {Array.from({ length: 21 }, (_, i) => today.getFullYear() - 10 + i).map(y => (
                     <button key={y} type="button" onClick={() => { setViewDate(new Date(y, month, 1)); setShowYearPicker(false); }}
                       className={`text-xs py-1 rounded hover:bg-gray-100 ${y === year ? 'bg-gold-400 text-black font-bold' : ''}`}>{y}</button>
@@ -347,7 +347,7 @@ function CustomDatePicker({ value, onChange, placeholder = '选择日期', compa
                 </div>
               )}
               {showMonthPicker && (
-                <div className="mb-2 p-1 border border-gray-100 rounded-lg bg-white grid grid-cols-4 gap-1">
+                <div className="mb-2 p-1 border border-gray-100 rounded bg-white grid grid-cols-4 gap-1">
                   {MONTHS.map((m, i) => (
                     <button key={m} type="button" onClick={() => { setViewDate(new Date(year, i, 1)); setShowMonthPicker(false); }}
                       className={`text-xs py-1 rounded hover:bg-gray-100 ${i === month ? 'bg-gold-400 text-black font-bold' : ''}`}>{m}</button>
@@ -1382,7 +1382,7 @@ export default function Leads() {
           const active = statFilter === card.key;
           return (
             <button key={card.key} type="button" onClick={() => setStatFilter(active && statFilter !== 'all' ? 'all' : card.key)}
-              className={`erp-lead-stat-card flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded-xl p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
+              className={`erp-lead-stat-card flex-shrink-0 w-[calc((100%-12px)/3)] md:w-auto rounded p-2.5 md:p-4 border-2 text-left transition-all cursor-pointer ${active ? card.activeClass : 'border-transparent bg-white hover:bg-gray-50'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] md:text-xs text-gray-400">{card.label}</span>
                 <Icon size={14} className={active ? card.color : 'text-gray-300'} />
@@ -1396,15 +1396,15 @@ export default function Leads() {
       {/* 已签单统计卡片 */}
       {isDesktopSignedView && (
         <div className="mb-3 grid grid-cols-3 gap-3">
-          <div className="flex h-20 flex-col justify-center rounded-lg border border-gray-100 bg-white px-4 py-3">
+          <div className="flex h-20 flex-col justify-center rounded border border-gray-100 bg-white px-4 py-3">
             <div className="text-[10px] text-gray-400 mb-1">合同总额 · {signedStats.count} 单</div>
             <div className="text-sm md:text-base font-bold text-gray-900">{formatMoney(signedStats.totalContract)}</div>
           </div>
-          <div className="flex h-20 flex-col justify-center rounded-lg border border-gray-100 bg-emerald-50/40 px-4 py-3">
+          <div className="flex h-20 flex-col justify-center rounded border border-gray-100 bg-emerald-50/40 px-4 py-3">
             <div className="text-[10px] text-gray-400 mb-1">已收款</div>
             <div className="text-sm md:text-base font-bold text-emerald-600">{formatMoney(signedStats.totalSettled)}</div>
           </div>
-          <div className={`flex h-20 flex-col justify-center rounded-lg border px-4 py-3 ${signedStats.totalProfit >= 0 ? 'border-gray-100 bg-emerald-50/40' : 'border-gray-100 bg-red-50/40'}`}>
+          <div className={`flex h-20 flex-col justify-center rounded border px-4 py-3 ${signedStats.totalProfit >= 0 ? 'border-gray-100 bg-emerald-50/40' : 'border-gray-100 bg-red-50/40'}`}>
             <div className="text-[10px] text-gray-400 mb-1">毛利</div>
             <div className={`text-sm md:text-base font-bold ${signedStats.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
               {formatMoney(signedStats.totalProfit)}
@@ -1424,7 +1424,7 @@ export default function Leads() {
           <div className="flex items-center gap-2 shrink-0">
             <>
                 {/* 桌面端：双按钮 */}
-                <div className="hidden md:flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                <div className="hidden md:flex rounded border border-gray-200 overflow-hidden shrink-0">
                   <button type="button" onClick={() => setFilterScope('related')}
                     className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${filterScope === 'related' ? 'bg-gold-400 text-black' : 'text-gray-500 hover:bg-gray-50'}`}>
                     与我相关
@@ -1438,7 +1438,7 @@ export default function Leads() {
                 <button
                   type="button"
                   onClick={() => setFilterScope(s => s === 'related' ? 'all' : 'related')}
-                  className={`md:hidden shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  className={`md:hidden shrink-0 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${
                     filterScope === 'related'
                       ? 'border-gold-400 text-gold-600 bg-gold-50/60'
                       : 'border-gray-200 text-gray-600 bg-white'
@@ -1530,7 +1530,7 @@ export default function Leads() {
               <div>
                 <label className="block text-[10px] text-gray-400 mb-1">工地进度</label>
                 <select value={filterSite} onChange={e => setFilterSite(e.target.value)}
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
+                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
                   <option value="全部">全部</option>
                   <option value="未开工">未开工</option>
                   <option value="进行中">进行中</option>
@@ -1540,7 +1540,7 @@ export default function Leads() {
               <div>
                 <label className="block text-[10px] text-gray-400 mb-1">销售</label>
                 <select value={filterSignedSales} onChange={e => setFilterSignedSales(e.target.value)}
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
+                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
                   <option value="">全部</option>
                   {signedSalesOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -1548,7 +1548,7 @@ export default function Leads() {
               <div>
                 <label className="block text-[10px] text-gray-400 mb-1">设计</label>
                 <select value={filterSignedDesigner} onChange={e => setFilterSignedDesigner(e.target.value)}
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
+                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gold-400">
                   <option value="">全部</option>
                   {signedDesignerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -1570,7 +1570,7 @@ export default function Leads() {
               </div>
               <div className="flex items-end">
                 <button onClick={clearSignedFilters}
-                  className="w-full flex items-center justify-center gap-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors duration-150">
+                  className="w-full flex items-center justify-center gap-1 border border-gray-200 rounded px-3 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors duration-150">
                   <X size={14} /> 清除
                 </button>
               </div>
@@ -1618,7 +1618,7 @@ export default function Leads() {
                         {row.status}
                       </button>
                       {isOpen && (
-                        <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-100 shadow-lg rounded-lg py-1 min-w-[100px]" onMouseLeave={() => setStatusDropdownId(null)}>
+                        <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-100 shadow-lg rounded py-1 min-w-[100px]" onMouseLeave={() => setStatusDropdownId(null)}>
                           {['跟进中', '已签单', '已流失'].map(s => (
                             <button
                               key={s}
@@ -1658,7 +1658,7 @@ export default function Leads() {
                         {row.rating}
                       </button>
                       {rOpen && (
-                        <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-100 shadow-lg rounded-lg py-1 min-w-[80px]" onMouseLeave={() => setRatingDropdownId(null)}>
+                        <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-100 shadow-lg rounded py-1 min-w-[80px]" onMouseLeave={() => setRatingDropdownId(null)}>
                           {['A', 'B', 'C', 'D'].map(r => (
                             <button
                               key={r}
@@ -2000,20 +2000,20 @@ export default function Leads() {
 
       {showCreate && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
-          <div className="bg-white rounded-xl w-full max-w-lg [&_input]:text-[13px] [&_input]:md:text-sm [&_textarea]:text-[13px] [&_textarea]:md:text-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-lg [&_input]:text-[13px] [&_input]:md:text-sm [&_textarea]:text-[13px] [&_textarea]:md:text-sm" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100"><h2 className="text-base md:text-lg font-bold">新建客户</h2></div>
             <div className="p-4 space-y-3 max-h-[75vh] overflow-y-auto scrollbar-hide">
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">客户姓名 *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">联系电话 *</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">客户姓名 *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">联系电话 *</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">小区地址</label><input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">小区地址</label><input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">装修预算</label>
                   <input value={form.budget || ''} onChange={e => setForm({ ...form, budget: e.target.value })} placeholder="例：15万"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
+                    className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
                   />
                 </div>
                 <div>
@@ -2033,7 +2033,7 @@ export default function Leads() {
                   />
                   {form.source === '其他' && (
                     <input value={form.sourceCustom || ''} onChange={e => setForm({ ...form, sourceCustom: e.target.value })} placeholder="请输入具体来源"
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 mt-2"
+                      className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 mt-2"
                     />
                   )}
                 </div>
@@ -2096,11 +2096,11 @@ export default function Leads() {
                   placeholder="添加工程" searchPlaceholder="搜索姓名..." groups={managerGroups}
                 />
               </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">备注</label><textarea value={form.remark} onChange={e => setForm({ ...form, remark: e.target.value })} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">备注</label><textarea value={form.remark} onChange={e => setForm({ ...form, remark: e.target.value })} rows={2} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button onClick={handleCreate} disabled={creatingLead} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:cursor-not-allowed disabled:opacity-50">{creatingLead ? '创建中...' : '创建'}</button>
+              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button onClick={handleCreate} disabled={creatingLead} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:cursor-not-allowed disabled:opacity-50">{creatingLead ? '创建中...' : '创建'}</button>
             </div>
           </div>
         </div>,
@@ -2109,20 +2109,20 @@ export default function Leads() {
 
       {showEdit && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowEdit(null)}>
-          <div className="bg-white rounded-xl w-full max-w-lg [&_input]:text-[13px] [&_input]:md:text-sm [&_textarea]:text-[13px] [&_textarea]:md:text-sm" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-lg [&_input]:text-[13px] [&_input]:md:text-sm [&_textarea]:text-[13px] [&_textarea]:md:text-sm" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100"><h2 className="text-base md:text-lg font-bold">编辑客户</h2></div>
             <div className="p-4 space-y-3 max-h-[75vh] overflow-y-auto scrollbar-hide">
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">客户姓名</label><input value={showEdit.name || ''} onChange={e => setShowEdit({ ...showEdit, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">联系电话</label><input value={showEdit.phone || ''} onChange={e => setShowEdit({ ...showEdit, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">客户姓名</label><input value={showEdit.name || ''} onChange={e => setShowEdit({ ...showEdit, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">联系电话</label><input value={showEdit.phone || ''} onChange={e => setShowEdit({ ...showEdit, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">小区地址</label><input value={showEdit.address || ''} onChange={e => setShowEdit({ ...showEdit, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
-              <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={showEdit.area || ''} onChange={e => setShowEdit({ ...showEdit, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">小区地址</label><input value={showEdit.address || ''} onChange={e => setShowEdit({ ...showEdit, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">房屋面积(㎡)</label><input value={showEdit.area || ''} onChange={e => setShowEdit({ ...showEdit, area: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">装修预算</label>
                   <input value={showEdit.budget || ''} onChange={e => setShowEdit({ ...showEdit, budget: e.target.value })} placeholder="例：15万"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
+                    className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400"
                   />
                 </div>
                 <div>
@@ -2174,13 +2174,13 @@ export default function Leads() {
                   />
                   {(showEdit.source || '自然进店') === '其他' && (
                     <input value={showEdit.sourceCustom || ''} onChange={e => setShowEdit({ ...showEdit, sourceCustom: e.target.value })} placeholder="请输入具体来源"
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 mt-2"
+                      className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 mt-2"
                     />
                   )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">客户编号</label>
-                  <input value={showEdit.customerNo || ''} readOnly className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-500" />
+                  <input value={showEdit.customerNo || ''} readOnly className="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-500" />
                 </div>
               </div>
               <div>
@@ -2234,11 +2234,11 @@ export default function Leads() {
                   placeholder="添加工程" searchPlaceholder="搜索姓名..." groups={managerGroups}
                 />
               </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">备注</label><textarea value={showEdit.remark || ''} onChange={e => setShowEdit({ ...showEdit, remark: e.target.value })} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">备注</label><textarea value={showEdit.remark || ''} onChange={e => setShowEdit({ ...showEdit, remark: e.target.value })} rows={2} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowEdit(null)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button onClick={handleUpdate} className="px-4 py-2 text-sm bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500">保存</button>
+              <button onClick={() => setShowEdit(null)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button onClick={handleUpdate} className="px-4 py-2 text-sm bg-gold-400 text-black rounded font-medium hover:bg-gold-500">保存</button>
             </div>
           </div>
         </div>,
@@ -2247,7 +2247,7 @@ export default function Leads() {
 
       {showSignModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={() => setShowSignModal(false)}>
-          <div className="bg-white rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100"><h2 className="text-lg font-bold">签单确认</h2></div>
             <div className="p-4 space-y-3">
               <p className="text-sm text-gray-600">确认该客户已签单，请填写签单信息。</p>
@@ -2266,8 +2266,8 @@ export default function Leads() {
               </div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowSignModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button onClick={confirmSign} className="px-4 py-2 text-sm bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600">确认签单</button>
+              <button onClick={() => setShowSignModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button onClick={confirmSign} className="px-4 py-2 text-sm bg-emerald-500 text-white rounded font-medium hover:bg-emerald-600">确认签单</button>
             </div>
           </div>
         </div>,
@@ -2276,15 +2276,15 @@ export default function Leads() {
 
       {showLostModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={() => setShowLostModal(false)}>
-          <div className="bg-white rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100"><h2 className="text-lg font-bold">客户流失确认</h2></div>
             <div className="p-4 space-y-3">
               <p className="text-sm text-gray-600">请记录该客户流失的详细原因，以便后续分析和改进。</p>
-              <div><label className="text-xs text-gray-500 mb-1 block">流失原因</label><textarea value={lostReasonCustom} onChange={e => setLostReasonCustom(e.target.value)} placeholder="请输入详细的流失原因..." rows={3} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">流失原因</label><textarea value={lostReasonCustom} onChange={e => setLostReasonCustom(e.target.value)} placeholder="请输入详细的流失原因..." rows={3} className="w-full text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none" /></div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setShowLostModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">取消</button>
-              <button onClick={confirmLost} className="px-4 py-2 text-sm bg-rose-500 text-white rounded-lg font-medium hover:bg-rose-600">确认流失</button>
+              <button onClick={() => setShowLostModal(false)} className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50">取消</button>
+              <button onClick={confirmLost} className="px-4 py-2 text-sm bg-rose-500 text-white rounded font-medium hover:bg-rose-600">确认流失</button>
             </div>
           </div>
         </div>,
@@ -2324,7 +2324,7 @@ export default function Leads() {
       {/* Quick Assign Modal */}
       {assignTarget && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setAssignTarget(null)}>
-          <div className="bg-white rounded-xl w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">
                 {assignTarget.role
@@ -2340,7 +2340,7 @@ export default function Leads() {
                 return opts.length > 0 ? opts.map(opt => {
                   const checked = assignSelected.includes(opt.value);
                   return (
-                    <label key={opt.value} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gold-50 cursor-pointer transition-colors">
+                    <label key={opt.value} className="flex items-center gap-2.5 px-3 py-2.5 rounded hover:bg-gold-50 cursor-pointer transition-colors">
                       <input type="checkbox" checked={checked} onChange={() => {
                         setAssignSelected(prev => checked ? prev.filter(x => x !== opt.value) : [...prev, opt.value]);
                       }} className="w-4 h-4 text-gold-400 border-gray-300 rounded focus:ring-gold-400" />
@@ -2352,7 +2352,7 @@ export default function Leads() {
             </div>
             <div className="p-3 border-t border-gray-100 flex justify-end gap-2">
               <button onClick={() => setAssignTarget(null)} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700" disabled={saving}>取消</button>
-              <button onClick={() => handleQuickAssign(assignTarget.lead._id, assignTarget.role || 'sales', assignSelected)} disabled={saving} className="px-4 py-1.5 text-xs bg-gold-400 text-black rounded-lg font-medium hover:bg-gold-500 disabled:opacity-50">
+              <button onClick={() => handleQuickAssign(assignTarget.lead._id, assignTarget.role || 'sales', assignSelected)} disabled={saving} className="px-4 py-1.5 text-xs bg-gold-400 text-black rounded font-medium hover:bg-gold-500 disabled:opacity-50">
                 {saving ? '保存中...' : '确认'}
               </button>
             </div>
@@ -2376,7 +2376,7 @@ export default function Leads() {
                 setMobileStatusPicker(null);
                 if (picker) handleStatusChange(picker.id, s);
               }}
-              className={`w-full text-left px-4 py-3 text-sm rounded-lg transition-colors ${
+              className={`w-full text-left px-4 py-3 text-sm rounded transition-colors ${
                 mobileStatusPicker?.current === s
                   ? 'font-semibold bg-gray-50 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50'
@@ -2403,7 +2403,7 @@ export default function Leads() {
                 setMobileRatingPicker(null);
                 if (picker) handleRatingChange(picker.id, r);
               }}
-              className={`w-full text-left px-4 py-3 text-sm rounded-lg transition-colors ${
+              className={`w-full text-left px-4 py-3 text-sm rounded transition-colors ${
                 mobileRatingPicker?.current === r
                   ? 'font-semibold bg-gray-50 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50'

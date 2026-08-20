@@ -39,7 +39,7 @@ export default function GlobalDialog() {
           }
         }}
       />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
@@ -60,14 +60,14 @@ export default function GlobalDialog() {
           {options.type === 'confirm' && (
             <button
               onClick={options.onCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
             >
               {options.cancelText}
             </button>
           )}
           <button
             onClick={options.onConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors ${confirmBtnClass} ${isDanger ? 'focus:ring-red-500' : 'focus:ring-gold-400'}`}
+            className={`px-4 py-2 text-sm font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors ${confirmBtnClass} ${isDanger ? 'focus:ring-red-500' : 'focus:ring-gold-400'}`}
           >
             {options.confirmText}
           </button>

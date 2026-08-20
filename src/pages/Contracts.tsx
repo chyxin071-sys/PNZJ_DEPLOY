@@ -419,7 +419,7 @@ export default function Contracts() {
               { label: '全部已收款', value: formatMoney(stats.totalReceived), cls: 'text-emerald-600' },
               { label: '全部未收款', value: formatMoney(stats.totalUnreceived), cls: stats.totalUnreceived > 0 ? 'text-red-500' : 'text-gray-400' },
             ].map((card) => (
-              <div key={card.label} className="rounded-lg border border-gray-100 bg-white p-3">
+              <div key={card.label} className="rounded border border-gray-100 bg-white p-3">
                 <div className="mb-0.5 text-[10px] text-gray-400">{card.label}</div>
                 <div className={`text-sm font-bold ${card.cls || 'text-gray-900'}`}>{card.value}</div>
               </div>

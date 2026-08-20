@@ -311,9 +311,9 @@ export default function TemplateLibrary() {
   return (
     <>
     <div className="erp-page max-w-[920px] mx-auto space-y-3">
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden px-3 md:px-4 py-3 flex justify-between items-center">
+      <div className="bg-white rounded border border-gray-100 overflow-hidden px-3 md:px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <button onClick={handleBack} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={handleBack} className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded transition-colors">
             <ArrowLeft className="w-4 h-4 text-gray-400" />
           </button>
           <div>
@@ -323,7 +323,7 @@ export default function TemplateLibrary() {
         </div>
         <div className="flex items-center gap-2">
           {isDirty && (
-            <button onClick={discardChanges} className="hidden md:inline-flex px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">
+            <button onClick={discardChanges} className="hidden md:inline-flex px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded">
               放弃
             </button>
           )}
@@ -333,7 +333,7 @@ export default function TemplateLibrary() {
           <button
             onClick={() => saveTemplate()}
             disabled={saving || !isDirty}
-            className="px-3 py-1.5 text-xs rounded-lg bg-gray-900 text-white disabled:opacity-35 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-xs rounded bg-gray-900 text-white disabled:opacity-35 disabled:cursor-not-allowed"
           >
             保存
           </button>
@@ -344,7 +344,7 @@ export default function TemplateLibrary() {
         {nodes.map((node, index) => (
           <div 
             key={node._id || index}
-            className={`bg-white rounded-lg border transition-all ${
+            className={`bg-white rounded border transition-all ${
               draggedNodeIndex === index ? 'opacity-50 border-gold-400' :
               dragOverNodeIndex === index ? 'border-gold-400 border-dashed border-2' :
               'border-gray-200'
@@ -400,7 +400,7 @@ export default function TemplateLibrary() {
 
             {!node.collapsed && (
               <div className="p-3 bg-white space-y-3 border-t border-gray-100">
-                <div className="rounded-lg border border-gray-100 bg-gray-50/40 overflow-hidden">
+                <div className="rounded border border-gray-100 bg-gray-50/40 overflow-hidden">
                   <div className="flex items-center justify-between px-3 py-2">
                     <button
                       type="button"
@@ -421,7 +421,7 @@ export default function TemplateLibrary() {
                   ) : (
                     <div className="border-t border-gray-100 p-3 space-y-2">
                       {node.craftsmanship.map((craft: any, craftIdx: number) => (
-                        <div key={craftIdx} className="rounded-lg bg-white border border-gray-100 p-2">
+                        <div key={craftIdx} className="rounded bg-white border border-gray-100 p-2">
                           <div className="flex items-center justify-end gap-2 mb-1.5">
                             <button onClick={() => removeCraftsmanship(index, craftIdx)} className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded">
                               <Trash2 size={13} />
@@ -432,11 +432,11 @@ export default function TemplateLibrary() {
                             onChange={(e) => updateCraftsmanship(index, craftIdx, { text: e.target.value })}
                             rows={Math.min(12, Math.max(4, Math.ceil((craft.text || '').length / 28)))}
                             placeholder="输入工艺标准..."
-                            className="min-h-[120px] w-full resize-y rounded-lg border border-gray-100 px-2 py-1.5 text-xs md:text-sm text-gray-700 outline-none focus:border-gold-300"
+                            className="min-h-[120px] w-full resize-y rounded border border-gray-100 px-2 py-1.5 text-xs md:text-sm text-gray-700 outline-none focus:border-gold-300"
                           />
                           <div className="mt-2 flex flex-wrap gap-2">
                             {(craft.images || []).map((img: string, imgIdx: number) => (
-                              <div key={`${img}-${imgIdx}`} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                              <div key={`${img}-${imgIdx}`} className="relative h-14 w-14 overflow-hidden rounded border border-gray-200 bg-white">
                                 <button type="button" onClick={() => openCraftPreview(craft.images || [], imgIdx)} className="h-full w-full">
                                   <img src={resolveCloudImageSrc(img)} alt="工艺标准图" className="h-full w-full object-cover" />
                                 </button>
@@ -448,7 +448,7 @@ export default function TemplateLibrary() {
                                 </button>
                               </div>
                             ))}
-                            <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white text-[10px] text-gray-400 hover:text-gold-600">
+                            <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded border border-dashed border-gray-200 bg-white text-[10px] text-gray-400 hover:text-gold-600">
                               <ImagePlus size={15} />
                               {uploadingCraftKey === `${index}-${craftIdx}` ? '上传中' : '图片'}
                               <input
@@ -471,7 +471,7 @@ export default function TemplateLibrary() {
                 </div>
                 {/* 阶段列表 */}
                 {node.sections?.map((sec: any, secIdx: number) => (
-                  <div key={secIdx} className="rounded-lg border border-gray-100 overflow-hidden">
+                  <div key={secIdx} className="rounded border border-gray-100 overflow-hidden">
                     <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60 border-b border-gray-100">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <button 
@@ -566,7 +566,7 @@ export default function TemplateLibrary() {
                     newNodes[index].sections.push({ name: '', collapsed: false, status: 'pending', subNodes: [] });
                     setNodes(newNodes);
                   }}
-                  className="w-full py-2 text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-1 transition-colors"
+                  className="w-full py-2 text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-200 rounded flex items-center justify-center gap-1 transition-colors"
                 >
                   <Plus size={16} /> 添加阶段
                 </button>
@@ -581,7 +581,7 @@ export default function TemplateLibrary() {
             newNodes.push({ _id: makeId(), name: '新节点', collapsed: false, sections: [] });
             setNodes(newNodes);
           }}
-          className="w-full py-3 text-xs md:text-sm font-medium text-gray-500 bg-white hover:bg-gray-50 border border-dashed border-gray-200 rounded-lg flex items-center justify-center gap-2 transition-colors"
+          className="w-full py-3 text-xs md:text-sm font-medium text-gray-500 bg-white hover:bg-gray-50 border border-dashed border-gray-200 rounded flex items-center justify-center gap-2 transition-colors"
         >
           <Plus size={16} /> 新建节点
         </button>

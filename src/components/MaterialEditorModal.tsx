@@ -115,7 +115,7 @@ export default function MaterialEditorModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end bg-black/45 md:items-center md:justify-center md:p-5" onClick={onClose}>
-      <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-2xl md:rounded-lg" onClick={(event) => event.stopPropagation()}>
+      <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-lg bg-white md:max-w-2xl md:rounded" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-base font-bold text-gray-900">{material ? '编辑材料' : '新增材料'}</h2>
           <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700" aria-label="关闭"><X size={18} /></button>

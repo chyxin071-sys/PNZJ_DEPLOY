@@ -68,7 +68,7 @@ export default function Select({ value, onChange, options, placeholder = '请选
 
       {/* Desktop: popover */}
       {open && !isMobile && (
-        <div className="absolute z-[130] mt-1 left-0 min-w-full bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 overflow-hidden">
+        <div className="absolute z-[130] mt-1 left-0 min-w-full bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 overflow-hidden">
           {searchable && (
             <div className="px-2 pb-1">
               <input
@@ -127,7 +127,7 @@ export default function Select({ value, onChange, options, placeholder = '请选
                   placeholder="搜索..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full text-sm bg-gray-50 rounded-lg px-3 py-2 outline-none text-gray-700 placeholder-gray-400"
+                  className="w-full text-sm bg-gray-50 rounded px-3 py-2 outline-none text-gray-700 placeholder-gray-400"
                 />
               </div>
             )}
@@ -140,7 +140,7 @@ export default function Select({ value, onChange, options, placeholder = '请选
                     key={opt.value}
                     type="button"
                     onClick={() => { onChange(opt.value); setOpen(false); setSearchTerm(''); }}
-                    className={`w-full flex items-center gap-2 px-4 py-3 text-sm text-left rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-2 px-4 py-3 text-sm text-left rounded transition-colors ${
                       opt.value === value
                         ? 'bg-gold-50 text-gold-600 font-medium'
                         : 'text-gray-700 hover:bg-gray-50'

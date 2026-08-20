@@ -151,7 +151,7 @@ export default function UserManagement() {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-100 overflow-visible">
+      <div className="bg-white rounded border border-gray-100 overflow-visible">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
@@ -237,7 +237,7 @@ export default function UserManagement() {
       {/* Add User Modal */}
       {showModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-lg border border-gray-100 w-full max-w-[400px] shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded border border-gray-100 w-full max-w-[400px] shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">新增用户</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -316,7 +316,7 @@ export default function UserManagement() {
       {/* Edit User Modal */}
       {editingUser && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
-          <div className="bg-white rounded-lg border border-gray-100 w-full max-w-[400px] shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded border border-gray-100 w-full max-w-[400px] shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">编辑用户</h3>
               <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600">
@@ -395,12 +395,12 @@ export default function UserManagement() {
       {/* Delete Confirm Modal */}
       {delId && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setDelId(null)}>
-          <div className="bg-white rounded-lg border border-gray-100 w-full max-w-[340px] shadow-xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded border border-gray-100 w-full max-w-[340px] shadow-xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">确认删除</h3>
             <p className="text-xs text-gray-500 mb-5">删除后该用户将无法登录系统，确定要删除吗？</p>
             <div className="flex justify-center gap-2">
               <button onClick={() => setDelId(null)} className="erp-btn-secondary" disabled={saving}>取消</button>
-              <button onClick={handleDelete} disabled={saving} className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50">{saving ? '删除中...' : '确认删除'}</button>
+              <button onClick={handleDelete} disabled={saving} className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-4 py-2 rounded transition-colors disabled:opacity-50">{saving ? '删除中...' : '确认删除'}</button>
             </div>
           </div>
         </div>,

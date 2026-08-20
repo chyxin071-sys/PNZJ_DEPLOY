@@ -94,13 +94,13 @@ export default function Notifications() {
           type="button"
           onClick={() => void markAllAsRead()}
           disabled={unreadCount === 0}
-          className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gold-600 transition-colors hover:bg-gold-50 disabled:text-gray-300 disabled:hover:bg-transparent"
+          className="shrink-0 rounded px-2.5 py-1.5 text-xs font-medium text-gold-600 transition-colors hover:bg-gold-50 disabled:text-gray-300 disabled:hover:bg-transparent"
         >
           全部已读
         </button>
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white">
+      <div className="rounded border border-gray-100 bg-white">
         <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
           <span className="text-sm font-medium text-gray-800">通知列表</span>
           <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function Notifications() {
 
         {filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <div className="mb-3 rounded-2xl bg-gray-50 p-3 text-gray-400">
+            <div className="mb-3 rounded bg-gray-50 p-3 text-gray-400">
               <Bell size={24} />
             </div>
             <p className="text-sm text-gray-500">暂无消息通知</p>

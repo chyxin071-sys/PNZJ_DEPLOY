@@ -71,7 +71,7 @@ function LoadingScreen({ message = '加载中...' }: { message?: string }) {
   return (
     <div className="h-screen bg-white flex items-center justify-center">
       <div className="text-center">
-        <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center mx-auto mb-4 animate-pulse shadow-lg shadow-gold-400/10 border border-gold-100 overflow-hidden">
+        <div className="w-12 h-12 rounded bg-white flex items-center justify-center mx-auto mb-4 animate-pulse shadow-lg shadow-gold-400/10 border border-gold-100 overflow-hidden">
           <img src={logoUrl} alt="品诺筑家" className="w-9 h-9 object-contain" />
         </div>
         <p className="text-gray-400 text-sm">{message}</p>

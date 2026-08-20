@@ -46,7 +46,7 @@ export default function ExpenseCategoryPicker({
 
   if (isCompact) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-2">
+      <div className="rounded border border-gray-200 bg-white p-2">
         <div className="mb-2 flex items-center justify-between gap-3 text-xs text-gray-400">
           <span>{primary?.name || (kind === 'income' ? '收入类别' : '费用类别')}</span>
           {secondaryOptions.length > 1 ? <span>选择明细</span> : null}
@@ -76,7 +76,7 @@ export default function ExpenseCategoryPicker({
   }
 
   return (
-    <div className="grid min-h-[220px] grid-cols-[minmax(120px,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div className="grid min-h-[220px] grid-cols-[minmax(120px,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded border border-gray-200 bg-white">
       <div className="min-w-0 border-r border-gray-200 bg-gray-50/60">
         <div className="border-b border-gray-100 px-3 py-2.5">
           <div className="text-xs font-medium text-gray-600">一级分类</div>
