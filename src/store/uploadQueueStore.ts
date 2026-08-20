@@ -35,8 +35,7 @@ interface UploadQueueState {
 const makeTaskId = () => `upload_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const makePreviewUrl = (file: File) => {
-  const nativePreview = (file as File & { __pnzjPreviewDataURL?: string }).__pnzjPreviewDataURL;
-  if (nativePreview) return nativePreview;
+  if ((file as File & { __pnzjNativePlaceholder?: boolean }).__pnzjNativePlaceholder) return undefined;
   if (typeof URL === 'undefined' || !file.type.match(/^(image|video)\//)) return undefined;
   try {
     return URL.createObjectURL(file);

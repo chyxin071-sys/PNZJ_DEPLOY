@@ -9,7 +9,6 @@ type NativeUploadFile = {
   name?: string;
   type?: string;
   size?: number;
-  previewDataURL?: string;
 };
 
 type UploadRequestResult = {
@@ -38,20 +37,6 @@ function acceptsImages(input: HTMLInputElement) {
 
 function acceptedMediaType(input: HTMLInputElement) {
   return input.accept.toLowerCase().includes('video/') ? 'mixed' : 'image';
-}
-
-function dataURLToBytes(dataURL?: string) {
-  if (!dataURL) return new Uint8Array([0]);
-  const commaIndex = dataURL.indexOf(',');
-  if (commaIndex < 0) return new Uint8Array([0]);
-  try {
-    const binary = window.atob(dataURL.slice(commaIndex + 1));
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    return bytes;
-  } catch {
-    return new Uint8Array([0]);
-  }
 }
 
 async function callUploadBridge(data: Record<string, unknown>) {
@@ -146,16 +131,14 @@ function dispatchNativeFiles(
     const type = item.type || 'image/jpeg';
     const extension = type.includes('/') ? type.split('/')[1].replace('jpeg', 'jpg') : 'jpg';
     const file = new File(
-      [dataURLToBytes(item.previewDataURL)],
+      [new Uint8Array([0])],
       item.name || `wechat_original_${Date.now()}_${index + 1}.${extension}`,
       { type, lastModified: Date.now() },
     );
     if (item.size && item.size > file.size) {
       Object.defineProperty(file, 'size', { value: item.size });
     }
-    if (item.previewDataURL) {
-      Object.defineProperty(file, '__pnzjPreviewDataURL', { value: item.previewDataURL });
-    }
+    Object.defineProperty(file, '__pnzjNativePlaceholder', { value: true });
     const uploadResult = item.fileID
       ? Promise.resolve({ fileID: item.fileID })
       : completion?.then((completed) => {
