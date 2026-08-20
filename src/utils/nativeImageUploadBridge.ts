@@ -30,9 +30,12 @@ function sleep(ms: number) {
   return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
-function acceptsImages(input: HTMLInputElement) {
+function acceptsNativeMedia(input: HTMLInputElement) {
   const accept = input.accept.toLowerCase();
-  return accept.split(',').some(value => value.trim().startsWith('image/'));
+  return accept.split(',').some((value) => {
+    const item = value.trim();
+    return item.startsWith('image/') || item.startsWith('video/');
+  });
 }
 
 function acceptedMediaType(input: HTMLInputElement) {
@@ -173,40 +176,56 @@ function dispatchNativeFiles(
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+async function startNativeUpload(input: HTMLInputElement) {
+  if (activeSelection) return;
+
+  activeSelection = true;
+  try {
+    const { sessionId, requestId } = await openNativeUploadPicker(input);
+    activeSelection = false;
+    let dispatched = false;
+    void waitForUploadResult(sessionId, requestId, (uploading, completion) => {
+      dispatched = true;
+      dispatchNativeFiles(input, uploading, completion);
+    })
+      .then((uploaded) => {
+        if (!dispatched && uploaded.length) dispatchNativeFiles(input, uploaded);
+      })
+      .catch((error) => {
+        console.error('[native-image-upload]', error);
+        window.alert(error instanceof Error ? error.message : '微信原生上传失败，请重试');
+      });
+  } catch (error) {
+    console.error('[native-image-upload]', error);
+    window.alert(error instanceof Error ? error.message : '微信原生上传失败，请重试');
+  } finally {
+    activeSelection = false;
+  }
+}
+
 export function installNativeImageUploadBridge() {
   if (!ENABLE_NATIVE_IMAGE_UPLOAD_BRIDGE || !isMiniProgramWebView() || typeof DataTransfer === 'undefined') return () => {};
 
+  const originalInputClick = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function patchedInputClick(this: HTMLInputElement) {
+    if (this.type === 'file' && !this.disabled && acceptsNativeMedia(this)) {
+      void startNativeUpload(this);
+      return;
+    }
+    return originalInputClick.call(this);
+  };
+
   const handleClick = async (event: MouseEvent) => {
     const input = findUploadInput(event.target);
-    if (!input || input.type !== 'file' || input.disabled || !acceptsImages(input)) return;
+    if (!input || input.type !== 'file' || input.disabled || !acceptsNativeMedia(input)) return;
     event.preventDefault();
     event.stopPropagation();
-    if (activeSelection) return;
-
-    activeSelection = true;
-    try {
-      const { sessionId, requestId } = await openNativeUploadPicker(input);
-      activeSelection = false;
-      let dispatched = false;
-      void waitForUploadResult(sessionId, requestId, (uploading, completion) => {
-        dispatched = true;
-        dispatchNativeFiles(input, uploading, completion);
-      })
-        .then((uploaded) => {
-          if (!dispatched && uploaded.length) dispatchNativeFiles(input, uploaded);
-        })
-        .catch((error) => {
-          console.error('[native-image-upload]', error);
-          window.alert(error instanceof Error ? error.message : '微信原图上传失败，请重试');
-        });
-    } catch (error) {
-      console.error('[native-image-upload]', error);
-      window.alert(error instanceof Error ? error.message : '微信原图上传失败，请重试');
-    } finally {
-      activeSelection = false;
-    }
+    void startNativeUpload(input);
   };
 
   document.addEventListener('click', handleClick, true);
-  return () => document.removeEventListener('click', handleClick, true);
+  return () => {
+    document.removeEventListener('click', handleClick, true);
+    HTMLInputElement.prototype.click = originalInputClick;
+  };
 }
