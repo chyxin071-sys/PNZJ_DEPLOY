@@ -1,5 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { getTempFileURL, uploadFile } from './cloudStorage';
 import { formatDate } from './format';
+import { isMiniProgramWebView, openNativeFile } from './miniProgramPreview';
 
 export interface PaymentApplicationExportItem {
   applicant: string;
@@ -201,6 +203,22 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+async function deliverFile(blob: Blob, filename: string) {
+  if (!isMiniProgramWebView()) {
+    downloadBlob(blob, filename);
+    return;
+  }
+
+  const file = new File([blob], filename, { type: blob.type });
+  const uploaded = await uploadFile(file, `finance/payment-application-exports/${fileDate()}`);
+  const urlMap = await getTempFileURL([uploaded.fileID]);
+  const url = urlMap[uploaded.fileID];
+  if (!url) throw new Error('付款申请单下载地址生成失败，请稍后重试');
+  if (!openNativeFile(url, filename, 'open')) {
+    throw new Error('小程序文件页面打开失败，请关闭页面后重试');
+  }
+}
+
 async function buildExactTemplateFile(item: PaymentApplicationExportItem) {
   const response = await fetch(TEMPLATE_URL);
   if (!response.ok) throw new Error('付款申请单模板读取失败');
@@ -221,7 +239,7 @@ export async function exportPaymentApplications(items: PaymentApplicationExportI
   if (!items.length) return;
   if (items.length === 1) {
     const file = await buildExactTemplateFile(items[0]);
-    downloadBlob(
+    await deliverFile(
       new Blob([file], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
       `付款申请单_${cleanSheetName(items[0].projectAddress || items[0].payeeName || items[0].applicant, 0)}_${fileDate()}.xlsx`,
     );
@@ -234,7 +252,7 @@ export async function exportPaymentApplications(items: PaymentApplicationExportI
     files[`付款申请单_${name}_${fileDate()}.xlsx`] = await buildExactTemplateFile(item);
   }
   const zipped = zipSync(files, { level: 6 });
-  downloadBlob(new Blob([zipped], { type: 'application/zip' }), `付款申请单_${fileDate()}.zip`);
+  await deliverFile(new Blob([zipped], { type: 'application/zip' }), `付款申请单_${fileDate()}.zip`);
 }
 
 function getCellValue(sheet: any, address: string) {

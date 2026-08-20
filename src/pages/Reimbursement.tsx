@@ -61,6 +61,23 @@ const statusBadge: Record<string, string> = {
   '已冲销': 'bg-slate-100 text-slate-600',
 };
 
+function ReimbursementDetailField({
+  label,
+  value,
+  className = '',
+}: {
+  label: string;
+  value: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <div className="mb-1 text-[11px] leading-4 text-gray-400">{label}</div>
+      <div className="break-words text-sm font-normal leading-6 text-gray-800">{value || '-'}</div>
+    </div>
+  );
+}
+
 function getDocId(record: any) {
   return String(record?._id || record?.id || '');
 }
@@ -214,6 +231,7 @@ export default function ReimbursementPage() {
   }, [localPreviewIndex, localPreviewUrls.length]);
   const [payFiles, setPayFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const payFileRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -825,6 +843,7 @@ export default function ReimbursementPage() {
       approvalRecords: [
         ...(((r as any).approvalRecords || [])),
         {
+          level: getReimbursementStatus(r) === '待二级审批' ? 2 : 1,
           action: '驳回',
           operatorId: currentUserId,
           operatorName: myName,
@@ -1049,7 +1068,7 @@ export default function ReimbursementPage() {
         });
       }
       setShowSubmit(false);
-      setForm(createInitialForm(user?.name || '')); 
+      setForm(createInitialForm(user?.name || ''));
       setFiles([]);
 
       // 如果有返回URL，则导航回去
@@ -1190,15 +1209,32 @@ export default function ReimbursementPage() {
   };
 
   const handleExport = async () => {
+    if (exporting) return;
     if (!filtered.length) {
       await showAlert('当前没有可导出的付款申请。');
       return;
     }
     try {
+      setExporting(true);
       await exportPaymentApplications(filtered.map(buildPaymentApplicationItem));
     } catch (e: any) {
       console.error(e);
       await showAlert(e?.message || '导出付款申请单失败');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleSingleExport = async (item: Reimbursement) => {
+    if (exporting) return;
+    try {
+      setExporting(true);
+      await exportPaymentApplications([buildPaymentApplicationItem(item)]);
+    } catch (e: any) {
+      console.error(e);
+      await showAlert(e?.message || '导出付款申请单失败');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1281,8 +1317,8 @@ export default function ReimbursementPage() {
         <Search size={15} className="erp-search-icon" />
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索申请人/收款人/付款用途..." className="erp-search-input pl-9" />
       </div>
-        <button onClick={handleExport} className="erp-btn-secondary !h-8 !py-0 shrink-0 hidden md:inline-flex">
-          导出付款单
+        <button onClick={handleExport} disabled={exporting} className="erp-btn-secondary !h-8 !py-0 shrink-0 hidden md:inline-flex disabled:cursor-not-allowed disabled:opacity-60">
+          {exporting ? '导出中...' : '导出付款单'}
         </button>
         <button onClick={() => importFileRef.current?.click()} disabled={submitting} className="erp-btn-secondary !h-8 !py-0 shrink-0 hidden md:inline-flex">
           导入付款单
@@ -1666,45 +1702,62 @@ export default function ReimbursementPage() {
       {/* 报销详情 Modal */}
       <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title="报销详情" size="lg">
         {showDetail && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={async () => {
-                  try {
-                    await exportPaymentApplications([buildPaymentApplicationItem(showDetail)]);
-                  } catch (e: any) {
-                    await showAlert(e?.message || '导出付款申请单失败');
-                  }
-                }}
-                className="erp-btn-secondary !h-8 !py-0"
+                onClick={() => handleSingleExport(showDetail)}
+                disabled={exporting}
+                className="erp-btn-secondary !h-8 !py-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                导出付款单
+                {exporting ? '导出中...' : '导出付款单'}
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500">申请人：</span><span className="text-gray-900 font-medium">{showDetail.applicant}</span></div>
-              <div><span className="text-gray-500">关联项目：</span><span className="text-gray-900 font-medium">{contracts.find(c => c.id === showDetail.contractId)?.houseAddress || '非项目报销'}</span></div>
-              <div><span className="text-gray-500">付款类型：</span><span className="text-gray-900 font-medium">{showDetail.type}</span></div>
-              <div><span className="text-gray-500">金额：</span><span className="text-emerald-600 font-semibold">{formatMoney(showDetail.amount)}</span></div>
-              <div><span className="text-gray-500">申请日期：</span><span className="text-gray-900">{safeFormatDate((showDetail as any).applicationDate || showDetail.expenseDate)}</span></div>
-              <div><span className="text-gray-500">状态：</span><span className={`text-xs px-2 py-0.5 rounded font-medium ${statusBadge[getReimbursementStatus(showDetail)] || ''}`}>{getReimbursementStatus(showDetail)}</span></div>
-              <div><span className="text-gray-500">收款人：</span><span className="text-gray-900 font-medium">{(showDetail as any).payeeName || '-'}</span></div>
-              <div><span className="text-gray-500">开户银行：</span><span className="text-gray-900 font-medium">{(showDetail as any).payeeBank || '-'}</span></div>
-              <div className="sm:col-span-2"><span className="text-gray-500">账号：</span><span className="text-gray-900 font-medium">{(showDetail as any).payeeAccount || '-'}</span></div>
-            </div>
-            <div className="text-sm"><span className="text-gray-500">付款用途：</span><p className="text-gray-700 mt-1">{getPaymentPurpose(showDetail)}</p></div>
-            {(showDetail as any).remark && (
-              <div className="text-sm"><span className="text-gray-500">备注：</span><p className="text-gray-700 mt-1">{(showDetail as any).remark}</p></div>
-            )}
-            <div className="rounded bg-gray-50 p-3 text-xs text-gray-600">
-              <div className="mb-2 font-medium text-gray-800">审批流程</div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div>一级审核：{getNamesByIds(getFlow(showDetail).approver1Ids)}</div>
-                <div>复核：{getNamesByIds(getFlow(showDetail).approver2Ids)}</div>
-                <div>打款人：{getNamesByIds(getFlow(showDetail).payerIds)}</div>
-                <div>抄送人：{getNamesByIds(getFlow(showDetail).ccUserIds)}</div>
+            <div className="flex items-center justify-between gap-4 border-y border-gray-100 py-3">
+              <div>
+                <div className="mb-0.5 text-[11px] text-gray-400">付款金额</div>
+                <div className="text-lg font-semibold text-emerald-600">{formatMoney(showDetail.amount)}</div>
               </div>
+              <div className="text-right">
+                <div className="mb-1 text-[11px] text-gray-400">当前状态</div>
+                <span className={`inline-flex rounded px-2 py-1 text-xs font-medium ${statusBadge[getReimbursementStatus(showDetail)] || ''}`}>
+                  {getReimbursementStatus(showDetail)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
+              <ReimbursementDetailField label="申请人" value={showDetail.applicant} />
+              <ReimbursementDetailField label="付款类型" value={showDetail.type} />
+              <ReimbursementDetailField label="申请日期" value={safeFormatDate((showDetail as any).applicationDate || showDetail.expenseDate)} />
+              <ReimbursementDetailField
+                label="关联项目"
+                value={contracts.find(c => c.id === showDetail.contractId)?.houseAddress || '非项目报销'}
+                className="col-span-2 sm:col-span-3"
+              />
+              <ReimbursementDetailField label="收款人（单位）" value={(showDetail as any).payeeName || '-'} />
+              <ReimbursementDetailField
+                label="开户银行"
+                value={(showDetail as any).payeeBank || '-'}
+                className="col-span-2 sm:col-span-2"
+              />
+              <ReimbursementDetailField
+                label="账号"
+                value={(showDetail as any).payeeAccount || '-'}
+                className="col-span-2 sm:col-span-3"
+              />
+              <ReimbursementDetailField
+                label="付款用途"
+                value={getPaymentPurpose(showDetail)}
+                className="col-span-2 sm:col-span-3"
+              />
+              {(showDetail as any).remark && (
+                <ReimbursementDetailField
+                  label="备注"
+                  value={(showDetail as any).remark}
+                  className="col-span-2 sm:col-span-3"
+                />
+              )}
             </div>
             {showDetail.attachments && showDetail.attachments.length > 0 && (
               <div>
@@ -1736,41 +1789,132 @@ export default function ReimbursementPage() {
                 </div>
               </div>
             )}
-            <div>
-              <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-3"><FileText size={14} />审核流转</div>
-              <div className="space-y-3 pl-1">
-                <div className="flex gap-3 text-sm">
-                  <div className="w-2 h-2 rounded-full bg-gold-400 mt-1.5 shrink-0" />
-                  <div><p className="text-gray-900">{showDetail.applicant} 提交申请</p><p className="text-gray-400 text-xs mt-0.5">{formatDate(showDetail.createdAt)}</p></div>
-                </div>
-                {((showDetail as any).approvalRecords || []).filter((record: any) => record.action !== '提交').map((record: any, idx: number) => (
-                  <div key={`${record.operatedAt || idx}-${record.action}`} className="flex gap-3 text-sm">
-                    <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${record.action === '驳回' ? 'bg-red-400' : record.action === '打款' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
-                    <div>
-                      <p className="text-gray-900">{record.operatorName || '-'} {record.level ? `${record.level}级审批` : ''}{record.action}</p>
-                      {record.comment && <p className="mt-0.5 text-xs text-red-500">原因：{record.comment}</p>}
-                      <p className="mt-0.5 text-xs text-gray-400">{formatDate(record.operatedAt)}</p>
-                    </div>
+            {(() => {
+              const records = ((showDetail as any).approvalRecords || []).filter((record: any) => record.action !== '提交');
+              const flow = getFlow(showDetail);
+              const status = getReimbursementStatus(showDetail);
+              const latestReject = [...records].reverse().find((record: any) => record.action === '驳回');
+              const level1Passed = records.some((record: any) => record.level === 1 && ['通过', '审核通过'].includes(record.action));
+              const level2Passed = records.some((record: any) => record.level === 2 && ['通过', '审核通过'].includes(record.action));
+              const rejectedLevel = latestReject
+                ? Number(latestReject.level || (level1Passed ? 2 : 1))
+                : (status === '已驳回' ? (level1Passed ? 2 : 1) : 0);
+              const currentStage = status === '待一级审批'
+                ? 1
+                : status === '待二级审批'
+                  ? 2
+                  : status === '待打款'
+                    ? 3
+                    : 0;
+              const isPaid = status === '已打款' || status === '已冲销';
+              const levelRecord = (level: number) => [...records].reverse().find((record: any) => (
+                Number(record.level) === level
+                || (record.action === '驳回' && rejectedLevel === level)
+              ));
+              const paymentRecord = [...records].reverse().find((record: any) => record.action === '打款');
+              const getStageState = (stage: number) => {
+                if (rejectedLevel === stage) return 'rejected';
+                if (currentStage === stage) return 'current';
+                if (stage === 1 && (level1Passed || currentStage > 1 || isPaid)) return 'completed';
+                if (stage === 2 && (level2Passed || currentStage > 2 || isPaid)) return 'completed';
+                if (stage === 3 && isPaid) return 'completed';
+                return 'pending';
+              };
+              const stageNodes = [
+                {
+                  key: 'submitted',
+                  role: '发起申请',
+                  person: showDetail.applicant,
+                  state: 'completed',
+                  action: '已提交',
+                  time: showDetail.createdAt,
+                },
+                {
+                  key: 'level-1',
+                  role: '一级审核',
+                  person: levelRecord(1)?.operatorName || getNamesByIds(flow.approver1Ids),
+                  state: getStageState(1),
+                  action: levelRecord(1)?.action,
+                  comment: levelRecord(1)?.comment || (rejectedLevel === 1 ? showDetail.reviewComment : ''),
+                  time: levelRecord(1)?.operatedAt || (rejectedLevel === 1 ? showDetail.reviewDate : (showDetail as any).firstReviewDate),
+                },
+                {
+                  key: 'level-2',
+                  role: '复核',
+                  person: levelRecord(2)?.operatorName || getNamesByIds(flow.approver2Ids),
+                  state: getStageState(2),
+                  action: levelRecord(2)?.action,
+                  comment: levelRecord(2)?.comment || (rejectedLevel === 2 ? showDetail.reviewComment : ''),
+                  time: levelRecord(2)?.operatedAt || (rejectedLevel === 2 ? showDetail.reviewDate : (showDetail as any).secondReviewDate),
+                },
+                {
+                  key: 'payment',
+                  role: '财务打款',
+                  person: paymentRecord?.operatorName || (showDetail as any).payerName || getNamesByIds(flow.payerIds),
+                  state: getStageState(3),
+                  action: paymentRecord?.action,
+                  time: paymentRecord?.operatedAt || showDetail.paymentDate,
+                },
+              ];
+              const extraRecords = records.filter((record: any) => (
+                !record.level && !['通过', '审核通过', '驳回', '打款'].includes(record.action)
+              ));
+              const stageStateClasses: Record<string, string> = {
+                completed: 'border-emerald-200 bg-emerald-50 text-emerald-600',
+                current: 'border-blue-300 bg-blue-50 text-blue-600',
+                rejected: 'border-red-200 bg-red-50 text-red-500',
+                pending: 'border-gray-200 bg-white text-gray-400',
+              };
+              const stateLabel = (node: any) => {
+                if (node.state === 'completed') return node.key === 'payment' ? '已打款' : node.action === '通过' ? '已通过' : node.action || '已完成';
+                if (node.state === 'rejected') return '已驳回';
+                if (node.state === 'current') return '等待处理';
+                return '未开始';
+              };
+
+              return (
+                <section className="border-t border-gray-100 pt-5">
+                  <h4 className="mb-4 text-sm font-medium text-gray-900">审批进度</h4>
+                  <div>
+                    {stageNodes.map((item: any, idx: number) => {
+                      const next = stageNodes[idx + 1];
+                      const connectorSolid = item.state === 'completed' && next && next.state !== 'pending';
+                      return (
+                      <div key={item.key} className="relative flex gap-3 pb-6 last:pb-0">
+                        {idx < stageNodes.length - 1 && (
+                          <div className={`absolute bottom-0 left-[17px] top-9 border-l-2 ${connectorSolid ? 'border-solid border-emerald-200' : 'border-dashed border-gray-200'}`} />
+                        )}
+                        <div className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded border text-xs font-medium ${stageStateClasses[item.state]}`}>
+                          {item.state === 'completed' ? '✓' : item.state === 'rejected' ? '×' : String(item.person || item.role || '-').slice(-2)}
+                        </div>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                            <div>
+                              <span className="text-xs text-gray-400">{item.role}</span>
+                              <p className="mt-0.5 break-words text-sm font-normal text-gray-800">{item.person}</p>
+                              <p className={`mt-0.5 text-xs ${item.state === 'rejected' ? 'text-red-500' : item.state === 'current' ? 'text-blue-600' : item.state === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                {stateLabel(item)}
+                              </p>
+                            </div>
+                            {item.time && <time className="shrink-0 text-[11px] text-gray-400">{formatDate(item.time)}</time>}
+                          </div>
+                          {item.comment && <p className="mt-1 break-words text-xs text-red-500">原因：{item.comment}</p>}
+                          {item.key === 'submitted' && extraRecords.map((record: any, recordIdx: number) => (
+                            <p key={`${record.operatedAt || recordIdx}-${record.action}`} className="mt-1 text-xs text-gray-400">
+                              {record.operatorName || '-'} {record.action}{record.comment ? `：${record.comment}` : ''}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    );})}
                   </div>
-                ))}
-                {showDetail.reviewDate && (
-                  <div className="flex gap-3 text-sm">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${showDetail.status === '已驳回' ? 'bg-red-400' : 'bg-blue-400'}`} />
-                    <div>
-                      <p className="text-gray-900">{showDetail.reviewer} {showDetail.status === '已驳回' ? '驳回' : '审核通过'}</p>
-                      {showDetail.reviewComment && <p className="text-red-500 text-xs mt-0.5">原因：{showDetail.reviewComment}</p>}
-                      <p className="text-gray-400 text-xs mt-0.5">{formatDate(showDetail.reviewDate)}</p>
-                    </div>
+                  <div className="ml-12 mt-4 border-t border-gray-100 pt-3 text-xs">
+                    <span className="text-gray-400">抄送人</span>
+                    <span className="ml-3 text-gray-700">{getNamesByIds(flow.ccUserIds)}</span>
                   </div>
-                )}
-                {showDetail.paymentDate && (
-                  <div className="flex gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-                    <div><p className="text-gray-900">已打款 {formatMoney(showDetail.amount)}</p><p className="text-gray-400 text-xs mt-0.5">{formatDate(showDetail.paymentDate)}</p></div>
-                  </div>
-                )}
-              </div>
-            </div>
+                </section>
+              );
+            })()}
           </div>
         )}
       </Modal>
