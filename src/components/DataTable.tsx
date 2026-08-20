@@ -3,7 +3,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 
 interface SwipeAction<T> {
-  label: string;
+  label: string | ((row: T) => string);
   onClick: (row: T) => void;
   className?: string;
   width?: number;
@@ -240,23 +240,26 @@ export default function DataTable<T>({
               <div key={key} className="relative overflow-hidden bg-white">
                 {rowCanSwipe && (
                   <div className="absolute inset-y-0 right-0 flex" style={{ width: `${swipeWidth}px` }}>
-                    {actions.map((action) => (
-                      <button
-                        key={action.label}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenSwipeKey(null);
-                          action.onClick(row);
-                        }}
-                        className={`flex flex-col items-center justify-center gap-1 text-xs font-medium ${action.className || 'bg-gray-900 text-white active:bg-gray-800'}`}
-                        style={{ width: `${action.width || 88}px` }}
-                        aria-label={action.label}
-                      >
-                        {action.label === '删除' ? <Trash2 size={18} /> : null}
-                        {action.label}
-                      </button>
-                    ))}
+                    {actions.map((action) => {
+                      const actionLabel = typeof action.label === 'function' ? action.label(row) : action.label;
+                      return (
+                        <button
+                          key={actionLabel}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenSwipeKey(null);
+                            action.onClick(row);
+                          }}
+                          className={`flex flex-col items-center justify-center gap-1 text-xs font-medium ${action.className || 'bg-gray-900 text-white active:bg-gray-800'}`}
+                          style={{ width: `${action.width || 88}px` }}
+                          aria-label={actionLabel}
+                        >
+                          {actionLabel === '删除' ? <Trash2 size={18} /> : null}
+                          {actionLabel}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 <div

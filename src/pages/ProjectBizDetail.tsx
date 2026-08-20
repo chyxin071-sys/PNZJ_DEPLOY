@@ -5733,9 +5733,9 @@ export default function ProjectBizDetail() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">现场照片</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
                   {[...newLogForm.photos.map(fileID => ({ fileID, type: 'image' })), ...logPendingPhotos].map((p: any, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
+                    <div key={idx} className="relative aspect-square min-w-0 overflow-hidden rounded border border-gray-200">
                       <button type="button" onClick={() => { if (!p.isUploading) openPreview(p, newLogForm.photos.map(fileID => ({ fileID, type: 'image' }))); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" /> : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
@@ -5749,7 +5749,7 @@ export default function ProjectBizDetail() {
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
-                  <button type="button" onClick={() => logFileInputRef.current?.click()} className="w-16 h-16 rounded border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-gold-500 hover:border-gold-300 bg-gray-50">
+                  <button type="button" onClick={() => logFileInputRef.current?.click()} className="flex aspect-square min-w-0 flex-col items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-gold-300 hover:text-gold-500">
                     <Camera size={16} />
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
@@ -5830,9 +5830,9 @@ export default function ProjectBizDetail() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">现场图片/视频</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
                   {[...newInspectionForm.photos.map(toPreviewMedia), ...inspectionPendingPhotos].map((p: any, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
+                    <div key={idx} className="relative aspect-square min-w-0 overflow-hidden rounded border border-gray-200">
                       <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), newInspectionForm.photos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? (
@@ -5850,7 +5850,7 @@ export default function ProjectBizDetail() {
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
-                  <button type="button" onClick={() => inspectionFileInputRef.current?.click()} className="w-16 h-16 rounded border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-300 bg-gray-50">
+                  <button type="button" onClick={() => inspectionFileInputRef.current?.click()} className="flex aspect-square min-w-0 flex-col items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-blue-300 hover:text-blue-500">
                     <Camera size={16} />
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
@@ -5902,9 +5902,9 @@ export default function ProjectBizDetail() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">整改后图片/视频</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
                   {[...rectifyForm.rectifyPhotos.map(toPreviewMedia), ...rectifyPendingPhotos].map((p: any, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
+                    <div key={idx} className="relative aspect-square min-w-0 overflow-hidden rounded border border-gray-200">
                       <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), rectifyForm.rectifyPhotos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? (
@@ -5922,7 +5922,7 @@ export default function ProjectBizDetail() {
                       <UploadingMediaOverlay item={p} onRetry={retryUploadTask} onRemove={removeUploadTask} />
                     </div>
                   ))}
-                  <button type="button" onClick={() => rectifyFileInputRef.current?.click()} className="w-16 h-16 rounded border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-rose-500 hover:border-rose-300 bg-gray-50">
+                  <button type="button" onClick={() => rectifyFileInputRef.current?.click()} className="flex aspect-square min-w-0 flex-col items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-rose-300 hover:text-rose-500">
                     <Camera size={16} />
                     <span className="text-[10px] mt-1">上传</span>
                   </button>

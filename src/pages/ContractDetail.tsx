@@ -65,6 +65,10 @@ function normalizePaymentStages(contract?: Contract | null): PaymentStage[] {
   return contract.bizType === '工装' ? defaultCommercialStages() : defaultHomeStages();
 }
 
+function shouldReverseExpenseRecord(expense: Expense) {
+  return ['已付', '已付款'].includes(String(expense.status || '').trim());
+}
+
 function isSameContractDoc(a: Contract, b: Contract) {
   const aDocId = a._id || a.id;
   const bDocId = b._id || b.id;
@@ -336,6 +340,9 @@ export default function ContractDetail() {
   const [receiptDefaultStage, setReceiptDefaultStage] = useState('');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expenseControl, setExpenseControl] = useState<{ type: 'delete' | 'reverse'; item: Expense } | null>(null);
+  const [expenseControlReason, setExpenseControlReason] = useState('');
+  const [expenseControlSubmitting, setExpenseControlSubmitting] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
@@ -491,6 +498,16 @@ export default function ContractDetail() {
     setReverseReason('');
   };
 
+  const openEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setShowExpenseModal(true);
+  };
+
+  const openExpenseControl = (expense: Expense) => {
+    setExpenseControl({ type: shouldReverseExpenseRecord(expense) ? 'reverse' : 'delete', item: expense });
+    setExpenseControlReason('');
+  };
+
   const handleReverseReceipt = async () => {
     if (!reverseReceipt || reverseSubmitting) return;
     const reason = reverseReason.trim();
@@ -546,6 +563,62 @@ export default function ContractDetail() {
       await showAlert('冲销失败：' + (error?.message || '未知错误'));
     } finally {
       setReverseSubmitting(false);
+    }
+  };
+
+  const handleExpenseControl = async () => {
+    if (!expenseControl || expenseControlSubmitting) return;
+    const { type, item } = expenseControl;
+    const reason = expenseControlReason.trim();
+    if (type === 'reverse' && !reason) {
+      await showAlert('已付款支出冲销必须填写原因。');
+      return;
+    }
+    const actionLabel = type === 'reverse' ? '冲销' : '删除';
+    const confirmed = await showConfirm(
+      `收款方：${item.supplier || '-'}\n金额：${formatMoney(item.amount || 0)}`,
+      { title: `确认${actionLabel}该支出记录吗？`, confirmStyle: 'danger', confirmText: `确认${actionLabel}` },
+    );
+    if (!confirmed) return;
+    setExpenseControlSubmitting(true);
+    try {
+      const now = new Date().toISOString();
+      const operatorName = user?.name || '';
+      const next = type === 'reverse'
+        ? { ...item, lifecycleStatus: 'reversed', reversedAt: now, reversedBy: operatorName, reverseReason: reason }
+        : { ...item, lifecycleStatus: 'deleted', deletedAt: now, deletedBy: operatorName, voidReason: reason };
+      await updateExpense(next as any);
+      await recordFinanceAuditAction({
+        module: 'expense',
+        action: type,
+        recordId: String((item as any)._id || item.id),
+        recordName: item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
+        amount: item.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName,
+        before: item,
+        after: next,
+      });
+      await notifyFinanceAuditAction({
+        module: 'expense',
+        action: type,
+        recordId: String((item as any)._id || item.id),
+        recordName: item.supplier || item.contractNo || item.id,
+        bizType: currentBizType,
+        amount: item.amount,
+        reason,
+        operatorId: user?.id,
+        operatorName,
+        recipientUserIds: adminUserIds,
+      });
+      setExpenseControl(null);
+      setExpenseControlReason('');
+    } catch (error: any) {
+      await showAlert(`${actionLabel}失败：${error?.message || '未知错误'}`);
+    } finally {
+      setExpenseControlSubmitting(false);
     }
   };
 
@@ -1144,14 +1217,14 @@ export default function ContractDetail() {
       width: '150px',
       render: (e: Expense) => (
         <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
-          <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
+          <button onClick={() => openEditExpense(e)} className="text-xs text-gold-600 hover:text-gold-700">编辑</button>
           {canViewFinance ? (
             <button
-              onClick={() => navigate(`/expense?focus=${encodeURIComponent(String((e as any)._id || e.id))}`)}
+              onClick={() => openExpenseControl(e)}
               className="text-xs text-red-500 hover:text-red-600"
-              title="到支出管理页删除或冲销"
+              title={shouldReverseExpenseRecord(e) ? '冲销支出' : '删除支出'}
             >
-              去处理
+              {shouldReverseExpenseRecord(e) ? '冲销' : '删除'}
             </button>
           ) : null}
         </div>
@@ -1201,13 +1274,13 @@ export default function ContractDetail() {
             }}
           />
           <div className="flex items-center gap-3">
-            <button onClick={() => { setEditingExpense(e); setShowExpenseModal(true); }} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
+            <button onClick={() => openEditExpense(e)} className="text-xs font-medium text-gold-600 hover:text-gold-700">编辑</button>
             {canViewFinance ? (
               <button
-                onClick={() => navigate(`/expense?focus=${encodeURIComponent(String((e as any)._id || e.id))}`)}
+                onClick={() => openExpenseControl(e)}
                 className="text-xs font-medium text-red-500 hover:text-red-600"
               >
-                去处理
+                {shouldReverseExpenseRecord(e) ? '冲销' : '删除'}
               </button>
             ) : null}
           </div>
@@ -1797,6 +1870,60 @@ export default function ContractDetail() {
           </div>
         )}
       </Modal>
+      <Modal
+        open={!!expenseControl}
+        onClose={() => {
+          if (expenseControlSubmitting) return;
+          setExpenseControl(null);
+          setExpenseControlReason('');
+        }}
+        title={expenseControl?.type === 'reverse' ? '冲销支出记录' : '删除支出记录'}
+      >
+        {expenseControl && (
+          <div className="space-y-4">
+            <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              {expenseControl.type === 'reverse'
+                ? '已付款的支出不直接删除。冲销后该记录不再计入支出汇总，但会保留原始记录和操作痕迹。'
+                : '未付款或测试类支出可以删除。删除后该记录不再出现在业务列表中，并写入财务操作日志。'}
+            </div>
+            <div className="rounded bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              <div>收款方：<span className="font-medium text-gray-900">{expenseControl.item.supplier || '-'}</span></div>
+              <div className="mt-1">金额：<span className="font-medium text-red-500">{formatMoney(expenseControl.item.amount || 0)}</span></div>
+              <div className="mt-1">类别：<span className="font-medium text-gray-900">{expenseControl.item.category || '-'}</span></div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                {expenseControl.type === 'reverse' ? '冲销原因' : '删除原因'}
+              </label>
+              <textarea
+                value={expenseControlReason}
+                onChange={(e) => setExpenseControlReason(e.target.value)}
+                disabled={expenseControlSubmitting}
+                rows={3}
+                placeholder={expenseControl.type === 'reverse' ? '请填写冲销原因，便于后续查账' : '可填写删除原因，便于后续追溯'}
+                className="erp-input resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => { setExpenseControl(null); setExpenseControlReason(''); }}
+                disabled={expenseControlSubmitting}
+                className="erp-btn-secondary disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleExpenseControl}
+                disabled={expenseControlSubmitting}
+                className="inline-flex items-center gap-1.5 rounded bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {expenseControlSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                {expenseControlSubmitting ? '处理中...' : `确认${expenseControl.type === 'reverse' ? '冲销' : '删除'}`}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
       {canViewFinance && (
         <>
           <ExpenseFormModal
@@ -1829,6 +1956,18 @@ export default function ContractDetail() {
             emptyText="暂无支出记录"
             rowKey={(e) => String(e.id)}
             mobileCardColumns={expenseMobileColumns}
+            mobileSwipeActions={[
+              {
+                label: '编辑',
+                onClick: openEditExpense,
+                className: 'bg-gold-500 text-white active:bg-gold-600',
+              },
+              {
+                label: (expense) => shouldReverseExpenseRecord(expense) ? '冲销' : '删除',
+                onClick: openExpenseControl,
+                className: 'bg-red-500 text-white active:bg-red-600',
+              },
+            ]}
             compactEmpty
           />
         </div>

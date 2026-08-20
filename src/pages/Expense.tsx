@@ -493,7 +493,7 @@ export default function Expense() {
       title: '操作',
       width: '70px',
       render: (row: Record<string, unknown>) => (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
           <button onClick={() => openEditExpense(row)} className="p-1 text-gray-400 hover:text-gold-500 rounded" title="编辑">
             <Edit3 size={12} />
           </button>
@@ -653,6 +653,18 @@ export default function Expense() {
               }
             }}
             mobileCardColumns={mobileColumns}
+            mobileSwipeActions={[
+              {
+                label: '编辑',
+                onClick: openEditExpense,
+                className: 'bg-gold-500 text-white active:bg-gold-600',
+              },
+              {
+                label: (row) => shouldReverseExpense(row) ? '冲销' : '删除',
+                onClick: openExpenseControlAction,
+                className: 'bg-red-500 text-white active:bg-red-600',
+              },
+            ]}
         />
       </div>
 
