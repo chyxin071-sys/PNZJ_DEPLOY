@@ -329,13 +329,12 @@ export default function ReimbursementPage() {
   const [newPrimaryName, setNewPrimaryName] = useState('');
   const [newSecondaryName, setNewSecondaryName] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [localPreviewUrls, setLocalPreviewUrls] = useState<string[]>([]);
   const [dashboardFilter, setDashboardFilter] = useState<'month-all' | 'month-review' | 'month-pay' | 'month-paid' | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => (
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
   ));
   const [returnToUrl, setReturnToUrl] = useState<string | null>(null);
-  const localPreviewUrls = useMemo(() => files.map(file => URL.createObjectURL(file)), [files]);
-
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const query = window.matchMedia('(max-width: 767px)');
@@ -344,10 +343,6 @@ export default function ReimbursementPage() {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-
-  useEffect(() => () => {
-    localPreviewUrls.forEach(url => URL.revokeObjectURL(url));
-  }, [localPreviewUrls]);
 
   useEffect(() => {
     if (localPreviewIndex !== null && localPreviewIndex >= localPreviewUrls.length) {
@@ -514,6 +509,33 @@ export default function ReimbursementPage() {
     setShowTypePicker(false);
   };
 
+  const openPaymentTypePicker = () => {
+    setShowTypePicker(true);
+  };
+
+  const handleAttachmentFileChange = (fileList: FileList | null) => {
+    const file = Array.from(fileList || []).find((item) => item.type.startsWith('image/'));
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFiles([file]);
+      setLocalPreviewUrls([String(reader.result || '')]);
+      setLocalPreviewIndex(null);
+    };
+    reader.onerror = () => {
+      setFiles([file]);
+      setLocalPreviewUrls([]);
+      setLocalPreviewIndex(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAttachmentFile = () => {
+    setFiles([]);
+    setLocalPreviewUrls([]);
+    setLocalPreviewIndex(null);
+  };
+
   useEffect(() => {
     if (form.type) return;
     setForm((prev) => ({ ...prev, type: reimbursementTypeOptions[0] || '' }));
@@ -590,6 +612,7 @@ export default function ReimbursementPage() {
 
     setForm(createInitialForm(user?.name || '', params.get('contractId') || ''));
     setFiles([]);
+    setLocalPreviewUrls([]);
     setShowSubmit(true);
 
     // 存储返回URL
@@ -635,15 +658,12 @@ export default function ReimbursementPage() {
     payerIds: normalizeUserIds((r as any)?.approvalFlow?.payerIds || approvalConfig.payerIds),
   });
   const canApproveLevel1 = (r: Reimbursement) => {
-    if (canManageApprovalFlow && getReimbursementStatus(r) === '待一级审批') return true;
     return getReimbursementStatus(r) === '待一级审批' && isUserInList(currentUserId, getFlow(r).approver1Ids);
   };
   const canApproveLevel2 = (r: Reimbursement) => {
-    if (canManageApprovalFlow && getReimbursementStatus(r) === '待二级审批') return true;
     return getReimbursementStatus(r) === '待二级审批' && isUserInList(currentUserId, getFlow(r).approver2Ids);
   };
   const canPayReimbursement = (r: Reimbursement) => {
-    if (canManageApprovalFlow && getReimbursementStatus(r) === '待打款') return true;
     return getReimbursementStatus(r) === '待打款' && isUserInList(currentUserId, getFlow(r).payerIds);
   };
   const getPaymentPurpose = (r: Reimbursement) => (r as any).paymentPurpose || r.description || '';
@@ -1001,6 +1021,10 @@ export default function ReimbursementPage() {
 
   const handleApproveFlow = async (r: Reimbursement, level: 1 | 2) => {
     if (submitting) return;
+    if ((level === 1 && !canApproveLevel1(r)) || (level === 2 && !canApproveLevel2(r))) {
+      await showAlert('当前审批节点未流转到您，不能操作。');
+      return;
+    }
     setSubmitting(true);
     try {
       const flow = getFlow(r);
@@ -1064,8 +1088,17 @@ export default function ReimbursementPage() {
 
   const handleRejectFlow = async () => {
     if (!showRejectModal || submitting) return;
-    setSubmitting(true);
     const r = showRejectModal.item;
+    const status = getReimbursementStatus(r);
+    if ((status === '待一级审批' && !canApproveLevel1(r)) || (status === '待二级审批' && !canApproveLevel2(r))) {
+      await showAlert('当前审批节点未流转到您，不能驳回。');
+      return;
+    }
+    if (!['待一级审批', '待二级审批'].includes(status)) {
+      await showAlert('当前状态不能驳回。');
+      return;
+    }
+    setSubmitting(true);
     const next: any = {
       ...r,
       status: '已驳回',
@@ -1109,8 +1142,12 @@ export default function ReimbursementPage() {
 
   const handlePayFlow = async () => {
     if (!showPayModal || submitting) return;
-    setSubmitting(true);
     const r = showPayModal.item;
+    if (!canPayReimbursement(r)) {
+      await showAlert('当前打款节点未流转到您，不能操作。');
+      return;
+    }
+    setSubmitting(true);
     try {
       let uploadedAttachments: AttachmentValue[] = [];
       if (payFiles.length > 0) {
@@ -1237,6 +1274,7 @@ export default function ReimbursementPage() {
       setShowSubmit(false);
       setForm(createInitialForm(user?.name || ''));
       setFiles([]);
+      setLocalPreviewUrls([]);
       if (returnToUrl) {
         setReturnToUrl(null);
         navigate(returnToUrl);
@@ -1306,6 +1344,7 @@ export default function ReimbursementPage() {
       setShowSubmit(false);
       setForm(createInitialForm(user?.name || ''));
       setFiles([]);
+      setLocalPreviewUrls([]);
 
       // 如果有返回URL，则导航回去
       if (returnToUrl) {
@@ -1594,6 +1633,8 @@ export default function ReimbursementPage() {
           </div>
           <button onClick={() => {
             setForm(createInitialForm(user?.name || ''));
+            setFiles([]);
+            setLocalPreviewUrls([]);
             setShowSubmit(true);
           }} className="erp-btn-primary shrink-0">
             <Plus size={16} /> 新建报销
@@ -1639,7 +1680,7 @@ export default function ReimbursementPage() {
       </div>
 
       {/* 提交报销 Modal */}
-      <Modal open={showSubmit} onClose={() => { if (!submitting) setShowSubmit(false); }} title="提交报销申请" size="lg">
+      <Modal open={showSubmit} onClose={() => { if (!submitting) { setShowSubmit(false); setFiles([]); setLocalPreviewUrls([]); } }} title="提交报销申请" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div>
@@ -1690,7 +1731,12 @@ export default function ReimbursementPage() {
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">付款类型</label>
               <button
                 type="button"
-                onClick={() => setShowTypePicker(true)}
+                onPointerUp={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  openPaymentTypePicker();
+                }}
+                onClick={openPaymentTypePicker}
                 className="erp-input flex items-center justify-between text-left"
               >
                 <span className={form.type ? 'text-gray-800' : 'text-gray-400'}>{form.type || '请选择付款类型'}</span>
@@ -1709,17 +1755,30 @@ export default function ReimbursementPage() {
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
             <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
               <Upload size={20} className="mx-auto text-gray-400 mb-2" />
-              <p className="text-xs text-gray-400">点击上传图片附件（支持多选，可多次追加）</p>
-              <input ref={fileRef} type="file" multiple accept="image/*" onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files || []).filter((file) => file.type.startsWith('image/'))])} className="hidden" />
+              <p className="text-xs text-gray-400">点击上传付款单备注图片（仅支持 1 张）</p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  handleAttachmentFileChange(e.target.files);
+                  e.currentTarget.value = '';
+                }}
+                className="hidden"
+              />
             </div>
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {files.map((f, i) => (
                   <div key={i} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
                     <button type="button" onClick={() => setLocalPreviewIndex(i)} className="h-full w-full">
-                      <img src={localPreviewUrls[i]} alt={f.name} className="w-full h-full object-cover" />
+                      {localPreviewUrls[i] ? (
+                        <img src={localPreviewUrls[i]} alt={f.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gray-50 text-[10px] text-gray-400">图片</div>
+                      )}
                     </button>
-                    <button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">×</button>
+                    <button type="button" onClick={removeAttachmentFile} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">×</button>
                   </div>
                 ))}
               </div>
@@ -1755,7 +1814,7 @@ export default function ReimbursementPage() {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { if (!submitting) setShowSubmit(false); }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+            <button onClick={() => { if (!submitting) { setShowSubmit(false); setFiles([]); setLocalPreviewUrls([]); } }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
             <button onClick={handleSubmitFlow} disabled={!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description || submitting} className="erp-btn-primary disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? '提交中...' : '提交申请'}
             </button>
@@ -2098,9 +2157,9 @@ export default function ReimbursementPage() {
                 />
               )}
             </div>
-            {showDetail.attachments && showDetail.attachments.length > 0 && (
+            {showDetail && (
               <div>
-                <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-2"><FileImage size={14} />附件（{showDetail.attachments.length}个）</div>
+                <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-2"><FileImage size={14} />付款单备注图片</div>
                 <FormAttachmentList 
                   attachments={showDetail.attachments}
                   onRemove={async (idx) => {
@@ -2113,21 +2172,23 @@ export default function ReimbursementPage() {
                   }}
                 />
                 <div className="mt-2">
-                  <input type="file" multiple accept="image/*" className="text-xs w-full" onChange={async (e) => {
-                    const files = e.target.files;
-                    if (!files || files.length === 0) return;
+                  <input type="file" accept="image/*" className="text-xs w-full" onChange={async (e) => {
+                    const selectedFiles = e.target.files;
+                    if (!selectedFiles || selectedFiles.length === 0) return;
                     try {
-                      const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
-                      if (!imageFiles.length) {
+                      const imageFile = Array.from(selectedFiles).find((file) => file.type.startsWith('image/'));
+                      if (!imageFile) {
                         await showAlert('只能上传图片附件。');
                         return;
                       }
-                      const uploaded = await uploadFinanceAttachments(imageFiles, `finance/reimbursements/append/${showDetail.id}`, myName || 'ERP');
-                      const newAttachments = mergeAttachments(showDetail.attachments, uploaded);
+                      const uploaded = await uploadFinanceAttachments([imageFile], `finance/reimbursements/append/${showDetail.id}`, myName || 'ERP');
+                      const newAttachments = uploaded;
                       await updateReimbursement({ ...showDetail, attachments: newAttachments });
                       setShowDetail({ ...showDetail, attachments: newAttachments });
                     } catch (err: any) {
                       await showAlert('上传失败: ' + (err?.message || '未知错误'));
+                    } finally {
+                      e.currentTarget.value = '';
                     }
                   }} />
                 </div>

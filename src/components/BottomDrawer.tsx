@@ -24,7 +24,7 @@ export default function BottomDrawer({ open, onClose, children, title }: BottomD
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] md:hidden" onClick={requestClose}>
+    <div className="fixed inset-0 z-[260] md:hidden" onClick={requestClose}>
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-black/30" />
       {/* 抽屉内容 */}

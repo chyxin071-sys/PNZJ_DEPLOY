@@ -6,7 +6,7 @@ import {
   PieChart, Award, Star, Filter, HelpCircle, Plus, FileText, Receipt, BarChart3, User as UserIcon,
   CheckCircle2, Package, PenTool, HardHat, Grid3X3,
 } from 'lucide-react';
-import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI, contractsAPI, receiptsAPI, systemConfigsAPI } from '@/db/api';
+import { leadsAPI, todosAPI, projectsAPI, usersAPI, followUpsAPI, projectLogsAPI, contractsAPI, receiptsAPI, reimbursementsAPI, systemConfigsAPI } from '@/db/api';
 import { workersAPI, workerSchedulesAPI } from '@/db/workerScheduleApi';
 import { canManageAllCustomers, useAuthStore } from '@/store/authStore';
 import { useBizStore } from '@/store/bizStore';
@@ -103,6 +103,7 @@ export default function Dashboard() {
     || role === 'manager'
     || (Array.isArray(roles) && (roles.includes('admin') || roles.includes('manager')));
   const myName = user?.name || '';
+  const currentUserId = String((user as any)?._id || user?.id || '');
   const ROLE_MAP: Record<string, string> = { admin: '管理', operations: '运营', sales: '销售', designer: '设计', manager: '项目经理', finance: '财务', employee: '普通' };
   const includesPerson = (val: any, name: string): boolean => {
     if (!val) return false;
@@ -130,6 +131,7 @@ export default function Dashboard() {
   const [projectLogs, setProjectLogs] = useState<any[]>([]);
   const [financeContracts, setFinanceContracts] = useState<any[]>([]);
   const [financeReceipts, setFinanceReceipts] = useState<any[]>([]);
+  const [reimbursements, setReimbursements] = useState<any[]>([]);
   const [workerSchedules, setWorkerSchedules] = useState<WorkerSchedule[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [financeTargets, setFinanceTargets] = useState<FinanceTargets>(EMPTY_FINANCE_TARGETS);
@@ -166,7 +168,7 @@ export default function Dashboard() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [[leadsRes, todosRes, projectsRes, employeesRes, workerScheduleRows, workerRows], [contractsRes, receiptsRes]] = await Promise.all([
+      const [[leadsRes, todosRes, projectsRes, employeesRes, workerScheduleRows, workerRows, reimbursementRows], [contractsRes, receiptsRes]] = await Promise.all([
         Promise.all([
           leadsAPI.toArray(DASHBOARD_LEAD_FIELDS),
           todosAPI.toArray(DASHBOARD_TODO_FIELDS),
@@ -174,6 +176,7 @@ export default function Dashboard() {
           usersAPI.toArray(DASHBOARD_USER_FIELDS),
           canViewWorkerSchedule ? workerSchedulesAPI.toArray().catch(() => []) : Promise.resolve([]),
           canViewWorkerSchedule ? workersAPI.toArray().catch(() => []) : Promise.resolve([]),
+          reimbursementsAPI.toArray().catch(() => []),
         ]),
         canOpenFinanceReports
           ? Promise.all([contractsAPI.toArray(), receiptsAPI.toArray()])
@@ -185,6 +188,7 @@ export default function Dashboard() {
       setWorkers(workerRows.filter((item: any) => !item._placeholder));
       setFinanceContracts(contractsRes);
       setFinanceReceipts(receiptsRes);
+      setReimbursements(reimbursementRows.filter((item: any) => item?.lifecycleStatus !== 'deleted'));
 
       const loadSecondary = async () => {
         const [followUpsRes, logsRes, recentFollowUpsRes] = await Promise.all([
@@ -298,6 +302,25 @@ export default function Dashboard() {
     if (t.status === 'completed' || !t.dueDate) return false;
     return new Date(t.dueDate.replace(/-/g, '/')).getTime() < new Date().setHours(0,0,0,0);
   }).length;
+  const normalizeDashboardUserIds = (ids: any) => (
+    Array.isArray(ids) ? ids : []
+  ).map((item: any) => String(item || '').trim()).filter(Boolean);
+  const currentUserIn = (ids: any) => Boolean(currentUserId && normalizeDashboardUserIds(ids).includes(currentUserId));
+  const getDashboardReimbursementStatus = (item: any) => {
+    if (item?.status === '待审核') return '待一级审批';
+    if (item?.status === '已审核') return '待打款';
+    return item?.status || '';
+  };
+  const pendingReimbursementCount = reimbursements.filter((item) => {
+    const status = getDashboardReimbursementStatus(item);
+    const flow = item?.approvalFlow || {};
+    if (status === '待一级审批') return currentUserIn(flow.approver1Ids);
+    if (status === '待二级审批') return currentUserIn(flow.approver2Ids);
+    if (status === '待打款') return currentUserIn(flow.payerIds);
+    return false;
+  }).length;
+  const getQuickActionBadge = (action: string) => action === 'reimbursement' ? pendingReimbursementCount : 0;
+  const formatQuickActionBadge = (count: number) => count > 99 ? '99+' : String(count);
 
   // ====== 快捷入口 ======
   const actionItems = {
@@ -858,12 +881,18 @@ export default function Dashboard() {
           {mobileQuickActions.map((item, index) => {
             const Icon = item.icon;
             const tone = item.tone;
+            const badge = getQuickActionBadge(item.action);
             return (
               <button
                 key={`mobile-${item.action}-${item.label}-${index}`}
                 onClick={() => handleQuickAction(item.action)}
-                className="min-h-[64px] rounded border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
+                className="relative min-h-[64px] rounded border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
               >
+                {badge > 0 && (
+                  <span className="absolute right-1.5 top-1.5 flex min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-4 text-white">
+                    {formatQuickActionBadge(badge)}
+                  </span>
+                )}
                 <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded ${tone}`}>
                   <Icon size={18} />
                 </span>
@@ -876,12 +905,18 @@ export default function Dashboard() {
           {desktopQuickActions.map((item, index) => {
             const Icon = item.icon;
             const tone = item.tone;
+            const badge = getQuickActionBadge(item.action);
             return (
               <button
                 key={`desktop-${item.action}-${item.label}-${index}`}
                 onClick={() => handleQuickAction(item.action)}
-                className="md:min-h-[80px] min-h-[64px] rounded border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
+                className="relative md:min-h-[80px] min-h-[64px] rounded border border-gray-100 bg-white p-2 text-center hover:shadow-md hover:border-gray-200 transition-all cursor-pointer active:scale-[0.98]"
               >
+                {badge > 0 && (
+                  <span className="absolute right-2 top-2 flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-[18px] text-white">
+                    {formatQuickActionBadge(badge)}
+                  </span>
+                )}
                 <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded ${tone}`}>
                   <Icon size={18} />
                 </span>
