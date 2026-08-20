@@ -5732,15 +5732,15 @@ export default function ProjectBizDetail() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">现场照片</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">现场图片/视频</label>
                 <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
-                  {[...newLogForm.photos.map(fileID => ({ fileID, type: 'image' })), ...logPendingPhotos].map((p: any, idx) => (
+                  {[...newLogForm.photos.map(toPreviewMedia), ...logPendingPhotos].map((p: any, idx) => (
                     <div key={idx} className="relative aspect-square min-w-0 overflow-hidden rounded border border-gray-200">
-                      <button type="button" onClick={() => { if (!p.isUploading) openPreview(p, newLogForm.photos.map(fileID => ({ fileID, type: 'image' }))); }} className="flex h-full w-full items-center justify-center bg-gray-100">
+                      <button type="button" onClick={() => { if (!p.isUploading) openPreview(toPreviewMedia(p), newLogForm.photos.map(toPreviewMedia)); }} className="flex h-full w-full items-center justify-center bg-gray-100">
                         {p.isUploading ? (
                           p.url ? <img src={p.url} className="w-full h-full object-cover opacity-70" alt="上传中" /> : <ImageIcon className="m-auto h-5 w-5 text-gray-300" />
                         ) : (
-                          <CloudImage src={mediaSourceOf(p)} className="w-full h-full object-cover" />
+                          <MediaThumb src={mediaSourceOf(p)} poster={p.poster || p.thumbUrl || p.thumbTempFilePath} className="w-full h-full object-cover" />
                         )}
                       </button>
                       <button type="button" onClick={() => { if (p.isUploading) removeUploadTask(p.uploadTaskId); else void removeLogPhoto(idx); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5">
@@ -5754,7 +5754,7 @@ export default function ProjectBizDetail() {
                     <span className="text-[10px] mt-1">上传</span>
                   </button>
                 </div>
-                <input ref={logFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                <input ref={logFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length) return;
                   addUploadTasks(files.map(file => ({
@@ -5762,7 +5762,7 @@ export default function ProjectBizDetail() {
                     fileName: file.name,
                     fileSize: file.size,
                     folder: `project/logs/${id}`,
-                    title: '施工日志 / 现场照片',
+                    title: '施工日志 / 现场图片/视频',
                     context: { scope: 'project-log-media', projectId: projectUploadTaskKey },
                     onSuccess: ({ fileID }) => {
                       setNewLogForm(p => ({ ...p, photos: [...p.photos, fileID] }));
