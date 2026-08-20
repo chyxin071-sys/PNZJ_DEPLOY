@@ -846,8 +846,6 @@ export default function ReimbursementPage() {
     const actionLabel = type === 'reverse' ? '冲销' : type === 'void' ? '作废' : '删除';
     setSubmitting(true);
     try {
-      const confirmed = await showConfirm(`申请人：${r.applicant}\n金额：${formatMoney(r.amount)}`, { title: `确认${actionLabel}该报销记录吗？`, confirmStyle: 'danger', confirmText: `确认${actionLabel}` });
-      if (!confirmed) return;
       const now = new Date().toISOString();
       const record = {
         action: actionLabel,

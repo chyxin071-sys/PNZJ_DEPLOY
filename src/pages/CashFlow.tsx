@@ -62,7 +62,7 @@ export default function CashFlow() {
   const { receipts, expenses, contracts, updateReceipt, updateExpense } = useFinanceStore();
   const { currentBizType } = useBizStore();
   const { user, users, loadUsers } = useAuthStore();
-  const { showConfirm, showAlert } = useDialogStore();
+  const { showAlert } = useDialogStore();
   const myName = user?.name || '';
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -81,6 +81,7 @@ export default function CashFlow() {
   const [savingCategories, setSavingCategories] = useState(false);
   const [controlFlow, setControlFlow] = useState<FlowItem | null>(null);
   const [controlReason, setControlReason] = useState('');
+  const [controlSubmitting, setControlSubmitting] = useState(false);
 
   const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
 
@@ -348,18 +349,14 @@ export default function CashFlow() {
   };
 
   const handleFlowControl = async () => {
-    if (!controlFlow?.source) return;
+    if (!controlFlow?.source || controlSubmitting) return;
     const action = getControlType(controlFlow);
     const reason = controlReason.trim();
     if (action === 'reverse' && !reason) {
       await showAlert(`${controlFlow.type === '收款' ? '收款' : '已付款支出'}冲销必须填写原因。`);
       return;
     }
-    const confirmed = await showConfirm(
-      `${controlFlow.type === '收款' ? '客户' : '收款方'}：${controlFlow.relatedParty || '-'}\n金额：${formatMoney(controlFlow.amount || 0)}`,
-      { title: `确认${getControlLabel(controlFlow)}该${controlFlow.type}记录吗？`, confirmStyle: 'danger', confirmText: `确认${getControlLabel(controlFlow)}` },
-    );
-    if (!confirmed) return;
+    setControlSubmitting(true);
     try {
       const now = new Date().toISOString();
       const item = controlFlow.source;
@@ -406,6 +403,8 @@ export default function CashFlow() {
       });
     } catch (error: any) {
       await showAlert(`${getControlLabel(controlFlow)}失败：${error?.message || '未知错误'}`);
+    } finally {
+      setControlSubmitting(false);
     }
   };
 
@@ -764,7 +763,7 @@ export default function CashFlow() {
       </Modal>
       <Modal
         open={!!controlFlow}
-        onClose={() => { setControlFlow(null); setControlReason(''); }}
+        onClose={() => { if (!controlSubmitting) { setControlFlow(null); setControlReason(''); } }}
         title={controlFlow ? `${getControlLabel(controlFlow)}${controlFlow.type}记录` : '处理流水'}
       >
         {controlFlow && (
@@ -795,9 +794,9 @@ export default function CashFlow() {
               />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => { setControlFlow(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
-              <button type="button" onClick={handleFlowControl} className="rounded bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
-                确认{getControlLabel(controlFlow)}
+              <button type="button" onClick={() => { if (!controlSubmitting) { setControlFlow(null); setControlReason(''); } }} disabled={controlSubmitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+              <button type="button" onClick={handleFlowControl} disabled={controlSubmitting} className="rounded bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70">
+                {controlSubmitting ? '处理中...' : `确认${getControlLabel(controlFlow)}`}
               </button>
             </div>
           </div>
