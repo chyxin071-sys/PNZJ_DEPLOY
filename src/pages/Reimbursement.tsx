@@ -96,14 +96,34 @@ function UserMultiSelect({
   candidates,
   userNameById,
   onChange,
+  tone = 'amber',
 }: {
   label: string;
   value: string[];
   candidates: any[];
   userNameById: Map<string, string>;
   onChange: (next: string[]) => void;
+  tone?: 'amber' | 'indigo' | 'emerald' | 'gray';
 }) {
   const selectedIds = normalizeUserIds(value);
+  const toneClassMap = {
+    amber: {
+      chip: 'border-amber-100 bg-amber-50 text-amber-700',
+      close: 'text-amber-500 hover:text-red-500',
+    },
+    indigo: {
+      chip: 'border-indigo-100 bg-indigo-50 text-indigo-700',
+      close: 'text-indigo-500 hover:text-red-500',
+    },
+    emerald: {
+      chip: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+      close: 'text-emerald-500 hover:text-red-500',
+    },
+    gray: {
+      chip: 'border-gray-100 bg-gray-50 text-gray-600',
+      close: 'text-gray-400 hover:text-red-500',
+    },
+  }[tone];
   const options = [
     { value: '', label: '选择人员' },
     ...candidates
@@ -122,12 +142,12 @@ function UserMultiSelect({
         {selectedIds.length === 0 ? (
           <span className="flex items-center text-xs text-gray-400">暂未设置</span>
         ) : selectedIds.map((id) => (
-          <span key={id} className="inline-flex items-center gap-1 rounded border border-gold-100 bg-gold-50 px-2.5 py-1.5 text-xs font-medium text-gold-700">
+          <span key={id} className={`inline-flex items-center gap-1 rounded border px-2.5 py-1.5 text-xs font-medium ${toneClassMap.chip}`}>
             {userNameById.get(id) || id}
             <button
               type="button"
               onClick={() => onChange(selectedIds.filter((item) => item !== id))}
-              className="text-gold-400 hover:text-red-500"
+              className={toneClassMap.close}
             >
               ×
             </button>
@@ -197,6 +217,7 @@ export default function ReimbursementPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const payFileRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
@@ -538,15 +559,15 @@ export default function ReimbursementPage() {
     { key: 'actions', title: '操作', render: (r: Reimbursement) => (
         <div className="flex min-w-[96px] items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {canApproveLevel1(r) && <>
-            <button onClick={() => handleApproveFlow(r, 1)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">审核通过</button>
-            <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
+            <button disabled={submitting} onClick={() => handleApproveFlow(r, 1)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50">审核通过</button>
+            <button disabled={submitting} onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50">驳回</button>
           </>}
           {canApproveLevel2(r) && <>
-            <button onClick={() => handleApproveFlow(r, 2)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">复核通过</button>
-            <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">驳回</button>
+            <button disabled={submitting} onClick={() => handleApproveFlow(r, 2)} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50">复核通过</button>
+            <button disabled={submitting} onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50">驳回</button>
           </>}
           {canPayReimbursement(r) && (
-            <button onClick={() => setShowPayModal({ item: r })} className="text-xs px-2 py-1 text-gold-600 hover:bg-gold-50 rounded transition-colors font-medium">打款</button>
+            <button disabled={submitting} onClick={() => setShowPayModal({ item: r })} className="text-xs px-2 py-1 text-gold-600 hover:bg-gold-50 rounded transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50">打款</button>
           )}
         </div>
       )
@@ -554,7 +575,7 @@ export default function ReimbursementPage() {
     { key: 'delete', title: '处理', render: (r: Reimbursement) => (
         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
           {!isEmployee && !['已作废', '已冲销'].includes(getReimbursementStatus(r)) && (
-            <button onClick={() => openReimbursementControlAction(r)} className="inline-flex items-center gap-1 text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium">
+            <button disabled={submitting} onClick={() => openReimbursementControlAction(r)} className="inline-flex items-center gap-1 text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50">
               {getReimbursementControlType(r) === 'reverse' ? <RotateCcw size={12} /> : getReimbursementControlType(r) === 'void' ? <Ban size={12} /> : <Trash2 size={12} />}
               {getReimbursementControlLabel(r)}
             </button>
@@ -570,7 +591,7 @@ export default function ReimbursementPage() {
   };
 
   const handleReimbursementControlAction = async () => {
-    if (!controlAction) return;
+    if (!controlAction || submitting) return;
     const { type, item: r } = controlAction;
     const reason = controlReason.trim();
     if (type !== 'delete' && !reason) {
@@ -578,9 +599,10 @@ export default function ReimbursementPage() {
       return;
     }
     const actionLabel = type === 'reverse' ? '冲销' : type === 'void' ? '作废' : '删除';
-    const confirmed = await showConfirm(`申请人：${r.applicant}\n金额：${formatMoney(r.amount)}`, { title: `确认${actionLabel}该报销记录吗？`, confirmStyle: 'danger', confirmText: `确认${actionLabel}` });
-    if (!confirmed) return;
+    setSubmitting(true);
     try {
+      const confirmed = await showConfirm(`申请人：${r.applicant}\n金额：${formatMoney(r.amount)}`, { title: `确认${actionLabel}该报销记录吗？`, confirmStyle: 'danger', confirmText: `确认${actionLabel}` });
+      if (!confirmed) return;
       const now = new Date().toISOString();
       const record = {
         action: actionLabel,
@@ -630,6 +652,8 @@ export default function ReimbursementPage() {
       setControlReason('');
     } catch (e: any) {
       await showAlert(e?.message || `${actionLabel}失败`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -726,36 +750,38 @@ export default function ReimbursementPage() {
   };
 
   const handleApproveFlow = async (r: Reimbursement, level: 1 | 2) => {
-    const flow = getFlow(r);
-    const nextStatus = level === 1 ? '待二级审批' : '待打款';
-    const nextRecipients = level === 1 ? flow.approver2Ids : flow.payerIds;
-    const title = level === 1 ? '一级审批通过' : '二级审批通过';
-    const confirmed = await showConfirm(`金额：${formatMoney(r.amount)}`, { title: `确认${title}？` });
-    if (!confirmed) return;
-
-    const record = {
-      level,
-      action: '通过',
-      operatorId: currentUserId,
-      operatorName: myName,
-      operatedAt: new Date().toISOString(),
-    };
-    const next: any = {
-      ...r,
-      status: nextStatus as any,
-      reviewer: myName,
-      reviewDate: new Date().toISOString(),
-      approvalRecords: [...(((r as any).approvalRecords || [])), record],
-    };
-    if (level === 1) {
-      next.firstReviewer = myName;
-      next.firstReviewDate = record.operatedAt;
-    } else {
-      next.secondReviewer = myName;
-      next.secondReviewDate = record.operatedAt;
-    }
-
+    if (submitting) return;
+    setSubmitting(true);
     try {
+      const flow = getFlow(r);
+      const nextStatus = level === 1 ? '待二级审批' : '待打款';
+      const nextRecipients = level === 1 ? flow.approver2Ids : flow.payerIds;
+      const title = level === 1 ? '一级审批通过' : '二级审批通过';
+      const confirmed = await showConfirm(`金额：${formatMoney(r.amount)}`, { title: `确认${title}？` });
+      if (!confirmed) return;
+
+      const record = {
+        level,
+        action: '通过',
+        operatorId: currentUserId,
+        operatorName: myName,
+        operatedAt: new Date().toISOString(),
+      };
+      const next: any = {
+        ...r,
+        status: nextStatus as any,
+        reviewer: myName,
+        reviewDate: new Date().toISOString(),
+        approvalRecords: [...(((r as any).approvalRecords || [])), record],
+      };
+      if (level === 1) {
+        next.firstReviewer = myName;
+        next.firstReviewDate = record.operatedAt;
+      } else {
+        next.secondReviewer = myName;
+        next.secondReviewDate = record.operatedAt;
+      }
+
       await updateReimbursement(next);
       await notifyReimbursementUsers(
         next,
@@ -781,6 +807,8 @@ export default function ReimbursementPage() {
       if (showDetail?.id === r.id) setShowDetail(next);
     } catch (e: any) {
       await showAlert(e?.message || '审批操作失败');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -892,7 +920,6 @@ export default function ReimbursementPage() {
       return;
     }
     setSubmitting(true);
-    setShowSubmit(false);
 
     try {
       const reimbursementId = generateId();
@@ -952,6 +979,7 @@ export default function ReimbursementPage() {
         '付款申请抄送',
         `${form.applicant} 提交了一笔付款申请并抄送给您：${form.description}（${formatMoney(Number(form.amount))}）`,
       );
+      setShowSubmit(false);
       setForm(createInitialForm(user?.name || ''));
       setFiles([]);
       if (returnToUrl) {
@@ -961,7 +989,6 @@ export default function ReimbursementPage() {
     } catch (e: any) {
       console.error(e);
       await showAlert(e?.message || '提交失败');
-      setShowSubmit(true);
     } finally {
       setSubmitting(false);
     }
@@ -970,7 +997,6 @@ export default function ReimbursementPage() {
   const handleSubmit = async () => {
     if (!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description || submitting) return;
     setSubmitting(true);
-    setShowSubmit(false); // Optimistic close
     
     try {
       let uploadedAttachments: AttachmentValue[] = [];
@@ -1022,6 +1048,7 @@ export default function ReimbursementPage() {
           targetUserId: adminUser.id,
         });
       }
+      setShowSubmit(false);
       setForm(createInitialForm(user?.name || '')); 
       setFiles([]);
 
@@ -1033,7 +1060,6 @@ export default function ReimbursementPage() {
     } catch (e: any) {
       console.error(e);
       await showAlert(e?.message || '提交失败');
-      setShowSubmit(true);
     } finally {
       setSubmitting(false);
     }
@@ -1181,18 +1207,18 @@ export default function ReimbursementPage() {
   const renderMobileActions = (r: Reimbursement) => (
     <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3" onClick={(e) => e.stopPropagation()}>
       {canApproveLevel1(r) && <>
-        <button onClick={() => handleApproveFlow(r, 1)} className="rounded border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">审核通过</button>
-        <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="rounded border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500">驳回</button>
+        <button disabled={submitting} onClick={() => handleApproveFlow(r, 1)} className="rounded border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 disabled:opacity-50">审核通过</button>
+        <button disabled={submitting} onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="rounded border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500 disabled:opacity-50">驳回</button>
       </>}
       {canApproveLevel2(r) && <>
-        <button onClick={() => handleApproveFlow(r, 2)} className="rounded border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">复核通过</button>
-        <button onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="rounded border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500">驳回</button>
+        <button disabled={submitting} onClick={() => handleApproveFlow(r, 2)} className="rounded border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 disabled:opacity-50">复核通过</button>
+        <button disabled={submitting} onClick={() => { setShowRejectModal({ item: r }); setRejectReason(''); }} className="rounded border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500 disabled:opacity-50">驳回</button>
       </>}
       {canPayReimbursement(r) && (
-        <button onClick={() => setShowPayModal({ item: r })} className="rounded border border-gold-100 bg-gold-50 px-3 py-1.5 text-xs font-medium text-gold-700">打款</button>
+        <button disabled={submitting} onClick={() => setShowPayModal({ item: r })} className="rounded border border-gold-100 bg-gold-50 px-3 py-1.5 text-xs font-medium text-gold-700 disabled:opacity-50">打款</button>
       )}
       {!isEmployee && !['已作废', '已冲销'].includes(getReimbursementStatus(r)) && (
-        <button onClick={() => openReimbursementControlAction(r)} className="rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500">
+        <button disabled={submitting} onClick={() => openReimbursementControlAction(r)} className="rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500 disabled:opacity-50">
           {getReimbursementControlLabel(r)}
         </button>
       )}
@@ -1314,7 +1340,7 @@ export default function ReimbursementPage() {
       </div>
 
       {/* 提交报销 Modal */}
-      <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title="提交报销申请" size="lg">
+      <Modal open={showSubmit} onClose={() => { if (!submitting) setShowSubmit(false); }} title="提交报销申请" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div>
@@ -1362,6 +1388,7 @@ export default function ReimbursementPage() {
               ))}
             </datalist>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款类型</label><Select value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={reimbursementTypes.map((t) => ({ value: t, label: t }))} /></div>
+            <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款用途 *</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款金额（小写）</label><input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="erp-input" /></div>
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">付款金额（大写）</label>
@@ -1369,7 +1396,6 @@ export default function ReimbursementPage() {
             </div>
             <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">申请日期</label><DatePicker mode="single" value={form.applicationDate} onChange={(v) => setForm({ ...form, applicationDate: v, expenseDate: v })} placeholder="选择日期" /></div>
           </div>
-          <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">付款用途 *</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="erp-input resize-none" /></div>
           <div><label className="block text-xs text-gray-500 mb-1.5 font-medium">备注</label><textarea value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} rows={2} className="erp-input resize-none" /></div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
@@ -1421,8 +1447,10 @@ export default function ReimbursementPage() {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setShowSubmit(false)} className="erp-btn-secondary">取消</button>
-            <button onClick={handleSubmitFlow} disabled={!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description} className="erp-btn-primary">提交申请</button>
+            <button onClick={() => { if (!submitting) setShowSubmit(false); }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+            <button onClick={handleSubmitFlow} disabled={!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description || submitting} className="erp-btn-primary disabled:cursor-not-allowed disabled:opacity-60">
+              {submitting ? '提交中...' : '提交申请'}
+            </button>
           </div>
         </div>
       </Modal>
@@ -1495,6 +1523,7 @@ export default function ReimbursementPage() {
                 candidates={approvalCandidates}
                 userNameById={userNameById}
                 onChange={(next) => setFlowDraft((prev) => ({ ...prev, approver1Ids: next }))}
+                tone="amber"
               />
               <UserMultiSelect
                 label="复核人"
@@ -1502,6 +1531,7 @@ export default function ReimbursementPage() {
                 candidates={approvalCandidates}
                 userNameById={userNameById}
                 onChange={(next) => setFlowDraft((prev) => ({ ...prev, approver2Ids: next }))}
+                tone="indigo"
               />
               <UserMultiSelect
                 label="抄送人"
@@ -1509,6 +1539,7 @@ export default function ReimbursementPage() {
                 candidates={approvalCandidates}
                 userNameById={userNameById}
                 onChange={(next) => setFlowDraft((prev) => ({ ...prev, ccUserIds: next }))}
+                tone="gray"
               />
               <UserMultiSelect
                 label="打款人"
@@ -1516,6 +1547,7 @@ export default function ReimbursementPage() {
                 candidates={approvalCandidates}
                 userNameById={userNameById}
                 onChange={(next) => setFlowDraft((prev) => ({ ...prev, payerIds: next }))}
+                tone="emerald"
               />
             </div>
             <div className="flex justify-end gap-3 pt-2">
@@ -1529,7 +1561,7 @@ export default function ReimbursementPage() {
       {!isEmployee && (
         <Modal
           open={!!controlAction}
-          onClose={() => { setControlAction(null); setControlReason(''); }}
+          onClose={() => { if (!submitting) { setControlAction(null); setControlReason(''); } }}
           title={controlAction ? `${controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}报销记录` : '处理报销记录'}
         >
           {controlAction && (
@@ -1559,9 +1591,9 @@ export default function ReimbursementPage() {
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => { setControlAction(null); setControlReason(''); }} className="erp-btn-secondary">取消</button>
-                <button onClick={handleReimbursementControlAction} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors">
-                  确认{controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}
+                <button onClick={() => { if (!submitting) { setControlAction(null); setControlReason(''); } }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+                <button onClick={handleReimbursementControlAction} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-70">
+                  {submitting ? '处理中...' : `确认${controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}`}
                 </button>
               </div>
             </div>
