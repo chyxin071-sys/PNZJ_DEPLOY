@@ -1,11 +1,24 @@
-import { useState, useMemo } from 'react';
-import { Search, ArrowRight, Wallet, TrendingUp, TrendingDown, PieChart, ReceiptText } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Search, ArrowRight, Wallet, TrendingUp, TrendingDown, PieChart, X, AlertTriangle, BarChart3 } from 'lucide-react';
+import ReactEChartsCore from 'echarts-for-react/lib/core';
+import * as echarts from 'echarts/core';
+import { BarChart, LineChart, PieChart as EChartsPieChart } from 'echarts/charts';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+import dayjs from 'dayjs';
 import { useFinanceStore } from '@/store/financeStore';
 import { useBizStore } from '@/store/bizStore';
 import { formatMoney, formatPercent } from '@/utils/format';
 import DataTable from '@/components/DataTable';
+import DatePicker from '@/components/DatePicker';
 import { useNavigate } from 'react-router-dom';
 import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
+
+echarts.use([LineChart, BarChart, EChartsPieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+
+const CHART_COLORS = ['#2563eb', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#64748b'];
+const LIGHT_GRID = '#eef0f3';
+const LIGHT_TEXT = '#6b7280';
 
 const ROLE_COLORS: Record<string, string> = {
   sales: 'bg-blue-50 text-blue-600',
@@ -32,31 +45,59 @@ function RoleTags({ names, role }: { names: string[]; role: string }) {
 
 export default function ProjectCost() {
   const navigate = useNavigate();
-  const { contracts, receipts, expenses } = useFinanceStore();
+  const { contracts, receipts, expenses, _refreshSilent, loading } = useFinanceStore();
   const { currentBizType } = useBizStore();
-  const getProjectProfits = useFinanceStore((s) => s.getProjectProfits);
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
-  const contractMap = useMemo(() => new Map(contracts.map((c) => [c.id, c])), [contracts]);
+  useEffect(() => {
+    void _refreshSilent(['contracts', 'receipts', 'expenses'], true);
+  }, [_refreshSilent, currentBizType]);
 
   const enriched = useMemo(() => {
     const filteredContracts = contracts.filter(c => c.bizType === currentBizType);
-    const filteredIds = new Set(filteredContracts.map(c => c.id));
-    return getProjectProfits()
-      .filter(p => filteredIds.has(p.id))
-      .map((p) => {
-        const contract = contractMap.get(p.id);
+    return filteredContracts
+      .map((contract) => {
+        const contractIds = new Set([contract.id, contract._id].filter(Boolean));
+        const contractReceipts = receipts.filter((r) => (
+          contractIds.has(r.contractId) &&
+          r.bizType === currentBizType &&
+          isActiveFinanceRecord(r) &&
+          (!dateFrom || r.receiptDate >= dateFrom) &&
+          (!dateTo || r.receiptDate <= dateTo)
+        ));
+        const contractExpenses = expenses.filter((e) => (
+          contractIds.has(e.contractId) &&
+          e.bizType === currentBizType &&
+          isActiveFinanceRecord(e) &&
+          (!dateFrom || e.expenseDate >= dateFrom) &&
+          (!dateTo || e.expenseDate <= dateTo)
+        ));
+        const receivedAmount = contractReceipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+        const totalCost = contractExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+        const grossProfit = receivedAmount - totalCost;
+        const grossMargin = receivedAmount > 0 ? grossProfit / receivedAmount : 0;
         return {
-          ...p,
-          sales: contract?.sales || '',
-          designer: contract?.designer || '',
-          projectManager: contract?.projectManager || '',
-          unreceived: p.contractAmount - p.receivedAmount,
-          cashFlow: p.receivedAmount - p.totalCost,
+          id: contract.id,
+          _id: contract._id,
+          contractNo: contract.contractNo,
+          houseAddress: contract.houseAddress,
+          customerName: contract.customerName,
+          contractAmount: contract.contractAmount,
+          receivedAmount,
+          totalCost,
+          grossProfit,
+          grossMargin,
+          sales: contract.sales || '',
+          designer: contract.designer || '',
+          projectManager: contract.projectManager || '',
+          unreceived: contract.contractAmount - receivedAmount,
+          cashFlow: receivedAmount - totalCost,
         };
       })
       .sort((a, b) => String(b.contractNo || '').localeCompare(String(a.contractNo || '')));
-  }, [getProjectProfits, contracts, contractMap, currentBizType]);
+  }, [contracts, receipts, expenses, currentBizType, dateFrom, dateTo]);
 
   const filtered = useMemo(() => {
     if (!search) return enriched;
@@ -74,14 +115,24 @@ export default function ProjectCost() {
     const receivedAmount = filtered.reduce((sum, p) => sum + (p.receivedAmount || 0), 0);
     const totalCost = filtered.reduce((sum, p) => sum + (p.totalCost || 0), 0);
     const grossProfit = filtered.reduce((sum, p) => sum + (p.grossProfit || 0), 0);
-    return { contractAmount, receivedAmount, totalCost, grossProfit };
+    const unreceived = contractAmount - receivedAmount;
+    const receiptRate = contractAmount > 0 ? receivedAmount / contractAmount : 0;
+    const costRate = receivedAmount > 0 ? totalCost / receivedAmount : 0;
+    const grossMargin = receivedAmount > 0 ? grossProfit / receivedAmount : 0;
+    return { contractAmount, receivedAmount, unreceived, totalCost, grossProfit, receiptRate, costRate, grossMargin };
   }, [filtered]);
 
   const categoryStats = useMemo(() => {
-    const contractIds = new Set(enriched.map((p) => p.id));
+    const contractIds = new Set(enriched.flatMap((p) => [p.id, p._id]).filter(Boolean));
     const map = new Map<string, number>();
     expenses
-      .filter((e) => e.bizType === currentBizType && contractIds.has(e.contractId) && isActiveFinanceRecord(e))
+      .filter((e) => (
+        e.bizType === currentBizType &&
+        contractIds.has(e.contractId) &&
+        isActiveFinanceRecord(e) &&
+        (!dateFrom || e.expenseDate >= dateFrom) &&
+        (!dateTo || e.expenseDate <= dateTo)
+      ))
       .forEach((e) => {
         const key = e.category || '未分类';
         map.set(key, (map.get(key) || 0) + (e.amount || 0));
@@ -90,14 +141,20 @@ export default function ProjectCost() {
       .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
-  }, [expenses, enriched, currentBizType]);
+  }, [expenses, enriched, currentBizType, dateFrom, dateTo]);
 
   const recentRecords = useMemo(() => {
-    const visibleIds = new Set(filtered.map((p) => p.id));
+    const visibleIds = new Set(filtered.flatMap((p) => [p.id, p._id]).filter(Boolean));
     return expenses
-      .filter((e) => e.bizType === currentBizType && visibleIds.has(e.contractId) && isActiveFinanceRecord(e))
+      .filter((e) => (
+        e.bizType === currentBizType &&
+        visibleIds.has(e.contractId) &&
+        isActiveFinanceRecord(e) &&
+        (!dateFrom || e.expenseDate >= dateFrom) &&
+        (!dateTo || e.expenseDate <= dateTo)
+      ))
       .map((e) => {
-        const contract = contractMap.get(e.contractId);
+        const contract = contracts.find((c) => c.id === e.contractId || c._id === e.contractId);
         return {
           ...e,
           address: contract?.houseAddress || '-',
@@ -106,9 +163,136 @@ export default function ProjectCost() {
       })
       .sort((a, b) => String(b.expenseDate || b.createdAt || '').localeCompare(String(a.expenseDate || a.createdAt || '')))
       .slice(0, 8);
-  }, [expenses, filtered, contractMap, currentBizType]);
+  }, [expenses, filtered, contracts, currentBizType, dateFrom, dateTo]);
 
   const maxCategoryAmount = Math.max(...categoryStats.map((item) => item.amount), 1);
+  const activeFilters = Boolean(dateFrom || dateTo || search);
+
+  const monthlyTrend = useMemo(() => {
+    const map = new Map<string, { month: string; received: number; cost: number; profit: number }>();
+    const ensureMonth = (value?: string) => {
+      const month = value && dayjs(value).isValid() ? dayjs(value).format('YYYY-MM') : '未填日期';
+      if (!map.has(month)) map.set(month, { month, received: 0, cost: 0, profit: 0 });
+      return map.get(month)!;
+    };
+    const visibleIds = new Set(filtered.flatMap((p) => [p.id, p._id]).filter(Boolean));
+    receipts
+      .filter((r) => r.bizType === currentBizType && visibleIds.has(r.contractId) && isActiveFinanceRecord(r) && (!dateFrom || r.receiptDate >= dateFrom) && (!dateTo || r.receiptDate <= dateTo))
+      .forEach((r) => {
+        const item = ensureMonth(r.receiptDate);
+        item.received += r.amount || 0;
+        item.profit += r.amount || 0;
+      });
+    expenses
+      .filter((e) => e.bizType === currentBizType && visibleIds.has(e.contractId) && isActiveFinanceRecord(e) && (!dateFrom || e.expenseDate >= dateFrom) && (!dateTo || e.expenseDate <= dateTo))
+      .forEach((e) => {
+        const item = ensureMonth(e.expenseDate);
+        item.cost += e.amount || 0;
+        item.profit -= e.amount || 0;
+      });
+    return Array.from(map.values())
+      .sort((a, b) => a.month.localeCompare(b.month, 'zh-CN'))
+      .slice(-12);
+  }, [receipts, expenses, filtered, currentBizType, dateFrom, dateTo]);
+
+  const profitRank = useMemo(() => (
+    [...filtered]
+      .sort((a, b) => (b.grossProfit || 0) - (a.grossProfit || 0))
+      .slice(0, 10)
+  ), [filtered]);
+
+  const riskProjects = useMemo(() => (
+    [...filtered]
+      .map((item) => ({
+        ...item,
+        receiptRate: item.contractAmount > 0 ? item.receivedAmount / item.contractAmount : 0,
+        costRate: item.receivedAmount > 0 ? item.totalCost / item.receivedAmount : 0,
+      }))
+      .filter((item) => item.unreceived > 0 || item.grossProfit < 0 || item.costRate >= 0.8)
+      .sort((a, b) => (b.unreceived || 0) - (a.unreceived || 0))
+      .slice(0, 8)
+  ), [filtered]);
+
+  const profitBands = useMemo(() => {
+    const bands = [
+      { name: '高毛利 30%+', value: 0 },
+      { name: '正常 15-30%', value: 0 },
+      { name: '偏低 0-15%', value: 0 },
+      { name: '亏损', value: 0 },
+      { name: '未回款', value: 0 },
+    ];
+    filtered.forEach((item) => {
+      if (!item.receivedAmount) bands[4].value += 1;
+      else if (item.grossProfit < 0) bands[3].value += 1;
+      else if (item.grossMargin >= 0.3) bands[0].value += 1;
+      else if (item.grossMargin >= 0.15) bands[1].value += 1;
+      else bands[2].value += 1;
+    });
+    return bands;
+  }, [filtered]);
+
+  const costPieOption = useMemo(() => ({
+    color: CHART_COLORS.slice(2),
+    tooltip: { trigger: 'item', formatter: ({ name, value, percent }: any) => `${name}<br/>${formatMoney(Number(value || 0))} · ${percent}%` },
+    legend: { bottom: 0, left: 'center', itemWidth: 8, itemHeight: 8, textStyle: { color: LIGHT_TEXT, fontSize: 11 } },
+    series: [{
+      type: 'pie',
+      radius: ['52%', '72%'],
+      center: ['50%', '43%'],
+      avoidLabelOverlap: true,
+      label: { show: false },
+      data: categoryStats.length > 0 ? categoryStats.map((item) => ({ name: item.name, value: item.amount })) : [{ name: '暂无成本', value: 0 }],
+    }],
+  }), [categoryStats]);
+
+  const profitBarOption = useMemo(() => {
+    const topProjects = profitRank.slice(0, 8).reverse();
+    return {
+      color: [CHART_COLORS[1]],
+      grid: { left: 94, right: 22, top: 12, bottom: 22 },
+      tooltip: { trigger: 'axis', formatter: (params: any[]) => {
+        const item = params?.[0];
+        return `${item?.name || ''}<br/>毛利润：${formatMoney(Number(item?.value || 0))}`;
+      } },
+      xAxis: { type: 'value', axisLabel: { color: '#9ca3af', fontSize: 10 }, splitLine: { lineStyle: { color: LIGHT_GRID } } },
+      yAxis: { type: 'category', data: topProjects.map((item) => item.houseAddress || item.customerName || '-'), axisLabel: { color: LIGHT_TEXT, fontSize: 10, width: 84, overflow: 'truncate' } },
+      series: [{
+        type: 'bar',
+        barWidth: 10,
+        data: topProjects.map((item) => ({
+          value: item.grossProfit,
+          itemStyle: { color: item.grossProfit >= 0 ? '#10b981' : '#ef4444', borderRadius: 4 },
+        })),
+      }],
+    };
+  }, [profitRank]);
+
+  const trendOption = useMemo(() => ({
+    color: [CHART_COLORS[1], CHART_COLORS[2], CHART_COLORS[0]],
+    tooltip: { trigger: 'axis' },
+    legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 8, textStyle: { color: LIGHT_TEXT, fontSize: 11 } },
+    grid: { left: 54, right: 18, top: 42, bottom: 28 },
+    xAxis: { type: 'category', data: monthlyTrend.map((item) => item.month), axisLabel: { color: LIGHT_TEXT, fontSize: 10 }, axisLine: { lineStyle: { color: LIGHT_GRID } } },
+    yAxis: { type: 'value', axisLabel: { color: '#9ca3af', fontSize: 10 }, splitLine: { lineStyle: { color: LIGHT_GRID } } },
+    series: [
+      { name: '已收款', type: 'bar', barWidth: 12, data: monthlyTrend.map((item) => item.received), itemStyle: { borderRadius: [4, 4, 0, 0] } },
+      { name: '总成本', type: 'bar', barWidth: 12, data: monthlyTrend.map((item) => item.cost), itemStyle: { borderRadius: [4, 4, 0, 0] } },
+      { name: '毛利润', type: 'line', smooth: true, symbolSize: 5, data: monthlyTrend.map((item) => item.profit) },
+    ],
+  }), [monthlyTrend]);
+
+  const bandOption = useMemo(() => ({
+    color: ['#059669', '#10b981', '#f59e0b', '#ef4444', '#94a3b8'],
+    tooltip: { trigger: 'item', formatter: ({ name, value, percent }: any) => `${name}<br/>${value} 个项目 · ${percent}%` },
+    legend: { bottom: 0, left: 'center', itemWidth: 8, itemHeight: 8, textStyle: { color: LIGHT_TEXT, fontSize: 11 } },
+    series: [{
+      type: 'pie',
+      radius: ['48%', '68%'],
+      center: ['50%', '43%'],
+      label: { show: false },
+      data: profitBands,
+    }],
+  }), [profitBands]);
 
   const columns = [
     {
@@ -122,8 +306,8 @@ export default function ProjectCost() {
     },
     { key: 'customerName', title: '客户' },
     { key: 'contractAmount', title: '合同金额', render: (row: any) => <span className="font-medium">{formatMoney(row.contractAmount)}</span> },
-    { key: 'receivedAmount', title: '已收款', render: (row: any) => <span className="text-emerald-600 font-medium">{formatMoney(row.receivedAmount)}</span> },
     { key: 'unreceived', title: '未收款', render: (row: any) => <span className={row.unreceived > 0 ? 'text-red-500 font-medium' : 'text-gray-400'}>{formatMoney(row.unreceived)}</span> },
+    { key: 'receivedAmount', title: '已收款', render: (row: any) => <span className="text-emerald-600 font-medium">{formatMoney(row.receivedAmount)}</span> },
     { key: 'totalCost', title: '总成本', render: (row: any) => <span className="text-red-500 font-medium">{formatMoney(row.totalCost)}</span> },
     { key: 'grossProfit', title: '毛利润', render: (row: any) => <span className={row.grossProfit >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{formatMoney(row.grossProfit)}</span> },
     { key: 'grossMargin', title: '毛利率', render: (row: any) => <span className={row.grossMargin >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatPercent(row.grossMargin)}</span> },
@@ -166,26 +350,92 @@ export default function ProjectCost() {
               className="erp-search-input pl-8"
             />
           </div>
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 md:max-w-sm">
+            <DatePicker mode="single" value={dateFrom} onChange={setDateFrom} placeholder="开始日期" />
+            <DatePicker mode="single" value={dateTo} onChange={setDateTo} placeholder="结束日期" />
+          </div>
+          {activeFilters && (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}
+              className="inline-flex items-center justify-center gap-1 rounded border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
+            >
+              <X size={13} />
+              清除
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-6 md:gap-3 md:p-4">
+          <MetricCard label="合同金额" value={formatMoney(summary.contractAmount)} sub={`${filtered.length} 个项目`} icon={Wallet} />
+          <MetricCard label="未收款" value={formatMoney(summary.unreceived)} sub={`回款率 ${formatPercent(summary.receiptRate)}`} icon={TrendingDown} tone="red" />
+          <MetricCard label="已收款" value={formatMoney(summary.receivedAmount)} sub="现金口径收入" icon={TrendingUp} tone="emerald" />
+          <MetricCard label="总成本" value={formatMoney(summary.totalCost)} sub={`成本率 ${formatPercent(summary.costRate)}`} icon={BarChart3} tone="red" />
+          <MetricCard label="毛利润" value={formatMoney(summary.grossProfit)} sub={`毛利率 ${formatPercent(summary.grossMargin)}`} icon={PieChart} tone={summary.grossProfit >= 0 ? 'emerald' : 'red'} />
+          <MetricCard label="风险项目" value={`${riskProjects.length} 个`} sub="未回款/低毛利/高成本" icon={AlertTriangle} tone={riskProjects.length > 0 ? 'red' : 'emerald'} />
+        </div>
+
+        <div className="grid gap-3 px-3 pb-3 md:grid-cols-12 md:px-4 md:pb-4">
+          <AnalysisPanel className="md:col-span-8" title="收款 / 成本 / 毛利润趋势" desc={monthlyTrend.length > 0 ? `${monthlyTrend.length} 个月资金表现` : '暂无趋势数据'}>
+            <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 300 }} notMerge />
+          </AnalysisPanel>
+          <AnalysisPanel className="md:col-span-4" title="成本结构" desc={`${categoryStats.length} 个成本类别`}>
+            <ReactEChartsCore echarts={echarts} option={costPieOption} style={{ height: 300 }} notMerge />
+          </AnalysisPanel>
+          <AnalysisPanel className="md:col-span-7" title="项目利润排行" desc="按现金口径毛利润排序">
+            <ReactEChartsCore echarts={echarts} option={profitBarOption} style={{ height: 300 }} notMerge />
+          </AnalysisPanel>
+          <AnalysisPanel className="md:col-span-5" title="毛利率分布" desc="识别低毛利和未回款项目">
+            <ReactEChartsCore echarts={echarts} option={bandOption} style={{ height: 300 }} notMerge />
+          </AnalysisPanel>
+          <section className="rounded border border-gray-100 bg-white p-4 md:col-span-12">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">重点关注项目</h2>
+                <p className="mt-0.5 text-[11px] text-gray-400">优先看未收款高、成本率高或毛利润为负的项目</p>
+              </div>
+              <span className="text-[11px] text-gray-400">{riskProjects.length} 个</span>
+            </div>
+            {riskProjects.length === 0 ? (
+              <div className="rounded bg-emerald-50 px-4 py-5 text-center text-sm text-emerald-600">当前筛选范围内暂无明显风险项目</div>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {riskProjects.map((item) => (
+                  <button key={item.id} type="button" onClick={() => navigate(`/contracts/${item.id}`)} className="rounded border border-red-100 bg-red-50/50 p-3 text-left hover:border-red-200 hover:bg-red-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-gray-900">{item.houseAddress || '-'}</p>
+                        <p className="mt-0.5 text-xs text-gray-400">{item.customerName || '-'}</p>
+                      </div>
+                      <AlertTriangle size={15} className="shrink-0 text-red-500" />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <MiniValue label="未收款" value={formatMoney(item.unreceived || 0)} tone="red" />
+                      <MiniValue label="毛利润" value={formatMoney(item.grossProfit || 0)} tone={item.grossProfit >= 0 ? 'emerald' : 'red'} />
+                    </div>
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      回款率 {formatPercent(item.receiptRate)} · 成本率 {formatPercent(item.costRate)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         <div className="hidden md:block">
-          <DataTable
+          {loading ? (
+            <div className="py-12 text-center text-sm text-gray-400">加载财务数据中...</div>
+          ) : <DataTable
             columns={columns}
             data={filtered}
             emptyText="暂无项目数据"
             rowKey={(row) => String(row.id)}
             onRowClick={(row) => navigate(`/contracts/${(row as any).id}`)}
-          />
+          />}
         </div>
 
         <div className="md:hidden space-y-3 p-3">
-          <div className="grid grid-cols-2 gap-2">
-            <MetricCard label="合同金额" value={formatMoney(summary.contractAmount)} icon={Wallet} />
-            <MetricCard label="总成本" value={formatMoney(summary.totalCost)} icon={TrendingDown} tone="red" />
-            <MetricCard label="已收款" value={formatMoney(summary.receivedAmount)} icon={TrendingUp} tone="emerald" />
-            <MetricCard label="毛利润" value={formatMoney(summary.grossProfit)} icon={PieChart} tone={summary.grossProfit >= 0 ? 'emerald' : 'red'} />
-          </div>
-
           <section className="rounded border border-gray-100 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">成本分类</h2>
@@ -288,8 +538,9 @@ export default function ProjectCost() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <MiniValue label="合同金额" value={formatMoney(row.contractAmount || 0)} />
-                  <MiniValue label="总成本" value={formatMoney(row.totalCost || 0)} tone="red" />
+                  <MiniValue label="未收款" value={formatMoney(row.unreceived || 0)} tone="red" />
                   <MiniValue label="已收款" value={formatMoney(row.receivedAmount || 0)} tone="emerald" />
+                  <MiniValue label="总成本" value={formatMoney(row.totalCost || 0)} tone="red" />
                   <MiniValue label="毛利润" value={formatMoney(row.grossProfit || 0)} tone={row.grossProfit >= 0 ? 'emerald' : 'red'} />
                 </div>
               </button>
@@ -301,7 +552,21 @@ export default function ProjectCost() {
   );
 }
 
-function MetricCard({ label, value, icon: Icon, tone = 'gray' }: { label: string; value: string; icon: any; tone?: 'gray' | 'red' | 'emerald' }) {
+function AnalysisPanel({ title, desc, className = '', children }: { title: string; desc: string; className?: string; children: ReactNode }) {
+  return (
+    <section className={`rounded border border-gray-100 bg-white p-4 ${className}`}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-gray-900">{title}</h2>
+          <p className="mt-0.5 truncate text-[11px] text-gray-400">{desc}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MetricCard({ label, value, sub, icon: Icon, tone = 'gray' }: { label: string; value: string; sub?: string; icon: any; tone?: 'gray' | 'red' | 'emerald' }) {
   const toneClass = tone === 'red' ? 'text-red-500 bg-red-50' : tone === 'emerald' ? 'text-emerald-600 bg-emerald-50' : 'text-gray-700 bg-gray-100';
   return (
     <div className="rounded border border-gray-100 bg-white p-3">
@@ -312,6 +577,7 @@ function MetricCard({ label, value, icon: Icon, tone = 'gray' }: { label: string
         </span>
       </div>
       <p className="break-all text-lg font-bold leading-6 text-gray-900">{value}</p>
+      {sub && <p className="mt-1 truncate text-[11px] text-gray-400">{sub}</p>}
     </div>
   );
 }
