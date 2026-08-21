@@ -73,6 +73,13 @@ export function registerNativeUploadResult(file: File, result: NativeUploadResol
   }
 }
 
+export async function resolveNativeUploadResult(file: File): Promise<UploadResult | null> {
+  const result = nativeUploadResults.get(file) || nativeUploadResultsByName.get(file.name);
+  if (!result) return null;
+  const resolved = await result;
+  return resolved?.fileID ? resolved : null;
+}
+
 export async function uploadFile(
   file: File,
   folder: string,

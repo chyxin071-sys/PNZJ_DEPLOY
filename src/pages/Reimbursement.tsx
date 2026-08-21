@@ -17,6 +17,7 @@ import type { Reimbursement, AttachmentValue } from '@/types';
 import { normalizeAttachments, openAttachment, uploadFinanceAttachments, mergeAttachments, downloadAttachment } from '@/utils/financeAttachments';
 import { exportPaymentApplications, parsePaymentApplicationsFromFile, rmbUppercase, type ImportedPaymentApplication, type PaymentApplicationExportItem } from '@/utils/paymentApplicationExport';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
+import { getTempFileURL, resolveNativeUploadResult } from '@/utils/cloudStorage';
 import { cloudDB } from '@/db/cloudbase';
 import { createNotificationEventSafely, stableOperationId } from '@/services/notificationService';
 import { notifyFinanceAuditAction, recordFinanceAuditAction } from '@/services/financeAuditLog';
@@ -332,7 +333,9 @@ export default function ReimbursementPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [localPreviewUrls, setLocalPreviewUrls] = useState<string[]>([]);
   const [localPreviewFailed, setLocalPreviewFailed] = useState(false);
+  const [localPreviewLoading, setLocalPreviewLoading] = useState(false);
   const localPreviewObjectUrlsRef = useRef<string[]>([]);
+  const attachmentSelectionTokenRef = useRef(0);
   const [dashboardFilter, setDashboardFilter] = useState<'month-all' | 'month-review' | 'month-pay' | 'month-paid' | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => (
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
@@ -365,10 +368,12 @@ export default function ReimbursementPage() {
   }, []);
 
   const clearAttachmentFiles = useCallback(() => {
+    attachmentSelectionTokenRef.current += 1;
     revokeLocalPreviewUrls();
     setFiles([]);
     setLocalPreviewUrls([]);
     setLocalPreviewFailed(false);
+    setLocalPreviewLoading(false);
     setLocalPreviewIndex(null);
   }, [revokeLocalPreviewUrls]);
 
@@ -392,9 +397,14 @@ export default function ReimbursementPage() {
       return;
     }
 
+    if ((files[0] as File & { __pnzjNativePlaceholder?: boolean }).__pnzjNativePlaceholder) {
+      void showAlert(localPreviewLoading ? '图片正在上传，请稍候。' : '图片暂时无法预览，请重新选择。');
+      return;
+    }
+
     const nextUrl = createLocalPreviewUrl(files[0]);
     if (nextUrl) setLocalPreviewIndex(0);
-  }, [createLocalPreviewUrl, files, localPreviewFailed, localPreviewUrls]);
+  }, [createLocalPreviewUrl, files, localPreviewFailed, localPreviewLoading, localPreviewUrls, showAlert]);
 
   useEffect(() => () => revokeLocalPreviewUrls(), [revokeLocalPreviewUrls]);
 
@@ -555,12 +565,41 @@ export default function ReimbursementPage() {
     setShowTypePicker(true);
   };
 
-  const handleAttachmentFileChange = (fileList: FileList | null) => {
+  const handleAttachmentFileChange = async (fileList: FileList | null) => {
     const file = Array.from(fileList || []).find((item) => item.type.startsWith('image/'));
     if (!file) return;
+    const selectionToken = attachmentSelectionTokenRef.current + 1;
+    attachmentSelectionTokenRef.current = selectionToken;
+    revokeLocalPreviewUrls();
     setFiles([file]);
-    createLocalPreviewUrl(file);
+    setLocalPreviewUrls([]);
+    setLocalPreviewFailed(false);
     setLocalPreviewIndex(null);
+    const isNativePlaceholder = Boolean((file as File & { __pnzjNativePlaceholder?: boolean }).__pnzjNativePlaceholder);
+    if (!isNativePlaceholder) {
+      createLocalPreviewUrl(file);
+      return;
+    }
+
+    setLocalPreviewLoading(true);
+    try {
+      const uploaded = await resolveNativeUploadResult(file);
+      if (attachmentSelectionTokenRef.current !== selectionToken) return;
+      if (!uploaded?.fileID) throw new Error('没有读取到已上传图片');
+      const urlMap = await getTempFileURL([uploaded.fileID]);
+      if (attachmentSelectionTokenRef.current !== selectionToken) return;
+      const previewUrl = urlMap[uploaded.fileID];
+      if (!previewUrl) throw new Error('没有生成图片预览地址');
+      setLocalPreviewUrls([previewUrl]);
+      setLocalPreviewFailed(false);
+    } catch (error) {
+      if (attachmentSelectionTokenRef.current !== selectionToken) return;
+      console.error('[reimbursement-attachment-preview]', error);
+      setLocalPreviewFailed(true);
+      await showAlert(error instanceof Error ? error.message : '图片预览加载失败，请重新选择。');
+    } finally {
+      if (attachmentSelectionTokenRef.current === selectionToken) setLocalPreviewLoading(false);
+    }
   };
 
   const removeAttachmentFile = () => {
@@ -1801,7 +1840,7 @@ export default function ReimbursementPage() {
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center bg-gray-50 px-4 text-center text-xs text-gray-400">
                       <FileImage size={22} className="mb-2" />
-                      <span>图片已选择</span>
+                      <span>{localPreviewLoading ? '图片正在上传...' : '图片已选择'}</span>
                     </div>
                   )}
                   <button
@@ -1827,7 +1866,7 @@ export default function ReimbursementPage() {
                 type="file"
                 accept="image/*"
                 onChange={(e) => {
-                  handleAttachmentFileChange(e.target.files);
+                  void handleAttachmentFileChange(e.target.files);
                   e.currentTarget.value = '';
                 }}
                 className="hidden"
