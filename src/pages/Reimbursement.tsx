@@ -331,6 +331,7 @@ export default function ReimbursementPage() {
   const [newSecondaryName, setNewSecondaryName] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [localPreviewUrls, setLocalPreviewUrls] = useState<string[]>([]);
+  const [localPreviewFailed, setLocalPreviewFailed] = useState(false);
   const [dashboardFilter, setDashboardFilter] = useState<'month-all' | 'month-review' | 'month-pay' | 'month-paid' | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => (
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
@@ -517,15 +518,18 @@ export default function ReimbursementPage() {
   const handleAttachmentFileChange = (fileList: FileList | null) => {
     const file = Array.from(fileList || []).find((item) => item.type.startsWith('image/'));
     if (!file) return;
+    setLocalPreviewFailed(false);
     const reader = new FileReader();
     reader.onload = () => {
       setFiles([file]);
       setLocalPreviewUrls([String(reader.result || '')]);
+      setLocalPreviewFailed(false);
       setLocalPreviewIndex(null);
     };
     reader.onerror = () => {
       setFiles([file]);
       setLocalPreviewUrls([]);
+      setLocalPreviewFailed(true);
       setLocalPreviewIndex(null);
     };
     reader.readAsDataURL(file);
@@ -534,6 +538,7 @@ export default function ReimbursementPage() {
   const removeAttachmentFile = () => {
     setFiles([]);
     setLocalPreviewUrls([]);
+    setLocalPreviewFailed(false);
     setLocalPreviewIndex(null);
   };
 
@@ -614,6 +619,7 @@ export default function ReimbursementPage() {
     setForm(createInitialForm(user?.name || '', params.get('contractId') || ''));
     setFiles([]);
     setLocalPreviewUrls([]);
+    setLocalPreviewFailed(false);
     setShowSubmit(true);
 
     // 存储返回URL
@@ -1282,6 +1288,7 @@ export default function ReimbursementPage() {
       setForm(createInitialForm(user?.name || ''));
       setFiles([]);
       setLocalPreviewUrls([]);
+      setLocalPreviewFailed(false);
       if (returnToUrl) {
         setReturnToUrl(null);
         navigate(returnToUrl);
@@ -1352,6 +1359,7 @@ export default function ReimbursementPage() {
       setForm(createInitialForm(user?.name || ''));
       setFiles([]);
       setLocalPreviewUrls([]);
+      setLocalPreviewFailed(false);
 
       // 如果有返回URL，则导航回去
       if (returnToUrl) {
@@ -1642,6 +1650,7 @@ export default function ReimbursementPage() {
             setForm(createInitialForm(user?.name || ''));
             setFiles([]);
             setLocalPreviewUrls([]);
+            setLocalPreviewFailed(false);
             setShowSubmit(true);
           }} className="erp-btn-primary shrink-0">
             <Plus size={16} /> 新建报销
@@ -1687,7 +1696,7 @@ export default function ReimbursementPage() {
       </div>
 
       {/* 提交报销 Modal */}
-      <Modal open={showSubmit} onClose={() => { if (!submitting) { setShowSubmit(false); setFiles([]); setLocalPreviewUrls([]); } }} title="提交报销申请" size="lg">
+      <Modal open={showSubmit} onClose={() => { if (!submitting) { setShowSubmit(false); setFiles([]); setLocalPreviewUrls([]); setLocalPreviewFailed(false); } }} title="提交报销申请" size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div>
@@ -1756,7 +1765,7 @@ export default function ReimbursementPage() {
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
             <div
-              onClick={() => (files.length > 0 ? setLocalPreviewIndex(0) : fileRef.current?.click())}
+              onClick={() => (files.length > 0 && localPreviewUrls[0] && !localPreviewFailed ? setLocalPreviewIndex(0) : fileRef.current?.click())}
               className={`relative overflow-hidden border-2 border-dashed rounded text-center cursor-pointer transition-colors ${
                 files.length > 0
                   ? 'h-44 border-gold-300 bg-gray-50'
@@ -1765,10 +1774,18 @@ export default function ReimbursementPage() {
             >
               {files.length > 0 ? (
                 <>
-                  {localPreviewUrls[0] ? (
-                    <img src={localPreviewUrls[0]} alt={files[0].name} className="h-full w-full object-contain" />
+                  {localPreviewUrls[0] && !localPreviewFailed ? (
+                    <img
+                      src={localPreviewUrls[0]}
+                      alt=""
+                      className="block h-full w-full object-contain"
+                      onError={() => setLocalPreviewFailed(true)}
+                    />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gray-50 text-xs text-gray-400">图片</div>
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-gray-50 px-4 text-center text-xs text-gray-400">
+                      <FileImage size={22} className="mb-2" />
+                      <span>图片已选择</span>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -1830,7 +1847,7 @@ export default function ReimbursementPage() {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => { if (!submitting) { setShowSubmit(false); setFiles([]); setLocalPreviewUrls([]); } }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+            <button onClick={() => { if (!submitting) { setShowSubmit(false); setFiles([]); setLocalPreviewUrls([]); setLocalPreviewFailed(false); } }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
             <button onClick={handleSubmitFlow} disabled={!form.applicant || !form.amount || !form.payeeName || !form.payeeBank || !form.payeeAccount || !form.description || submitting} className="erp-btn-primary disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? '提交中...' : '提交申请'}
             </button>
@@ -2059,7 +2076,7 @@ export default function ReimbursementPage() {
         </Modal>
       )}
 
-      {localPreviewIndex !== null && (
+      {localPreviewIndex !== null && localPreviewUrls.length > 0 && !localPreviewFailed && (
         <ImagePreviewModal
           images={localPreviewUrls}
           index={localPreviewIndex}
