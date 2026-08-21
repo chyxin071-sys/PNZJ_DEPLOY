@@ -207,8 +207,8 @@ export default function ProjectCost() {
     },
     { key: 'customerName', title: '客户' },
     { key: 'contractAmount', title: '合同金额', render: (row: any) => <span className="font-medium">{formatMoney(row.contractAmount)}</span> },
-    { key: 'receivedAmount', title: '已收款', render: (row: any) => <span className="text-emerald-600 font-medium">{formatMoney(row.receivedAmount)}</span> },
     { key: 'unreceived', title: '未收款', render: (row: any) => <span className={row.unreceived > 0 ? 'text-red-500 font-medium' : 'text-gray-400'}>{formatMoney(row.unreceived)}</span> },
+    { key: 'receivedAmount', title: '已收款', render: (row: any) => <span className="text-emerald-600 font-medium">{formatMoney(row.receivedAmount)}</span> },
     { key: 'totalCost', title: '总成本', render: (row: any) => <span className="text-red-500 font-medium">{formatMoney(row.totalCost)}</span> },
     { key: 'grossProfit', title: '毛利润', render: (row: any) => <span className={row.grossProfit >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{formatMoney(row.grossProfit)}</span> },
     { key: 'grossMargin', title: '毛利率', render: (row: any) => <span className={row.grossMargin >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatPercent(row.grossMargin)}</span> },
@@ -267,10 +267,11 @@ export default function ProjectCost() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4 md:gap-3 md:p-4">
+        <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-5 md:gap-3 md:p-4">
           <MetricCard label="合同金额" value={formatMoney(summary.contractAmount)} icon={Wallet} />
-          <MetricCard label="总成本" value={formatMoney(summary.totalCost)} icon={TrendingDown} tone="red" />
+          <MetricCard label="未收款" value={formatMoney(summary.contractAmount - summary.receivedAmount)} icon={TrendingDown} tone="red" />
           <MetricCard label="已收款" value={formatMoney(summary.receivedAmount)} icon={TrendingUp} tone="emerald" />
+          <MetricCard label="总成本" value={formatMoney(summary.totalCost)} icon={TrendingDown} tone="red" />
           <MetricCard label="毛利润" value={formatMoney(summary.grossProfit)} icon={PieChart} tone={summary.grossProfit >= 0 ? 'emerald' : 'red'} />
         </div>
 
@@ -406,8 +407,9 @@ export default function ProjectCost() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <MiniValue label="合同金额" value={formatMoney(row.contractAmount || 0)} />
-                  <MiniValue label="总成本" value={formatMoney(row.totalCost || 0)} tone="red" />
+                  <MiniValue label="未收款" value={formatMoney(row.unreceived || 0)} tone="red" />
                   <MiniValue label="已收款" value={formatMoney(row.receivedAmount || 0)} tone="emerald" />
+                  <MiniValue label="总成本" value={formatMoney(row.totalCost || 0)} tone="red" />
                   <MiniValue label="毛利润" value={formatMoney(row.grossProfit || 0)} tone={row.grossProfit >= 0 ? 'emerald' : 'red'} />
                 </div>
               </button>

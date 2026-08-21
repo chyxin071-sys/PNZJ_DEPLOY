@@ -504,8 +504,12 @@ export default function SignedContracts() {
               { key: 'contractAmount', title: '合同金额', sortable: true, render: (row: any) => (
                 <span className="font-medium text-gray-900 whitespace-nowrap">¥{row.contractAmount.toLocaleString()}</span>
               )},
-              { key: 'settledAmount', title: '结算金额', sortable: true, render: (row: any) => (
-                <span className="text-gray-700 whitespace-nowrap">¥{row.settledAmount.toLocaleString()}</span>
+              { key: 'unsettledAmount', title: '未收金额', sortable: true, render: (row: any) => {
+                const unsettled = row.contractAmount - row.settledAmount;
+                return <span className={`font-medium whitespace-nowrap ${unsettled > 0 ? 'text-red-500' : 'text-gray-400'}`}>¥{unsettled.toLocaleString()}</span>;
+              }},
+              { key: 'settledAmount', title: '已收金额', sortable: true, render: (row: any) => (
+                <span className="text-emerald-600 font-medium whitespace-nowrap">¥{row.settledAmount.toLocaleString()}</span>
               )},
               { key: 'receiptPercent', title: '收款进度', render: (row: any) => (
                 <ProgressBar percent={row.receiptPercent} color={row.receiptPercent >= 100 ? 'bg-emerald-500' : row.receiptPercent >= 50 ? 'bg-amber-400' : 'bg-red-400'} />
@@ -522,10 +526,6 @@ export default function SignedContracts() {
                   />
                 ) : <span className="text-[11px] text-gray-300">-</span>
               )},
-              { key: 'unsettledAmount', title: '未收金额', sortable: true, render: (row: any) => {
-                const unsettled = row.contractAmount - row.settledAmount;
-                return <span className={`font-medium whitespace-nowrap ${unsettled > 0 ? 'text-red-500' : 'text-gray-400'}`}>¥{unsettled.toLocaleString()}</span>;
-              }},
               ...(canViewFinance ? [
                 { key: 'grossProfit', title: '毛利润', sortable: true, render: (row: any) => {
                   const profit = row.settledAmount - row.totalExpense;
