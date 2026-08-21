@@ -557,10 +557,24 @@ export default function Expense() {
   return (
     <div className="erp-page-spaced">
       {/* 页头 */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-base md:text-lg font-bold text-gray-900">支出管理</h1>
           <p className="text-gold-500 text-xs md:text-sm">管理所有支出记录</p>
+          <div className="mt-3 flex items-center gap-2 md:hidden">
+            <button onClick={() => setShowModal(true)} className="erp-btn-primary h-9 px-3">
+              <Plus size={15} /> 支出
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCategoryManager(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50"
+              aria-label="管理支出类别"
+              title="管理支出类别"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
         </div>
         <div className="hidden items-center gap-2 md:flex">
           <button
@@ -592,13 +606,13 @@ export default function Expense() {
       </div>
 
       {/* 分类Tab */}
-      <div>
-        <div className="flex flex-wrap items-center gap-0 border-b border-gray-200">
+      <div className="erp-finance-category-strip scrollbar-hide">
+        <div className="flex min-w-max flex-nowrap items-center border-b border-gray-200">
           {activeCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveTab(cat)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+              className={`relative shrink-0 whitespace-nowrap px-3 py-2 text-xs font-medium transition-colors md:px-4 md:py-2.5 md:text-sm ${
                 activeTab === cat
                   ? 'text-gold-500'
                   : 'text-gray-500 hover:text-gray-700'
@@ -637,8 +651,6 @@ export default function Expense() {
             <button onClick={clearFilters}
               className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>
           )}
-          <button onClick={() => setShowModal(true)} className="erp-btn-primary shrink-0"><Plus size={15} /> 支出</button>
-          <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary shrink-0 md:hidden"><Settings size={15} /> 类别</button>
         </div>
         <DataTable
             columns={columns}

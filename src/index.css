@@ -126,6 +126,11 @@ body {
     @apply border-gold-400 shadow-sm;
   }
 
+  .erp-finance-category-strip {
+    @apply w-full overflow-x-auto;
+    overscroll-behavior-x: contain;
+  }
+
   .erp-finance-stats > div,
   .erp-finance-stat-button > div {
     @apply px-2.5 py-3 md:px-5 md:py-4;
@@ -300,23 +305,37 @@ body {
     }
 
     .erp-finance-stats {
-      @apply grid-cols-1 gap-2;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      overscroll-behavior-x: contain;
+      padding-bottom: 2px;
+    }
+
+    .erp-finance-stat-button {
+      flex: 0 0 min(44%, 168px);
+      min-width: 148px;
+      scroll-snap-align: start;
     }
 
     .erp-finance-stats > div,
     .erp-finance-stat-button > div {
-      @apply px-4 py-3;
+      @apply px-3 py-2.5;
+      min-height: 88px;
     }
 
     .erp-finance-stats > div p,
     .erp-finance-stat-button > div p {
-      @apply text-xl;
-      word-break: break-word;
+      @apply text-[15px] leading-tight;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
     }
 
     .erp-finance-stats > div > div:first-child > div,
     .erp-finance-stat-button > div > div:first-child > div {
-      @apply flex;
+      @apply hidden;
     }
 
     .erp-finance-date-row {

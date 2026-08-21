@@ -557,8 +557,25 @@ export default function Income() {
 
   return (
     <div className="erp-page-spaced">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-base md:text-lg font-bold text-gray-900">收入管理</h1><p className="text-gold-500 text-xs md:text-sm">管理所有收款记录</p></div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-base md:text-lg font-bold text-gray-900">收入管理</h1>
+          <p className="text-gold-500 text-xs md:text-sm">管理所有收款记录</p>
+          <div className="mt-3 flex items-center gap-2 md:hidden">
+            <button onClick={() => setShowModal(true)} className="erp-btn-primary h-9 px-3">
+              <Plus size={15} /> 收款
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCategoryManager(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50"
+              aria-label="管理收入类别"
+              title="管理收入类别"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
+        </div>
         <div className="hidden items-center gap-2 md:flex">
           <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary"><Settings size={15} /> 收入类别</button>
           <button onClick={() => setShowModal(true)} className="erp-btn-primary"><Plus size={16} /> 新增收款</button>
@@ -590,8 +607,6 @@ export default function Income() {
         <div className="erp-finance-action-row">
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索地址/客户/合同号" className="erp-search-input" />
           {search && <button onClick={() => setSearch('')} className="text-xs text-gold-500 hover:text-gold-600 font-medium shrink-0">清除</button>}
-          <button onClick={() => setShowModal(true)} className="erp-btn-primary shrink-0"><Plus size={15} /> 收款</button>
-          <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary shrink-0 md:hidden"><Settings size={15} /> 类别</button>
         </div>
         <DataTable
             columns={columns} 
