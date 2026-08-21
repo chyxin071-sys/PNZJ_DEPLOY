@@ -10,10 +10,12 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   mobileFullScreen?: boolean;
+  useHistory?: boolean;
 }
 
-export default function Modal({ open, onClose, title, children, size = 'md', mobileFullScreen = false }: ModalProps) {
-  const requestClose = useOverlayHistory(open, onClose, 'pnzjModalId');
+export default function Modal({ open, onClose, title, children, size = 'md', mobileFullScreen = false, useHistory = true }: ModalProps) {
+  const historyClose = useOverlayHistory(useHistory && open, onClose, 'pnzjModalId');
+  const requestClose = useHistory ? historyClose : onClose;
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';

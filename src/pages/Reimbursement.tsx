@@ -320,6 +320,7 @@ export default function ReimbursementPage() {
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [controlReason, setControlReason] = useState('');
+  const [controlError, setControlError] = useState('');
   const [showDetail, setShowDetail] = useState<Reimbursement | null>(null);
   const [form, setForm] = useState(INIT_FORM);
   const [approvalConfig, setApprovalConfig] = useState(EMPTY_FLOW_CONFIG);
@@ -853,6 +854,7 @@ export default function ReimbursementPage() {
   const openReimbursementControlAction = (r: Reimbursement) => {
     setControlAction({ type: getReimbursementControlType(r), item: r });
     setControlReason('');
+    setControlError('');
   };
 
   const handleReimbursementControlAction = async () => {
@@ -860,10 +862,11 @@ export default function ReimbursementPage() {
     const { type, item: r } = controlAction;
     const reason = controlReason.trim();
     if (type !== 'delete' && !reason) {
-      await showAlert(`${type === 'reverse' ? '冲销' : '作废'}必须填写原因。`);
+      setControlError(`${type === 'reverse' ? '冲销' : '作废'}必须填写原因。`);
       return;
     }
     const actionLabel = type === 'reverse' ? '冲销' : type === 'void' ? '作废' : '删除';
+    setControlError('');
     setSubmitting(true);
     try {
       const now = new Date().toISOString();
@@ -883,41 +886,45 @@ export default function ReimbursementPage() {
         await reverseLinkedExpenseForReimbursement(r, reason, now);
       }
       await updateReimbursement(next);
-      await recordFinanceAuditAction({
-        module: 'reimbursement',
-        action: type,
-        recordId: getDocId(r),
-        recordName: `${r.applicant}-${r.type}`,
-        bizType: currentBizType,
-        amount: r.amount,
-        reason,
-        operatorId: currentUserId,
-        operatorName: myName,
-        before: r,
-        after: next,
-      });
-      const applicantUser = users.find((u: any) => u.name === r.applicant);
-      await notifyFinanceAuditAction({
-        module: 'reimbursement',
-        action: type,
-        recordId: getDocId(r),
-        recordName: `${r.applicant}-${r.type}`,
-        bizType: currentBizType,
-        amount: r.amount,
-        reason,
-        operatorId: currentUserId,
-        operatorName: myName,
-        recipientUserIds: [
-          ...adminUserIds,
-          (applicantUser as any)?._id || applicantUser?.id || '',
-        ],
-      });
       if (showDetail?.id === r.id) setShowDetail(next);
       if (type === 'delete') setShowDetail(null);
       setControlAction(null);
       setControlReason('');
+      setControlError('');
+
+      const applicantUser = users.find((u: any) => u.name === r.applicant);
+      void Promise.allSettled([
+        recordFinanceAuditAction({
+          module: 'reimbursement',
+          action: type,
+          recordId: getDocId(r),
+          recordName: `${r.applicant}-${r.type}`,
+          bizType: currentBizType,
+          amount: r.amount,
+          reason,
+          operatorId: currentUserId,
+          operatorName: myName,
+          before: r,
+          after: next,
+        }),
+        notifyFinanceAuditAction({
+          module: 'reimbursement',
+          action: type,
+          recordId: getDocId(r),
+          recordName: `${r.applicant}-${r.type}`,
+          bizType: currentBizType,
+          amount: r.amount,
+          reason,
+          operatorId: currentUserId,
+          operatorName: myName,
+          recipientUserIds: [
+            ...adminUserIds,
+            (applicantUser as any)?._id || applicantUser?.id || '',
+          ],
+        }),
+      ]);
     } catch (e: any) {
-      await showAlert(e?.message || `${actionLabel}失败`);
+      setControlError(e?.message || `${actionLabel}失败`);
     } finally {
       setSubmitting(false);
     }
@@ -1748,9 +1755,39 @@ export default function ReimbursementPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">附件上传</label>
-            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
-              <Upload size={20} className="mx-auto text-gray-400 mb-2" />
-              <p className="text-xs text-gray-400">点击上传付款单备注图片（仅支持 1 张）</p>
+            <div
+              onClick={() => (files.length > 0 ? setLocalPreviewIndex(0) : fileRef.current?.click())}
+              className={`relative overflow-hidden border-2 border-dashed rounded text-center cursor-pointer transition-colors ${
+                files.length > 0
+                  ? 'h-44 border-gold-300 bg-gray-50'
+                  : 'border-gray-200 p-6 hover:border-gold-400'
+              }`}
+            >
+              {files.length > 0 ? (
+                <>
+                  {localPreviewUrls[0] ? (
+                    <img src={localPreviewUrls[0]} alt={files[0].name} className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gray-50 text-xs text-gray-400">图片</div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeAttachmentFile();
+                    }}
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-lg leading-none text-white shadow"
+                    aria-label="删除附件"
+                  >
+                    ×
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Upload size={20} className="mx-auto text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-400">点击上传付款单备注图片（仅支持 1 张）</p>
+                </>
+              )}
               <input
                 ref={fileRef}
                 type="file"
@@ -1762,22 +1799,6 @@ export default function ReimbursementPage() {
                 className="hidden"
               />
             </div>
-            {files.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {files.map((f, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
-                    <button type="button" onClick={() => setLocalPreviewIndex(i)} className="h-full w-full">
-                      {localPreviewUrls[i] ? (
-                        <img src={localPreviewUrls[i]} alt={f.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gray-50 text-[10px] text-gray-400">图片</div>
-                      )}
-                    </button>
-                    <button type="button" onClick={removeAttachmentFile} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
           <div className="rounded border border-gray-100 bg-gray-50 px-3 py-3">
             <div className="mb-3 text-sm font-medium text-gray-900">审批流程</div>
@@ -1974,8 +1995,9 @@ export default function ReimbursementPage() {
       {!isEmployee && (
         <Modal
           open={!!controlAction}
-          onClose={() => { if (!submitting) { setControlAction(null); setControlReason(''); } }}
+          onClose={() => { if (!submitting) { setControlAction(null); setControlReason(''); setControlError(''); } }}
           title={controlAction ? `${controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}报销记录` : '处理报销记录'}
+          useHistory={false}
         >
           {controlAction && (
             <div className="space-y-4">
@@ -1997,15 +2019,16 @@ export default function ReimbursementPage() {
                 </label>
                 <textarea
                   value={controlReason}
-                  onChange={(e) => setControlReason(e.target.value)}
+                  onChange={(e) => { setControlReason(e.target.value); setControlError(''); }}
                   rows={3}
                   placeholder={controlAction.type === 'delete' ? '可填写删除原因，便于后续追溯' : '请填写原因，便于后续查账'}
                   className="erp-input resize-none"
                 />
+                {controlError && <div className="mt-2 text-xs text-red-500">{controlError}</div>}
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => { if (!submitting) { setControlAction(null); setControlReason(''); } }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
-                <button onClick={handleReimbursementControlAction} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-70">
+                <button type="button" onClick={() => { if (!submitting) { setControlAction(null); setControlReason(''); setControlError(''); } }} disabled={submitting} className="erp-btn-secondary disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+                <button type="button" onClick={() => void handleReimbursementControlAction()} disabled={submitting} className="px-4 py-2 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-70">
                   {submitting ? '处理中...' : `确认${controlAction.type === 'reverse' ? '冲销' : controlAction.type === 'void' ? '作废' : '删除'}`}
                 </button>
               </div>
