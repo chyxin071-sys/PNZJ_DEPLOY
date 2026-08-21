@@ -297,8 +297,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   getProjectProfits: () => {
     const { contracts, receipts, expenses } = get();
     return contracts.map((c) => {
-      const contractReceipts = receipts.filter((r) => r.contractId === c.id && isActiveFinanceRecord(r));
-      const contractExpenses = expenses.filter((e) => e.contractId === c.id && isActiveFinanceRecord(e));
+      const contractIds = new Set([c.id, c._id].filter(Boolean));
+      const contractReceipts = receipts.filter((r) => contractIds.has(r.contractId) && isActiveFinanceRecord(r));
+      const contractExpenses = expenses.filter((e) => contractIds.has(e.contractId) && isActiveFinanceRecord(e));
       const receivedAmount = contractReceipts.reduce((sum, r) => sum + r.amount, 0);
       const totalCost = contractExpenses.reduce((sum, e) => sum + e.amount, 0);
       const grossProfit = receivedAmount - totalCost;

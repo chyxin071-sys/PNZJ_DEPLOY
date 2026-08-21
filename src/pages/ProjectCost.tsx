@@ -19,6 +19,15 @@ echarts.use([LineChart, BarChart, EChartsPieChart, GridComponent, TooltipCompone
 const CHART_COLORS = ['#2563eb', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#64748b'];
 const LIGHT_GRID = '#eef0f3';
 const LIGHT_TEXT = '#6b7280';
+type QuickRange = 'all' | 'year' | 'month' | 'lastMonth' | 'quarter' | 'custom';
+
+const QUICK_RANGES: Array<{ key: Exclude<QuickRange, 'custom'>; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'year', label: '今年' },
+  { key: 'month', label: '本月' },
+  { key: 'lastMonth', label: '上月' },
+  { key: 'quarter', label: '近90天' },
+];
 
 const ROLE_COLORS: Record<string, string> = {
   sales: 'bg-blue-50 text-blue-600',
@@ -50,6 +59,7 @@ export default function ProjectCost() {
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [quickRange, setQuickRange] = useState<QuickRange>('all');
 
   useEffect(() => {
     void _refreshSilent(['contracts', 'receipts', 'expenses'], true);
@@ -167,6 +177,34 @@ export default function ProjectCost() {
 
   const maxCategoryAmount = Math.max(...categoryStats.map((item) => item.amount), 1);
   const activeFilters = Boolean(dateFrom || dateTo || search);
+
+  const applyQuickRange = (range: Exclude<QuickRange, 'custom'>) => {
+    setQuickRange(range);
+    const today = dayjs();
+    if (range === 'all') {
+      setDateFrom('');
+      setDateTo('');
+      return;
+    }
+    if (range === 'year') {
+      setDateFrom(today.startOf('year').format('YYYY-MM-DD'));
+      setDateTo(today.endOf('year').format('YYYY-MM-DD'));
+      return;
+    }
+    if (range === 'month') {
+      setDateFrom(today.startOf('month').format('YYYY-MM-DD'));
+      setDateTo(today.endOf('month').format('YYYY-MM-DD'));
+      return;
+    }
+    if (range === 'lastMonth') {
+      const lastMonth = today.subtract(1, 'month');
+      setDateFrom(lastMonth.startOf('month').format('YYYY-MM-DD'));
+      setDateTo(lastMonth.endOf('month').format('YYYY-MM-DD'));
+      return;
+    }
+    setDateFrom(today.subtract(89, 'day').format('YYYY-MM-DD'));
+    setDateTo(today.format('YYYY-MM-DD'));
+  };
 
   const monthlyTrend = useMemo(() => {
     const map = new Map<string, { month: string; received: number; cost: number; profit: number }>();
@@ -298,26 +336,28 @@ export default function ProjectCost() {
     {
       key: 'houseAddress',
       title: '项目地址',
+      width: '220px',
       render: (row: any) => (
         <div className="font-medium text-gray-900 truncate max-w-[220px]" title={row.houseAddress}>
           {row.houseAddress || '-'}
         </div>
       ),
     },
-    { key: 'customerName', title: '客户' },
-    { key: 'contractAmount', title: '合同金额', render: (row: any) => <span className="font-medium">{formatMoney(row.contractAmount)}</span> },
-    { key: 'unreceived', title: '未收款', render: (row: any) => <span className={row.unreceived > 0 ? 'text-red-500 font-medium' : 'text-gray-400'}>{formatMoney(row.unreceived)}</span> },
-    { key: 'receivedAmount', title: '已收款', render: (row: any) => <span className="text-emerald-600 font-medium">{formatMoney(row.receivedAmount)}</span> },
-    { key: 'totalCost', title: '总成本', render: (row: any) => <span className="text-red-500 font-medium">{formatMoney(row.totalCost)}</span> },
-    { key: 'grossProfit', title: '毛利润', render: (row: any) => <span className={row.grossProfit >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{formatMoney(row.grossProfit)}</span> },
-    { key: 'grossMargin', title: '毛利率', render: (row: any) => <span className={row.grossMargin >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatPercent(row.grossMargin)}</span> },
-    { key: 'cashFlow', title: '收支差', render: (row: any) => <span className={row.cashFlow >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{formatMoney(row.cashFlow)}</span> },
-    { key: 'sales', title: '销售', render: (row: any) => <RoleTags names={splitPeople(row.sales)} role="sales" /> },
-    { key: 'designer', title: '设计', render: (row: any) => <RoleTags names={splitPeople(row.designer)} role="designer" /> },
-    { key: 'projectManager', title: '项目经理', render: (row: any) => <RoleTags names={splitPeople(row.projectManager)} role="manager" /> },
+    { key: 'customerName', title: '客户', width: '110px' },
+    { key: 'contractAmount', title: '合同金额', width: '130px', render: (row: any) => <span className="font-medium">{formatMoney(row.contractAmount)}</span> },
+    { key: 'unreceived', title: '未收款', width: '130px', render: (row: any) => <span className={row.unreceived > 0 ? 'text-red-500 font-medium' : 'text-gray-400'}>{formatMoney(row.unreceived)}</span> },
+    { key: 'receivedAmount', title: '已收款', width: '130px', render: (row: any) => <span className="text-emerald-600 font-medium">{formatMoney(row.receivedAmount)}</span> },
+    { key: 'totalCost', title: '总成本', width: '130px', render: (row: any) => <span className="text-red-500 font-medium">{formatMoney(row.totalCost)}</span> },
+    { key: 'grossProfit', title: '毛利润', width: '130px', render: (row: any) => <span className={row.grossProfit >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{formatMoney(row.grossProfit)}</span> },
+    { key: 'grossMargin', title: '毛利率', width: '110px', render: (row: any) => <span className={row.grossMargin >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatPercent(row.grossMargin)}</span> },
+    { key: 'cashFlow', title: '收支差', width: '130px', render: (row: any) => <span className={row.cashFlow >= 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>{formatMoney(row.cashFlow)}</span> },
+    { key: 'sales', title: '销售', width: '120px', render: (row: any) => <RoleTags names={splitPeople(row.sales)} role="sales" /> },
+    { key: 'designer', title: '设计', width: '120px', render: (row: any) => <RoleTags names={splitPeople(row.designer)} role="designer" /> },
+    { key: 'projectManager', title: '项目经理', width: '130px', render: (row: any) => <RoleTags names={splitPeople(row.projectManager)} role="manager" /> },
     {
       key: 'actions',
       title: '操作',
+      width: '100px',
       render: (row: any) => (
         <button
           onClick={(e) => {
@@ -351,19 +391,35 @@ export default function ProjectCost() {
             />
           </div>
           <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 md:max-w-sm">
-            <DatePicker mode="single" value={dateFrom} onChange={setDateFrom} placeholder="开始日期" />
-            <DatePicker mode="single" value={dateTo} onChange={setDateTo} placeholder="结束日期" />
+            <DatePicker mode="single" value={dateFrom} onChange={(value) => { setDateFrom(value); setQuickRange('custom'); }} placeholder="开始日期" />
+            <DatePicker mode="single" value={dateTo} onChange={(value) => { setDateTo(value); setQuickRange('custom'); }} placeholder="结束日期" />
           </div>
           {activeFilters && (
             <button
               type="button"
-              onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}
+              onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setQuickRange('all'); }}
               className="inline-flex items-center justify-center gap-1 rounded border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
             >
               <X size={13} />
               清除
             </button>
           )}
+        </div>
+        <div className="flex flex-wrap gap-1.5 px-3 pb-3 md:px-4">
+          {QUICK_RANGES.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => applyQuickRange(item.key)}
+              className={`rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
+                quickRange === item.key
+                  ? 'border-gold-500 bg-gold-500 text-gray-900'
+                  : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-6 md:gap-3 md:p-4">
@@ -432,6 +488,7 @@ export default function ProjectCost() {
             emptyText="暂无项目数据"
             rowKey={(row) => String(row.id)}
             onRowClick={(row) => navigate(`/contracts/${(row as any).id}`)}
+            horizontalScroll
           />}
         </div>
 

@@ -25,6 +25,7 @@ import { syncLeadRelations } from '@/utils/syncLeadRelations';
 import { addLeadAuditFollowUp, describeLeadChanges, namesText, notifyLeadAssignment, notifyLeadEvent } from '@/utils/leadAudit';
 import { getCurrentReturnPath } from '@/hooks/useSmartBack';
 import { buildProjectProgressSummary } from '@/utils/projectProgress';
+import { isActiveFinanceRecord } from '@/utils/financeLifecycle';
 
 const STATUS_COLORS: Record<string, string> = {
   '跟进中': 'bg-blue-50 text-blue-600',
@@ -60,7 +61,7 @@ const LEAD_FOLLOW_UP_LIST_FIELDS: Record<string, boolean> = {
   _id: true, id: true, leadId: true, content: true, method: true,
   createdBy: true, createdAt: true, displayTime: true,
 };
-const SIGNED_PROJECT_FIELDS = { _id: true, id: true, leadId: true, relatedCustomerId: true, nodes: true };
+const SIGNED_PROJECT_FIELDS = { _id: true, id: true, leadId: true, relatedCustomerId: true, customerId: true, customerNo: true, address: true, status: true, lifecycleStatus: true, nodes: true, nodesData: true, progressSummary: true };
 const SIGNED_QUOTE_FIELDS = { _id: true, id: true, leadId: true };
 const RELATED_PROJECT_FIELDS = { _id: true, id: true, leadId: true, relatedCustomerId: true, customerNo: true };
 const RELATED_QUOTE_FIELDS = { _id: true, id: true, leadId: true, customerNo: true };
@@ -534,21 +535,31 @@ export default function Leads() {
       const signedLeads = allLeads.filter((l: any) => l.status === '已签单');
 
       const merged = signedLeads.map((lead: any) => {
-        const relatedProjects = allProjects.filter((p: any) =>
-          p.leadId === lead._id || p.relatedCustomerId === lead._id
-        );
+        const leadKeys = new Set([lead._id, lead.id, lead.customerNo].filter(Boolean).map(String));
+        const relatedProjects = allProjects.filter((p: any) => {
+          const projectKeys = [p.leadId, p.relatedCustomerId, p.customerId, p.customerNo].filter(Boolean).map(String);
+          return projectKeys.some((key) => leadKeys.has(key)) || (!!p.address && p.address === lead.address);
+        });
         const relatedQuotes = allQuotes.filter((q: any) => q.leadId === lead._id);
         const relatedContracts = allContracts.filter((c: any) =>
-          c.customerName === lead.name && c.customerPhone === lead.phone
+          c.customerId === lead._id ||
+          c.relatedCustomerId === lead._id ||
+          (c.customerName === lead.name && c.customerPhone === lead.phone)
         );
 
         const totalContractAmount = relatedContracts.reduce((sum: number, c: any) => sum + (c.contractAmount || 0), 0);
         const settledAmount = relatedContracts.reduce((sum: number, c: any) => {
-          return sum + allReceipts.filter((r: any) => r.contractId === c.id).reduce((s: number, r: any) => s + (r.amount || 0), 0);
+          const contractIds = new Set([c.id, c._id].filter(Boolean));
+          return sum + allReceipts
+            .filter((r: any) => contractIds.has(r.contractId) && isActiveFinanceRecord(r))
+            .reduce((s: number, r: any) => s + (r.amount || 0), 0);
         }, 0);
         const receiptPercent = totalContractAmount > 0 ? (settledAmount / totalContractAmount) * 100 : 0;
         const totalExpense = canViewFinance ? relatedContracts.reduce((sum: number, c: any) => {
-          return sum + allExpenses.filter((e: any) => e.contractId === c.id).reduce((s: number, e: any) => s + (e.amount || 0), 0);
+          const contractIds = new Set([c.id, c._id].filter(Boolean));
+          return sum + allExpenses
+            .filter((e: any) => contractIds.has(e.contractId) && isActiveFinanceRecord(e))
+            .reduce((s: number, e: any) => s + (e.amount || 0), 0);
         }, 0) : 0;
         const costRatio = settledAmount > 0 ? (totalExpense / settledAmount) * 100 : 0;
 
@@ -558,10 +569,16 @@ export default function Leads() {
         const nodesData = Array.isArray(primaryProject?.nodesData)
           ? primaryProject.nodesData
           : (Array.isArray(primaryProject?.nodes) ? primaryProject.nodes : []);
-        if (nodesData.length > 0) {
+        if (primaryProject?.lifecycleStatus === '已完工' || primaryProject?.status === '已完工') {
+          constructionProgress = 100;
+          currentNodeName = '已完工';
+        } else if (nodesData.length > 0) {
           const summary = buildProjectProgressSummary(nodesData);
           constructionProgress = summary.progressPercent;
           currentNodeName = summary.currentNodeName;
+        } else if (typeof primaryProject?.progressSummary?.progressPercent === 'number') {
+          constructionProgress = primaryProject.progressSummary.progressPercent;
+          currentNodeName = primaryProject.progressSummary.currentNodeName || primaryProject.progressSummary.nodeName || '';
         }
 
         return {
@@ -594,7 +611,7 @@ export default function Leads() {
     } finally {
       if (!silent) setSignedLoading(false);
     }
-  }, []);
+  }, [canViewFinance]);
 
   // 当切换到已签单Tab时加载签单数据
   useEffect(() => {
@@ -1871,8 +1888,12 @@ export default function Leads() {
                 { key: 'contractAmount', title: '合同金额', sortable: true, render: (row: any) => (
                   <span className="font-medium text-gray-900 whitespace-nowrap">¥{row.contractAmount.toLocaleString()}</span>
                 )},
-                { key: 'settledAmount', title: '结算金额', sortable: true, render: (row: any) => (
-                  <span className="text-gray-700 whitespace-nowrap">¥{row.settledAmount.toLocaleString()}</span>
+                { key: 'unsettledAmount', title: '未收金额', sortable: true, render: (row: any) => {
+                  const unsettled = row.contractAmount - row.settledAmount;
+                  return <span className={`font-medium whitespace-nowrap ${unsettled > 0 ? 'text-red-500' : 'text-gray-400'}`}>¥{unsettled.toLocaleString()}</span>;
+                }},
+                { key: 'settledAmount', title: '已收金额', sortable: true, render: (row: any) => (
+                  <span className="text-emerald-600 font-medium whitespace-nowrap">¥{row.settledAmount.toLocaleString()}</span>
                 )},
                 { key: 'receiptPercent', title: '收款进度', render: (row: any) => (
                   <ProgressBar percent={row.receiptPercent} color={row.receiptPercent >= 100 ? 'bg-emerald-500' : row.receiptPercent >= 50 ? 'bg-amber-400' : 'bg-red-400'} />
@@ -1921,10 +1942,6 @@ export default function Leads() {
                     <LinkBtn icon={DollarSign} label="收款明细" onClick={() => { saveScroll(); navigate(`/income?contractId=${row.contractId}`); }} />
                   ) : <span className="text-[11px] text-gray-300">-</span>
                 )},
-                { key: 'unsettledAmount', title: '未收金额', sortable: true, render: (row: any) => {
-                  const unsettled = row.contractAmount - row.settledAmount;
-                  return <span className={`font-medium whitespace-nowrap ${unsettled > 0 ? 'text-red-500' : 'text-gray-400'}`}>¥{unsettled.toLocaleString()}</span>;
-                }},
                 { key: 'sales', title: '销售', render: (row: any) => {
                   const names: string[] = Array.isArray(row.sales) ? row.sales : toPersonArray(row.sales);
                   return (
@@ -1970,7 +1987,7 @@ export default function Leads() {
                     </div>
                   );
                 }},
-                { key: 'signDate', title: '签单时间', sortable: true, width: '90px', render: (row: any) => (
+                { key: 'signDate', title: '签单时间', sortable: true, width: '120px', render: (row: any) => (
                   <span className="text-gray-500 whitespace-nowrap">{formatDate(row.signDate)}</span>
                 )},
               ]}
