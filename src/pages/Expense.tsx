@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { TrendingDown, DollarSign, FileText, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X, Settings, RotateCcw } from 'lucide-react';
+import { TrendingDown, DollarSign, Plus, Loader2, Paperclip, Edit3, Trash2, Download, X, Settings, RotateCcw } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
@@ -561,20 +561,20 @@ export default function Expense() {
         <div className="min-w-0">
           <h1 className="text-base md:text-lg font-bold text-gray-900">支出管理</h1>
           <p className="text-gold-500 text-xs md:text-sm">管理所有支出记录</p>
-          <div className="mt-3 flex items-center gap-2 md:hidden">
-            <button onClick={() => setShowModal(true)} className="erp-btn-primary h-9 px-3">
-              <Plus size={15} /> 支出
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCategoryManager(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50"
-              aria-label="管理支出类别"
-              title="管理支出类别"
-            >
-              <Settings size={16} />
-            </button>
-          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => setShowCategoryManager(true)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50"
+            aria-label="管理支出类别"
+            title="管理支出类别"
+          >
+            <Settings size={16} />
+          </button>
+          <button onClick={() => setShowModal(true)} className="erp-btn-primary h-9 px-3">
+            <Plus size={15} /> 支出
+          </button>
         </div>
         <div className="hidden items-center gap-2 md:flex">
           <button
@@ -599,9 +599,6 @@ export default function Expense() {
         </button>
         <button type="button" onClick={filterCurrentMonth} className={`erp-finance-stat-button ${filterYear === String(now.getFullYear()) && filterMonthFrom === String(now.getMonth() + 1) && filterMonthTo === String(now.getMonth() + 1) ? 'is-active' : ''}`}>
           <StatCard title="本月支出" value={formatMoney(monthExpense)} icon={DollarSign} accent="red" sub="点击筛选本月" />
-        </button>
-        <button type="button" onClick={clearFilters} className={`erp-finance-stat-button ${activeTab === '全部' && !filterYear && !search ? 'is-active' : ''}`}>
-          <StatCard title="支出笔数" value={`${filtered.length} 笔`} icon={FileText} accent="red" sub="点击查看全部记录" />
         </button>
       </div>
 

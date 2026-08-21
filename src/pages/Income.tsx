@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { DollarSign, TrendingUp, Receipt, Plus, Search, X, AlertTriangle, Loader2, Edit3, RotateCcw, Download, Settings } from 'lucide-react';
+import { DollarSign, TrendingUp, Plus, Search, X, AlertTriangle, Loader2, Edit3, RotateCcw, Download, Settings } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
@@ -561,20 +561,20 @@ export default function Income() {
         <div className="min-w-0">
           <h1 className="text-base md:text-lg font-bold text-gray-900">收入管理</h1>
           <p className="text-gold-500 text-xs md:text-sm">管理所有收款记录</p>
-          <div className="mt-3 flex items-center gap-2 md:hidden">
-            <button onClick={() => setShowModal(true)} className="erp-btn-primary h-9 px-3">
-              <Plus size={15} /> 收款
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCategoryManager(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50"
-              aria-label="管理收入类别"
-              title="管理收入类别"
-            >
-              <Settings size={16} />
-            </button>
-          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => setShowCategoryManager(true)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50"
+            aria-label="管理收入类别"
+            title="管理收入类别"
+          >
+            <Settings size={16} />
+          </button>
+          <button onClick={() => setShowModal(true)} className="erp-btn-primary h-9 px-3">
+            <Plus size={15} /> 收款
+          </button>
         </div>
         <div className="hidden items-center gap-2 md:flex">
           <button onClick={() => setShowCategoryManager(true)} className="erp-btn-secondary"><Settings size={15} /> 收入类别</button>
@@ -589,9 +589,6 @@ export default function Income() {
           </button>
           <button type="button" onClick={filterCurrentMonth} className={`erp-finance-stat-button ${filterYear === String(now.getFullYear()) && filterMonthFrom === String(now.getMonth() + 1) && filterMonthTo === String(now.getMonth() + 1) ? 'is-active' : ''}`}>
             <StatCard title="本月收款" value={formatMoney(monthIncome)} icon={TrendingUp} accent="emerald" sub="点击筛选本月" />
-          </button>
-          <button type="button" onClick={clearFinanceFilters} className={`erp-finance-stat-button ${!filterYear && !search ? 'is-active' : ''}`}>
-            <StatCard title="收款笔数" value={`${filtered.length} 笔`} icon={Receipt} accent="emerald" sub="点击查看全部记录" />
           </button>
         </div>
       )}
