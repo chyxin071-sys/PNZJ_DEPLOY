@@ -7,10 +7,12 @@ interface BottomDrawerProps {
   onClose: () => void;
   children: ReactNode;
   title?: string;
+  useHistory?: boolean;
 }
 
-export default function BottomDrawer({ open, onClose, children, title }: BottomDrawerProps) {
-  const requestClose = useOverlayHistory(open, onClose, 'pnzjDrawerId');
+export default function BottomDrawer({ open, onClose, children, title, useHistory = true }: BottomDrawerProps) {
+  const historyClose = useOverlayHistory(useHistory && open, onClose, 'pnzjDrawerId');
+  const requestClose = useHistory ? historyClose : onClose;
 
   useEffect(() => {
     if (open) {

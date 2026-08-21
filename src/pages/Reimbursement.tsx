@@ -1731,11 +1731,6 @@ export default function ReimbursementPage() {
               <label className="block text-xs text-gray-500 mb-1.5 font-medium">付款类型</label>
               <button
                 type="button"
-                onPointerUp={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  openPaymentTypePicker();
-                }}
                 onClick={openPaymentTypePicker}
                 className="erp-input flex items-center justify-between text-left"
               >
@@ -2058,7 +2053,7 @@ export default function ReimbursementPage() {
         />
       </Modal>
 
-      <BottomDrawer open={showTypePicker && isMobileViewport} onClose={() => setShowTypePicker(false)} title="选择付款类型">
+      <BottomDrawer open={showTypePicker && isMobileViewport} onClose={() => setShowTypePicker(false)} title="选择付款类型" useHistory={false}>
         <PaymentTypePicker
           categories={reimbursementTypeCategories}
           selected={selectedPaymentType}

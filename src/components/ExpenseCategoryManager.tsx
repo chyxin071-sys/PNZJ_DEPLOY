@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Plus, Trash2, X } from 'lucide-react';
 import type { ExpenseCategory, ExpenseCategorySource, FinanceCategoryKind } from '@/services/expenseCategories';
 import { resolveExpenseCategory } from '@/services/expenseCategories';
 import { useDialogStore } from '@/store/dialogStore';
@@ -48,7 +48,6 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
     setError('');
   }, [open, activeCategories, kind]);
 
-  const selected = draft.find((category) => category.id === selectedPrimaryId) || draft[0];
   const categorySignature = (items: ExpenseCategory[]) => JSON.stringify(items.map((category) => ({
     id: category.id,
     name: category.name,
@@ -82,16 +81,18 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
     setError('');
   };
 
-  const addSecondary = () => {
+  const addSecondaryToCategory = (categoryId: string) => {
     const name = newSecondary.trim();
-    if (!name || !selected) return;
-    if (selected.children.some((child) => child.name === name)) {
+    const category = draft.find((item) => item.id === categoryId);
+    if (!name || !category) return;
+    if (category.children.some((child) => child.name === name)) {
       setError('同一一级分类下，二级分类名称不能重复');
       return;
     }
-    setDraft((current) => current.map((category) => category.id === selected.id
-      ? { ...category, children: [...category.children, { id: generateId(), name }] }
-      : category));
+    setDraft((current) => current.map((item) => item.id === categoryId
+      ? { ...item, children: [...item.children, { id: generateId(), name }] }
+      : item));
+    setSelectedPrimaryId(categoryId);
     setNewSecondary('');
     setError('');
   };
@@ -106,24 +107,19 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
     setSelectedPrimaryId(next[0]?.id || '');
   };
 
-  const deleteSecondary = (id: string, name: string) => {
+  const deleteSecondary = (categoryId: string, id: string, name: string) => {
     if (usage.secondary.get(id)) {
       setError(`“${name}”下已有${activeLabel}记录，需先调整${activeLabel}分类后才能删除`);
       return;
     }
-    setDraft((current) => current.map((category) => category.id === selected?.id
+    setDraft((current) => current.map((category) => category.id === categoryId
       ? { ...category, children: category.children.filter((child) => child.id !== id) }
       : category));
+    setSelectedPrimaryId(categoryId);
   };
 
   const updatePrimaryName = (id: string, name: string) => {
     setDraft((current) => current.map((category) => category.id === id ? { ...category, name } : category));
-  };
-
-  const updateSecondaryName = (id: string, name: string) => {
-    setDraft((current) => current.map((category) => category.id === selected?.id
-      ? { ...category, children: category.children.map((child) => child.id === id ? { ...child, name } : child) }
-      : category));
   };
 
   const saveDraft = async () => {
@@ -206,47 +202,103 @@ export default function ExpenseCategoryManager({ open, categories, incomeCategor
           ))}
         </div>
 
-        <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[260px_1fr] md:overflow-hidden">
-          <section className="border-b border-gray-100 p-4 md:overflow-y-auto md:border-b-0 md:border-r">
-            <div className="mb-3 flex items-center gap-2">
-              <input value={newPrimary} onChange={(event) => setNewPrimary(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addPrimary(); } }} placeholder="新增一级分类" className="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400" />
-              <button type="button" onClick={addPrimary} className="flex h-9 w-9 items-center justify-center rounded-md bg-gray-900 text-white" aria-label="添加一级分类"><Plus size={16} /></button>
-            </div>
-            <div className="space-y-1">
-              {draft.map((category) => (
-                <div key={category.id} className={`flex items-center gap-1 rounded-md border px-2 py-1.5 ${selected?.id === category.id ? 'border-gray-900 bg-gray-50' : 'border-transparent'}`}>
-                  <button type="button" onClick={() => setSelectedPrimaryId(category.id)} className="min-w-0 flex-1 text-left">
-                    <input value={category.name} onClick={(event) => event.stopPropagation()} onChange={(event) => updatePrimaryName(category.id, event.target.value)} className="w-full bg-transparent text-sm font-medium text-gray-800 outline-none" aria-label="一级分类名称" />
-                    <span className="text-[11px] text-gray-400">{category.children.length} 个二级分类 · {usage.primary.get(category.id) || 0} 笔{activeLabel}</span>
-                  </button>
-                  <Pencil size={13} className="text-gray-300" />
-                  <button type="button" onClick={() => deletePrimary(category)} className="p-1.5 text-gray-300 hover:text-red-500" aria-label="删除一级分类"><Trash2 size={14} /></button>
-                </div>
-              ))}
-            </div>
-          </section>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          <div className="flex gap-2">
+            <input
+              value={newPrimary}
+              onChange={(event) => setNewPrimary(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addPrimary(); } }}
+              placeholder="新增一级分类"
+              className="min-w-0 flex-1 rounded border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+            />
+            <button type="button" onClick={addPrimary} className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-900 text-white" aria-label="添加一级分类"><Plus size={16} /></button>
+          </div>
 
-          <section className="p-4 md:overflow-y-auto">
-            {selected ? (
-              <>
-                <div className="mb-3 flex items-center gap-2">
-                  <input value={newSecondary} onChange={(event) => setNewSecondary(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addSecondary(); } }} placeholder={`在“${selected.name || '当前分类'}”下新增二级分类`} className="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400" />
-                  <button type="button" onClick={addSecondary} className="flex h-9 items-center gap-1 rounded-md border border-gray-200 px-3 text-sm font-medium text-gray-700"><Plus size={15} /> 添加</button>
+          <div className="space-y-2">
+            {draft.map((category) => (
+              <div key={category.id} className="rounded border border-gray-100 bg-gray-50 p-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={category.name}
+                    onFocus={() => setSelectedPrimaryId(category.id)}
+                    onChange={(event) => updatePrimaryName(category.id, event.target.value)}
+                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-800 outline-none"
+                    aria-label="一级分类名称"
+                  />
+                  <span className="shrink-0 text-[11px] text-gray-400">{category.children.length} 类 · {usage.primary.get(category.id) || 0} 笔</span>
+                  <button
+                    type="button"
+                    onClick={() => deletePrimary(category)}
+                    className="p-1.5 text-gray-300 hover:text-red-500 disabled:opacity-40"
+                    disabled={draft.length <= 1}
+                    aria-label="删除一级分类"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
-                <div className="divide-y divide-gray-100 border-y border-gray-100">
-                  {selected.children.map((child) => (
-                    <div key={child.id} className="flex items-center gap-3 py-3">
-                      <input value={child.name} onChange={(event) => updateSecondaryName(child.id, event.target.value)} className="min-w-0 flex-1 text-sm text-gray-800 outline-none" aria-label="二级分类名称" />
-                      <span className="shrink-0 text-xs text-gray-400">{usage.secondary.get(child.id) || 0} 笔</span>
-                      <button type="button" onClick={() => deleteSecondary(child.id, child.name)} className="p-1.5 text-gray-300 hover:text-red-500" aria-label="删除二级分类"><Trash2 size={15} /></button>
+
+                <div className="mt-3 space-y-2">
+                  {category.children.map((child) => (
+                    <div key={child.id} className="flex items-center gap-2 rounded bg-white px-2 py-1.5">
+                      <input
+                        value={child.name}
+                        onFocus={() => setSelectedPrimaryId(category.id)}
+                        onChange={(event) => {
+                          setSelectedPrimaryId(category.id);
+                          setDraft((current) => current.map((item) => item.id === category.id
+                            ? { ...item, children: item.children.map((nextChild) => nextChild.id === child.id ? { ...nextChild, name: event.target.value } : nextChild) }
+                            : item));
+                        }}
+                        className="min-w-0 flex-1 bg-transparent text-xs text-gray-700 outline-none"
+                        aria-label="二级分类名称"
+                      />
+                      <span className="shrink-0 text-[11px] text-gray-400">{usage.secondary.get(child.id) || 0} 笔</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPrimaryId(category.id);
+                          deleteSecondary(category.id, child.id, child.name);
+                        }}
+                        className="p-1 text-gray-300 hover:text-red-500"
+                        aria-label="删除二级分类"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   ))}
                 </div>
-              </>
-            ) : (
-              <div className="py-12 text-center text-sm text-gray-400">请先新增一级分类</div>
-            )}
-          </section>
+
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={selectedPrimaryId === category.id ? newSecondary : ''}
+                    onFocus={() => setSelectedPrimaryId(category.id)}
+                    onChange={(event) => {
+                      setSelectedPrimaryId(category.id);
+                      setNewSecondary(event.target.value);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addSecondaryToCategory(category.id);
+                      }
+                    }}
+                    placeholder={`给“${category.name || '该分类'}”添加二级分类`}
+                    className="min-w-0 flex-1 rounded border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-gray-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addSecondaryToCategory(category.id);
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-white text-gray-700 ring-1 ring-gray-200"
+                    aria-label="添加二级分类"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {error && <div className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-xs text-red-600">{error}</div>}
